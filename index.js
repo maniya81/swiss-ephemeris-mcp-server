@@ -12,6 +12,37 @@ import {
 import { execSync } from 'node:child_process';
 import express from 'express';
 
+// Vedic / KP reference data
+const SIGNS = [
+  'Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
+  'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'
+];
+const SIGN_LORDS = [
+  'Mars', 'Venus', 'Mercury', 'Moon', 'Sun', 'Mercury',
+  'Venus', 'Mars', 'Jupiter', 'Saturn', 'Saturn', 'Jupiter'
+];
+const NAKSHATRAS = [
+  'Ashwini', 'Bharani', 'Krittika', 'Rohini', 'Mrigashira', 'Ardra', 'Punarvasu',
+  'Pushya', 'Ashlesha', 'Magha', 'Purva Phalguni', 'Uttara Phalguni', 'Hasta',
+  'Chitra', 'Swati', 'Vishakha', 'Anuradha', 'Jyeshtha', 'Mula', 'Purva Ashadha',
+  'Uttara Ashadha', 'Shravana', 'Dhanishta', 'Shatabhisha', 'Purva Bhadrapada',
+  'Uttara Bhadrapada', 'Revati'
+];
+const NAKSHATRA_SPAN = 360 / 27;
+const DASHA_ORDER = ['Ketu', 'Venus', 'Sun', 'Moon', 'Mars', 'Rahu', 'Jupiter', 'Saturn', 'Mercury'];
+const DASHA_YEARS = {
+  Ketu: 7, Venus: 20, Sun: 6, Moon: 10, Mars: 7, Rahu: 18, Jupiter: 16, Saturn: 19, Mercury: 17
+};
+// Keys are the tool's ayanamsa values; sid is the swetest -sid number
+const AYANAMSAS = {
+  lahiri: { sid: 1, name: 'Lahiri (Chitrapaksha)' },
+  kp_new: { sid: 45, name: 'KP New (Krishnamurti-Senthilathiban)' },
+  kp_old: { sid: 5, name: 'KP Old (Krishnamurti)' },
+  raman: { sid: 3, name: 'Raman' },
+  yukteshwar: { sid: 7, name: 'Sri Yukteshwar' },
+  fagan_bradley: { sid: 0, name: 'Fagan/Bradley' },
+};
+
 class SwissEphemerisServer {
   constructor() {
     this.server = new Server(
@@ -143,6 +174,46 @@ class SwissEphemerisServer {
                 },
               },
               required: ['person1_datetime', 'person1_latitude', 'person1_longitude', 'person2_datetime', 'person2_latitude', 'person2_longitude'],
+            },
+          },
+          {
+            name: 'calculate_vedic_chart',
+            description: 'Calculate a sidereal Vedic/KP birth chart: planets and Placidus cusps with sign lord, nakshatra, pada, star lord, KP sub lord and sub-sub lord, retrograde status, whole-sign and KP house placement, plus the full Vimshottari dasha timeline (mahadasha and antardasha dates) and the running Mahadasha-Antardasha-Pratyantardasha-Sookshma chain for a given date.',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                datetime: {
+                  type: 'string',
+                  description: 'Birth datetime in ISO8601 format. Include the timezone, e.g., 1999-06-06T15:30:03+05:30 or 1999-06-06T10:00:03Z',
+                },
+                latitude: {
+                  type: 'number',
+                  description: 'Birth latitude in decimal degrees',
+                },
+                longitude: {
+                  type: 'number',
+                  description: 'Birth longitude in decimal degrees, positive east',
+                },
+                ayanamsa: {
+                  type: 'string',
+                  enum: Object.keys(AYANAMSAS),
+                  description: 'Ayanamsa to use (default lahiri). kp_new = Krishnamurti-Senthilathiban, kp_old = original Krishnamurti',
+                },
+                node_type: {
+                  type: 'string',
+                  enum: ['mean', 'true'],
+                  description: 'Mean or true lunar node for Rahu/Ketu (default mean)',
+                },
+                as_of: {
+                  type: 'string',
+                  description: 'ISO8601 date for which to report the running dasha chain (default now)',
+                },
+                dasha_year_days: {
+                  type: 'number',
+                  description: 'Days per dasha year (default 365.25; some software uses 365.2425 or 360)',
+                },
+              },
+              required: ['datetime', 'latitude', 'longitude'],
             },
           },
         ],
@@ -609,6 +680,251 @@ class SwissEphemerisServer {
     return aspects.sort((a, b) => parseFloat(a.orb) - parseFloat(b.orb));
   }
 
+  calculateVedicChart(datetime, latitude, longitude, options = {}) {
+    const date = new Date(datetime);
+    if (isNaN(date.getTime())) {
+      throw new Error('Invalid datetime format. Use ISO8601 format like 1985-04-12T23:20:50Z');
+    }
+
+    const ayanamsaKey = options.ayanamsa || 'lahiri';
+    const ayanamsa = AYANAMSAS[ayanamsaKey];
+    if (!ayanamsa) {
+      throw new Error(`Unknown ayanamsa: ${ayanamsaKey}. Use one of: ${Object.keys(AYANAMSAS).join(', ')}`);
+    }
+    const nodeType = options.node_type || 'mean';
+    const yearDays = options.dasha_year_days || 365.25;
+
+    const swissDate = this.formatDateToSwiss(date);
+    const swissTime = this.formatTimeToSwiss(date);
+    const ephePath = process.env.SE_EPHE_PATH || '/app/vendor/swisseph';
+    const base = `SE_EPHE_PATH=${ephePath} swetest -b${swissDate} -ut${swissTime} -sid${ayanamsa.sid} -g, -head`;
+
+    // 0-9 = Sun through Pluto, m = mean Node, t = true Node; l = decimal longitude, s = daily speed
+    const nodeCode = nodeType === 'true' ? 't' : 'm';
+    const planetOutput = execSync(`${base} -p0123456789${nodeCode} -fPls`, { encoding: 'utf8' });
+    const houseOutput = execSync(`${base} -p -house${longitude},${latitude},P -fPl`, { encoding: 'utf8' });
+    const ayanamsaOutput = execSync(
+      `SE_EPHE_PATH=${ephePath} swetest -b${swissDate} -ut${swissTime} -ay${ayanamsa.sid} -head`,
+      { encoding: 'utf8' }
+    );
+
+    const rows = (output) => output.split('\n')
+      .map(line => line.split(',').map(part => part.trim()))
+      .filter(parts => parts.length >= 2 && parts[1] !== '' && !isNaN(parseFloat(parts[1])));
+
+    const planets = {};
+    for (const [name, lon, speed] of rows(planetOutput)) {
+      const planetName = name.endsWith('Node') ? 'Rahu' : name;
+      planets[planetName] = { longitude: parseFloat(lon), speed: parseFloat(speed) };
+    }
+    if (planets.Rahu) {
+      planets.Ketu = { longitude: (planets.Rahu.longitude + 180) % 360, speed: planets.Rahu.speed };
+    }
+
+    const cusps = {};
+    let ascendantLon = null;
+    let mcLon = null;
+    for (const [name, lon] of rows(houseOutput)) {
+      const houseMatch = name.match(/^house\s+(\d+)$/);
+      if (houseMatch) cusps[parseInt(houseMatch[1])] = parseFloat(lon);
+      else if (name === 'Ascendant') ascendantLon = parseFloat(lon);
+      else if (name === 'MC') mcLon = parseFloat(lon);
+    }
+    if (ascendantLon === null || Object.keys(cusps).length !== 12) {
+      throw new Error('Failed to parse house cusps from swetest output');
+    }
+
+    const ayanamsaMatch = ayanamsaOutput.match(/(\d+)°\s*(\d+)'\s*([\d.]+)/);
+    const ayanamsaValue = ayanamsaMatch
+      ? parseInt(ayanamsaMatch[1]) + parseInt(ayanamsaMatch[2]) / 60 + parseFloat(ayanamsaMatch[3]) / 3600
+      : null;
+
+    const lagnaSign = Math.floor(ascendantLon / 30);
+
+    // KP house: the Placidus cusp interval the planet falls in
+    const kpHouseOf = (lon) => {
+      for (let h = 1; h <= 12; h++) {
+        const start = cusps[h];
+        const end = cusps[h === 12 ? 1 : h + 1];
+        const span = (end - start + 360) % 360;
+        if ((lon - start + 360) % 360 < span) return h;
+      }
+      return null;
+    };
+
+    const planetData = {};
+    for (const [name, p] of Object.entries(planets)) {
+      const signIndex = Math.floor(p.longitude / 30);
+      const isNode = name === 'Rahu' || name === 'Ketu';
+      planetData[name] = {
+        ...this.describeSiderealPoint(p.longitude),
+        // Vedic convention treats Rahu/Ketu as always retrograde (the true node can briefly move forward)
+        retrograde: isNode ? true : p.speed < 0,
+        speed: Math.round(p.speed * 10000) / 10000,
+        house_whole_sign: ((signIndex - lagnaSign + 12) % 12) + 1,
+        house_kp: kpHouseOf(p.longitude),
+      };
+    }
+
+    const houses = {};
+    for (let h = 1; h <= 12; h++) {
+      houses[h] = this.describeSiderealPoint(cusps[h]);
+    }
+
+    const moonLon = planets.Moon.longitude;
+    const dasha = this.calculateVimshottari(moonLon, date, yearDays, options.as_of);
+
+    return {
+      zodiac: 'sidereal',
+      ayanamsa: {
+        name: ayanamsa.name,
+        value: ayanamsaValue !== null ? Math.round(ayanamsaValue * 1000000) / 1000000 : null,
+        value_dms: ayanamsaValue !== null ? this.formatDms(ayanamsaValue) : null,
+      },
+      node_type: nodeType,
+      house_system: 'Placidus (for KP cusps); house_whole_sign counts from the Lagna sign',
+      lagna: this.describeSiderealPoint(ascendantLon),
+      midheaven: mcLon !== null ? this.describeSiderealPoint(mcLon) : null,
+      planets: planetData,
+      houses,
+      vimshottari_dasha: dasha,
+      datetime,
+      coordinates: { latitude, longitude },
+    };
+  }
+
+  describeSiderealPoint(lon) {
+    const signIndex = Math.floor(lon / 30);
+    const degreeInSign = lon - signIndex * 30;
+    const nakshatraIndex = Math.floor(lon / NAKSHATRA_SPAN);
+    const posInNakshatra = lon - nakshatraIndex * NAKSHATRA_SPAN;
+    const pada = Math.floor(posInNakshatra / (NAKSHATRA_SPAN / 4)) + 1;
+
+    // KP sub and sub-sub: divide the nakshatra (then the sub) in proportion to the
+    // Vimshottari years, starting from the lord of the division being split
+    const starLord = DASHA_ORDER[nakshatraIndex % 9];
+    const sub = this.subdivide(starLord, NAKSHATRA_SPAN, posInNakshatra);
+    const subSub = this.subdivide(sub.lord, sub.length, sub.offset);
+
+    return {
+      longitude: Math.round(lon * 1000000) / 1000000,
+      sign: SIGNS[signIndex],
+      sign_lord: SIGN_LORDS[signIndex],
+      degree: Math.round(degreeInSign * 10000) / 10000,
+      degree_dms: this.formatDms(degreeInSign),
+      nakshatra: NAKSHATRAS[nakshatraIndex],
+      nakshatra_pada: pada,
+      star_lord: starLord,
+      sub_lord: sub.lord,
+      sub_sub_lord: subSub.lord,
+    };
+  }
+
+  subdivide(startLord, length, offset) {
+    // Walk the 9 Vimshottari lords from startLord, each taking length * years / 120
+    const startIndex = DASHA_ORDER.indexOf(startLord);
+    let cursor = 0;
+    for (let i = 0; i < 9; i++) {
+      const lord = DASHA_ORDER[(startIndex + i) % 9];
+      const part = length * DASHA_YEARS[lord] / 120;
+      if (offset < cursor + part || i === 8) {
+        return { lord, length: part, offset: offset - cursor };
+      }
+      cursor += part;
+    }
+  }
+
+  calculateVimshottari(moonLon, birthDate, yearDays, asOf) {
+    const msPerYear = yearDays * 24 * 60 * 60 * 1000;
+    const nakshatraIndex = Math.floor(moonLon / NAKSHATRA_SPAN);
+    const elapsedFraction = (moonLon - nakshatraIndex * NAKSHATRA_SPAN) / NAKSHATRA_SPAN;
+    const firstLord = DASHA_ORDER[nakshatraIndex % 9];
+    const firstIndex = DASHA_ORDER.indexOf(firstLord);
+
+    // The birth dasha started before birth; only its remaining fraction runs after birth
+    const cycleStart = birthDate.getTime() - elapsedFraction * DASHA_YEARS[firstLord] * msPerYear;
+
+    const toIso = (ms) => new Date(ms).toISOString();
+
+    // Sub-periods of a period: each lord takes its share of the parent, starting from the parent lord
+    const subPeriods = (lord, start, durationMs) => {
+      const startIndex = DASHA_ORDER.indexOf(lord);
+      const periods = [];
+      let cursor = start;
+      for (let i = 0; i < 9; i++) {
+        const subLord = DASHA_ORDER[(startIndex + i) % 9];
+        const length = durationMs * DASHA_YEARS[subLord] / 120;
+        periods.push({ lord: subLord, start: cursor, end: cursor + length });
+        cursor += length;
+      }
+      return periods;
+    };
+
+    const mahadashas = [];
+    let cursor = cycleStart;
+    for (let i = 0; i < 9; i++) {
+      const lord = DASHA_ORDER[(firstIndex + i) % 9];
+      const length = DASHA_YEARS[lord] * msPerYear;
+      mahadashas.push({ lord, start: cursor, end: cursor + length });
+      cursor += length;
+    }
+
+    const target = asOf ? new Date(asOf) : new Date();
+    if (isNaN(target.getTime())) {
+      throw new Error('Invalid as_of datetime. Use ISO8601 format like 2024-01-01T00:00:00Z');
+    }
+    const t = target.getTime();
+    const find = (periods) => periods.find(p => t >= p.start && t < p.end) || null;
+
+    let current = null;
+    const md = find(mahadashas);
+    if (md) {
+      const ad = find(subPeriods(md.lord, md.start, md.end - md.start));
+      const pd = find(subPeriods(ad.lord, ad.start, ad.end - ad.start));
+      const sd = find(subPeriods(pd.lord, pd.start, pd.end - pd.start));
+      const fmt = (p) => ({ lord: p.lord, start: toIso(p.start), end: toIso(p.end) });
+      current = {
+        as_of: target.toISOString(),
+        mahadasha: fmt(md),
+        antardasha: fmt(ad),
+        pratyantardasha: fmt(pd),
+        sookshma: fmt(sd),
+        chain: [md.lord, ad.lord, pd.lord, sd.lord].join('-'),
+      };
+    }
+
+    return {
+      moon_nakshatra: NAKSHATRAS[nakshatraIndex],
+      balance_at_birth: {
+        lord: firstLord,
+        years: Math.round((1 - elapsedFraction) * DASHA_YEARS[firstLord] * 10000) / 10000,
+      },
+      year_length_days: yearDays,
+      current,
+      mahadashas: mahadashas.map(p => ({
+        lord: p.lord,
+        start: toIso(Math.max(p.start, birthDate.getTime())),
+        end: toIso(p.end),
+        antardashas: subPeriods(p.lord, p.start, p.end - p.start)
+          .filter(ad => ad.end > birthDate.getTime())
+          .map(ad => ({
+            lord: ad.lord,
+            start: toIso(Math.max(ad.start, birthDate.getTime())),
+            end: toIso(ad.end),
+          })),
+      })),
+    };
+  }
+
+  formatDms(value) {
+    let d = Math.floor(value);
+    let m = Math.floor((value - d) * 60);
+    let s = Math.round(((value - d) * 60 - m) * 60);
+    if (s === 60) { s = 0; m += 1; }
+    if (m === 60) { m = 0; d += 1; }
+    return `${d}°${String(m).padStart(2, '0')}'${String(s).padStart(2, '0')}"`;
+  }
+
   async handleToolCall(name, args) {
     switch (name) {
       case 'calculate_planetary_positions':
@@ -800,6 +1116,59 @@ class SwissEphemerisServer {
           synastry_aspects: aspects,
           calculation_time: new Date().toISOString()
         };
+
+      case 'calculate_vedic_chart': {
+        const { datetime: vedicDatetime, latitude: vedicLatitude, longitude: vedicLongitude, ayanamsa, node_type, as_of, dasha_year_days } = args;
+
+        if (!vedicDatetime || typeof vedicDatetime !== 'string') {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            'datetime parameter is required and must be a string'
+          );
+        }
+
+        if (typeof vedicLatitude !== 'number' || vedicLatitude < -90 || vedicLatitude > 90) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            'latitude must be a number between -90 and 90'
+          );
+        }
+
+        if (typeof vedicLongitude !== 'number' || vedicLongitude < -180 || vedicLongitude > 180) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            'longitude must be a number between -180 and 180'
+          );
+        }
+
+        if (ayanamsa !== undefined && !AYANAMSAS[ayanamsa]) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            `ayanamsa must be one of: ${Object.keys(AYANAMSAS).join(', ')}`
+          );
+        }
+
+        if (node_type !== undefined && node_type !== 'mean' && node_type !== 'true') {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            'node_type must be "mean" or "true"'
+          );
+        }
+
+        if (dasha_year_days !== undefined && (typeof dasha_year_days !== 'number' || dasha_year_days < 300 || dasha_year_days > 400)) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            'dasha_year_days must be a number between 300 and 400'
+          );
+        }
+
+        return this.calculateVedicChart(vedicDatetime, vedicLatitude, vedicLongitude, {
+          ayanamsa,
+          node_type,
+          as_of,
+          dasha_year_days,
+        });
+      }
 
       default:
         throw new McpError(
