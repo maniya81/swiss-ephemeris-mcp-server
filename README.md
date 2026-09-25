@@ -10,6 +10,7 @@ A Model Context Protocol (MCP) server that provides astronomical calculations us
 - **Houses**: 12-house system using Placidus
 - **Chart Points**: Ascendant, Midheaven, IC, Descendant
 - **Additional Points**: South Node, Part of Fortune
+- **Vedic / KP**: Sidereal chart (Lahiri, KP New, KP Old and more) with nakshatra, pada, star lord, KP sub lord and sub-sub lord, plus Vimshottari dasha down to sookshma
 
 ## Installation
 
@@ -53,7 +54,7 @@ npm start
 
 ## Usage
 
-The server provides four main tools:
+The server provides five main tools:
 
 ### `calculate_planetary_positions`
 
@@ -120,6 +121,28 @@ Calculate synastry chart between two people for relationship compatibility analy
 - `person2_chart`: Complete birth chart for person 2
 - `synastry_aspects`: Array of planetary aspects between the charts
 - `calculation_time`: Timestamp of calculation
+
+### `calculate_vedic_chart`
+
+Calculate a sidereal Vedic/KP birth chart and Vimshottari dasha timeline.
+
+**Parameters:**
+- `datetime` (string): Birth datetime in ISO8601 format, including the timezone, e.g., "1999-06-06T15:30:03+05:30"
+- `latitude` (number): Birth latitude in decimal degrees
+- `longitude` (number): Birth longitude in decimal degrees, positive east
+- `ayanamsa` (string, optional): `lahiri` (default), `kp_new`, `kp_old`, `raman`, `yukteshwar`, `fagan_bradley`
+- `node_type` (string, optional): `mean` (default) or `true` node for Rahu/Ketu
+- `as_of` (string, optional): Date for the running dasha chain (default now)
+- `dasha_year_days` (number, optional): Days per dasha year (default 365.25)
+
+**Returns:**
+- `ayanamsa`: Name and value used
+- `lagna`, `midheaven`: Sidereal Ascendant and MC
+- `planets`: Sun to Pluto plus Rahu/Ketu, each with sign, sign lord, degree, nakshatra, pada, star lord, sub lord, sub-sub lord, retrograde flag, whole-sign house and KP (Placidus cusp) house
+- `houses`: 12 sidereal Placidus cusps with the same lord details (KP cuspal chart)
+- `vimshottari_dasha`: Moon nakshatra, balance at birth, the current Mahadasha-Antardasha-Pratyantardasha-Sookshma chain, and every mahadasha with its antardasha dates
+
+KP New uses the Swiss Ephemeris "Krishnamurti VP291" ayanamsa (`-sid45`), which needs a recent `swetest` build (the Dockerfile builds the latest).
 
 ## Docker
 
