@@ -140,13 +140,15 @@ Calculate synastry chart between two people for relationship compatibility analy
 Calculate a sidereal Vedic/KP birth chart with Vimshottari and Kalachakra dashas. The defaults follow Jagannatha Hora (JHora): Traditional Lahiri ayanamsa, true positions, true nodes and true sidereal solar years.
 
 **Parameters:**
-- `datetime` (string): Birth datetime in ISO8601 format with the birth UTC offset and seconds, e.g., "1999-06-06T15:30:00+05:30". Without an offset, IST (+05:30) is assumed and `birth_timezone` says so. Dasha dates are returned in the birth offset.
+- `datetime` (string): Birth datetime in ISO8601 format with the birth UTC offset and seconds, e.g., "1999-06-06T15:30:00+05:30". Fractional seconds are kept (e.g. `15:30:00.25`). Without an offset, IST (+05:30) is assumed and `birth_timezone` says so. Dasha dates are returned in the birth offset.
 - `latitude` (number): Birth latitude in decimal degrees
 - `longitude` (number): Birth longitude in decimal degrees, positive east
 - `ayanamsa` (string, optional): `traditional_lahiri` (default), `lahiri`, `kp_new`, `kp_old`, `raman`, `yukteshwar`, `fagan_bradley`
 - `position_type` (string, optional): `true` (default) or `apparent` planet positions
 - `node_type` (string, optional): `true` (default) or `mean` node for Rahu/Ketu
-- `as_of` (string, optional): Date for the running dasha chains (default now)
+- `as_of` (string or list, optional): Date for the running dasha chains (default now), or a list of up to 200 dates to get one compact chain per date (`chains`)
+- `output` (string, optional): `full` (default) or `chain`, which leaves out the dasha trees and returns only the running chains
+- `levels` (integer, optional): How deep chains go, from 1 (mahadasha) to 6 (deha, the default)
 - `current_timezone` (string, optional): IANA timezone where the native lives now, e.g. `Australia/Melbourne`. Every dasha `start`/`end` also gets `start_local`/`end_local`, e.g. `2026-10-08 03:02:21 AEDT (UTC+11:00)`, using that zone's daylight-saving rules for each date.
 - `dasha_year_days` (number, optional): Fixed days per dasha year, e.g. 365.25. Omit it to use true sidereal solar years.
 
@@ -156,7 +158,9 @@ Calculate a sidereal Vedic/KP birth chart with Vimshottari and Kalachakra dashas
 - `planets`: Sun to Pluto plus Rahu/Ketu, each with sign, sign lord, degree, nakshatra, pada, star lord, sub lord, sub-sub lord, retrograde flag, whole-sign house and KP (Placidus cusp) house
 - `houses`: 12 sidereal Placidus cusps with the same lord details (KP cuspal chart)
 - `vimshottari_dasha`: Moon nakshatra, balance at birth, the current chain down to deha (mahadasha, antardasha, pratyantardasha, sookshma, praana, deha), and every mahadasha with its antardasha dates
-- `kalachakra_dasha`: Kalachakra dasha from the Moon by the SM Singh method: direction (Savya/Apasavya), Paramayush, Deha and Jiva, the current chain down to deha, and every mahadasha with its antardashas. Each period shows its sign and the nakshatra pada it stands for, like JHora's "Pi (Sata1)".
+- `kalachakra_dasha`: Kalachakra dasha from the Moon by the SM Singh method: the ayanamsa it used, direction (Savya/Apasavya), Paramayush, Deha and Jiva, the current chain down to deha, and every mahadasha with its antardashas. Periods carry `gati` (Simhavalokana, Manduka or Markati jump) and `cycle_restart`.
+- `birth_time_sensitivity`: Days by which Kalachakra and Vimshottari boundaries move per second of birth time (a later birth moves them earlier)
+- In every running chain (`current`), each level also has `ends_in` (time left) and `next` (the period that follows at that level, with `starts_in`). Each period shows its sign and the nakshatra pada it stands for, like JHora's "Pi (Sata1)".
 
 Birth time zones, coordinates and dual-time reporting (birth time vs. the native's current local time) follow the rules in [docs/ASTROLOGER_INSTRUCTIONS.md](docs/ASTROLOGER_INSTRUCTIONS.md). The server also sends a short version of them to MCP clients as its server instructions.
 
@@ -177,13 +181,27 @@ Checked against JHora on Sagar's chart: 68 Kalachakra periods and 14 Vimshottari
 Kalachakra dasha only, always with the JHora settings above. Nothing can be overridden.
 
 **Parameters:**
-- `datetime` (string): Birth datetime in ISO8601 format with the birth UTC offset and seconds, e.g., "1999-06-06T15:30:00+05:30". Without an offset, IST (+05:30) is assumed.
+- `datetime` (string): Birth datetime in ISO8601 format with the birth UTC offset and seconds, e.g., "1999-06-06T15:30:00+05:30". Fractional seconds are kept. Without an offset, IST (+05:30) is assumed.
 - `latitude`, `longitude` (number, optional): Accepted for convenience. Kalachakra uses the geocentric Moon, so the place doesn't change the result.
-- `as_of` (string, optional): Date for the running chain (default now)
+- `as_of` (string or list, optional): Date for the running chain (default now), or a list of up to 200 dates (e.g. life events) for one compact chain per date
+- `output` (string, optional): `full` (default) or `chain`. `chain` returns only the running chain with countdowns and next periods; it is about a fifth of the size of `full`
+- `levels` (integer, optional): How deep chains go, from 1 (mahadasha) to 6 (deha, the default)
+- `birth_time_sweep` (object, optional): `{ "from_seconds": -600, "to_seconds": 600, "step_seconds": 1 }` recomputes the Kalachakra for each birth time in that range (relative to `datetime`, fractions allowed) and returns the chain at every `as_of` date. Consecutive birth times with identical chains are merged into ranges, so the output shows only where the chains change. Up to 3,601 birth times and 100,000 chains per call.
 - `current_timezone` (string, optional): IANA timezone where the native lives now; adds `start_local`/`end_local` to every period, as above
 - `drill_down` (array, optional): Up to 5 sign abbreviations naming a period to divide, like left-clicking a period in JHora. `["Ta"]` lists the antardashas of the Ta mahadasha; `["Ta", "Vi", "Aq"]` lists the sookshmas of Ta MD › Vi AD › Aq PD; five signs list the deha periods. If a sign appears twice in a list, the first one is used.
 
-**Returns:** `settings`, the Moon's position, direction (Savya/Apasavya), Paramayush, Deha, Jiva, every mahadasha with its antardashas, the running chain down to deha (`current`), and the requested sub-period list (`drill_down`).
+**Returns:** `settings`, the Moon's position, `birth_time_sensitivity`, the ayanamsa used, direction (Savya/Apasavya), Paramayush, Deha, Jiva, the running chain down to deha (`current`, with `ends_in` and `next` per level), the requested sub-period list (`drill_down`), and with `output: "full"` every mahadasha with its antardashas. Each period carries `gati` when the dasha jumps into it (Simhavalokana, Manduka or Markati) and `cycle_restart` where the SM Singh cycle begins again. With a list of `as_of` dates you get `chains`; with `birth_time_sweep` you get `ranges`.
+
+Example: rectifying against life events in one call
+
+```json
+{
+  "datetime": "1979-08-16T05:25:00+05:30",
+  "as_of": ["2001-06-09T06:30:45+05:30", "2023-07-31T12:00:00+05:30"],
+  "levels": 3,
+  "birth_time_sweep": { "from_seconds": -600, "to_seconds": 600, "step_seconds": 1 }
+}
+```
 
 KP New uses the Swiss Ephemeris "Krishnamurti VP291" ayanamsa (`-sid45`), which needs a recent `swetest` build (the Dockerfile builds the latest).
 
