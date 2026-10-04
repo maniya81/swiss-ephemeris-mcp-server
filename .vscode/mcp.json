@@ -4,6 +4,10 @@
       "type": "stdio",
       "command": "docker",
       "args": ["run", "-i", "--rm", "swiss-ephemeris-mcp"]
+    },
+    "swissEphemerisGCP": {
+      "type": "http",
+      "url": "https://swiss-ephemeris-mcp-372282693829.us-central1.run.app/mcp"
     }
   }
 }
