@@ -55,11 +55,12 @@ const DASHA_YEARS = {
   Ketu: 7, Venus: 20, Sun: 6, Moon: 10, Mars: 7, Rahu: 18, Jupiter: 16, Saturn: 19, Mercury: 17
 };
 // Keys are the tool's ayanamsa values; flag is the swetest sidereal-mode option.
-// Traditional Lahiri (Jagannatha Hora's default) anchors Lahiri's 1956 value under the current
-// precession model; it matches JHora to 0.01" and sits a constant 0.13" below Swiss
-// Ephemeris' own Lahiri (-sid1), which uses IAU 1976 precession.
+// Traditional Lahiri (Jagannatha Hora's default) is the official 23°15'00.658" (true, i.e. with
+// nutation) on 21 March 1956, less that day's nutation in longitude (16.7769"), carried with
+// the current precession model. Swiss Ephemeris' own Lahiri (-sid1) uses IAU 1976 precession
+// and 1980 nutation and is a constant 0.14" higher. Checked against JHora Kalachakra times.
 const AYANAMSAS = {
-  traditional_lahiri: { flag: '-sidudef2435553.5,23.245524743', name: 'Traditional Lahiri' },
+  traditional_lahiri: { flag: '-sidudef2435553.5,23.245522528', name: 'Traditional Lahiri' },
   lahiri: { flag: '-sid1', name: 'Lahiri (Swiss Ephemeris)' },
   kp_new: { flag: '-sid45', name: 'KP New (Krishnamurti-Senthilathiban)' },
   kp_old: { flag: '-sid5', name: 'KP Old (Krishnamurti)' },
@@ -250,6 +251,37 @@ class SwissEphemerisServer {
                 },
               },
               required: ['datetime', 'latitude', 'longitude'],
+            },
+          },
+          {
+            name: 'calculate_kalachakra_dasha',
+            description: 'Calculate Kalachakra dasha only, always with Jagannatha Hora settings: Traditional Lahiri ayanamsa, true positions, true sidereal solar years, SM Singh method (full cycle fraction, MDs strictly from cycle, ADs from MD like MDs from navamsa), from the Moon in D-1, Rohini 4th pada as Leo. Returns Savya/Apasavya, Paramayush, Deha, Jiva, all mahadashas with antardashas, the running chain down to praana, and optionally the sub-periods of any period (drill_down).',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                datetime: {
+                  type: 'string',
+                  description: 'Birth datetime in ISO8601 format with timezone, e.g., 1999-06-06T15:30:00+05:30; dates are returned in the same offset',
+                },
+                latitude: {
+                  type: 'number',
+                  description: 'Birth latitude (optional; Kalachakra uses the geocentric Moon, so the place does not change the result)',
+                },
+                longitude: {
+                  type: 'number',
+                  description: 'Birth longitude, positive east (optional, see latitude)',
+                },
+                as_of: {
+                  type: 'string',
+                  description: 'ISO8601 date for the running chain (default now)',
+                },
+                drill_down: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Sign abbreviations naming a period to divide, e.g. ["Ta"] lists the antardashas of the Ta mahadasha, ["Ta", "Vi", "Aq"] the sookshmas of Ta MD > Vi AD > Aq PD. Abbreviations: Ar Ta Ge Cn Le Vi Li Sc Sg Cp Aq Pi',
+                },
+              },
+              required: ['datetime'],
             },
           },
         ],
@@ -842,7 +874,7 @@ class SwissEphemerisServer {
       planets: planetData,
       houses,
       vimshottari_dasha: this.calculateVimshottari(vimshottari, date.getTime(), clock, formatTime, asOf, yearDescription),
-      kalachakra_dasha: this.calculateKalachakra(kalachakra, clock, formatTime, asOf, yearDescription),
+      kalachakra_dasha: this.calculateKalachakra(kalachakra, clock, formatTime, asOf, yearDescription, { chainLevels: 5 }),
       datetime,
       coordinates: { latitude, longitude },
     };
@@ -879,10 +911,10 @@ class SwissEphemerisServer {
         `${siderealFlag}${positionFlag} -p0 -fls -g, -head -n${count} -s${STEP}`,
         { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 }
       );
-      for (const [lon, speed] of this.swetestRows(output)) {
+      this.swetestRows(output).forEach(([lon, speed]) => {
         lons.push(parseFloat(lon));
         speeds.push(parseFloat(speed));
-      }
+      });
     }
     if (lons.length !== lastStep - firstStep + 1) {
       throw new Error('Failed to compute the solar year table from swetest');
@@ -1060,21 +1092,12 @@ class SwissEphemerisServer {
     };
   }
 
-  // Kalachakra cycle (9 signs) for a pada of the given direction whose Kalachakra navamsa is `sign`,
-  // with the stream positions (absolute padas, 0-107) of its entries, used for labels.
-  // An apasavya cycle is the savya cycle of the same sign read backwards.
-  // `nearPada` picks between the two identical copies of the Ashwini-type cycles.
-  kalachakraCycle(savya, sign, nearPada) {
-    const group = sign;
-    const copies = group < 4 ? [group, group + 8] : group >= 8 ? [group, group - 8] : [group];
-    const distance = (g) => {
-      const d = Math.abs(9 * g + 4 - nearPada);
-      return Math.min(d, 108 - d);
-    };
-    const chosen = copies.reduce((best, g) => (distance(g) < distance(best) ? g : best));
-    const signs = KC_SAVYA[group % 8];
-    const positions = signs.map((_, i) => 9 * chosen + i);
-    // Apasavya cycles run the savya stream backwards
+  // Kalachakra cycle (9 signs) whose Kalachakra navamsa is `sign`, with the absolute padas (0-107)
+  // its entries stand for: the savya stream positions 9 * sign to 9 * sign + 8.
+  // An apasavya cycle (only used for the Moon's own pada) is the savya cycle read backwards.
+  kalachakraCycle(savya, sign) {
+    const signs = KC_SAVYA[sign % 8];
+    const positions = signs.map((_, i) => 9 * sign + i);
     return savya
       ? { signs, positions }
       : { signs: [...signs].reverse(), positions: positions.reverse() };
@@ -1087,7 +1110,7 @@ class SwissEphemerisServer {
     const savya = Math.floor(nakshatra / 3) % 2 === 0;
     // Savya padas use their own navamsa; apasavya padas use the mirrored order (Rohini 4 = Leo)
     const sign = savya ? pada % 12 : KC_APASAVYA_NAVAMSAS[4 * (nakshatra % 3) + (pada % 4)];
-    const cycle = this.kalachakraCycle(savya, sign, pada);
+    const cycle = this.kalachakraCycle(savya, sign);
     const paramayush = cycle.signs.reduce((sum, s) => sum + KC_YEARS[s], 0);
 
     // SM Singh: the elapsed fraction of the Moon's pada is applied to the whole cycle
@@ -1111,18 +1134,21 @@ class SwissEphemerisServer {
     };
   }
 
-  calculateKalachakra(start, clock, formatTime, asOf, yearDescription) {
+  // Kalachakra dasha by the SM Singh method. `chainLevels` is how deep the running chain goes
+  // (3 = to pratyantardasha, 5 = to praana); `drillDown` is an optional path of sign
+  // abbreviations (e.g. ['Ta', 'Vi']) whose sub-periods are listed, like dividing a period in JHora.
+  calculateKalachakra(start, clock, formatTime, asOf, yearDescription, { chainLevels = 3, drillDown } = {}) {
     const { pada, savya, sign, cycle, paramayush, firstIndex, firstStartYears } = start;
     const padaName = (q) => `${NAKSHATRAS[Math.floor(q / 4)]} ${(q % 4) + 1}`;
-    const isSavyaPada = (q) => Math.floor(Math.floor(q / 4) / 3) % 2 === 0;
 
     const timed = (p) => ({ ...p, startMs: clock(p.start), endMs: clock(p.end) });
 
     // SM Singh: sub-periods of a period come from the period's own sign, the way the
-    // mahadashas come from the Moon's navamsa: its cycle from the start, each sign taking
-    // its share of the parent in proportion to its years
+    // mahadashas come from the Moon's navamsa: the sign's savya cycle from its start, each
+    // sign taking its share of the parent in proportion to its years. This holds at every
+    // level, also for apasavya charts (checked against Jagannatha Hora down to praana).
     const subPeriods = (parent) => {
-      const sub = this.kalachakraCycle(isSavyaPada(parent.position), parent.sign, parent.position);
+      const sub = this.kalachakraCycle(true, parent.sign);
       const total = sub.signs.reduce((sum, s) => sum + KC_YEARS[s], 0);
       const length = parent.end - parent.start;
       const periods = [];
@@ -1153,26 +1179,45 @@ class SwissEphemerisServer {
       end: formatTime(p.endMs),
     });
 
+    const levelNames = ['mahadasha', 'antardasha', 'pratyantardasha', 'sookshma', 'praana'];
     const t = asOf.getTime();
     const find = (periods) => periods.find(p => t >= p.startMs && t < p.endMs) || null;
     let current = null;
-    const md = find(mahadashas);
-    if (md) {
-      const ad = find(subPeriods(md));
-      const pd = find(subPeriods(ad));
-      current = {
-        as_of: formatTime(t),
-        mahadasha: fmt(md),
-        antardasha: fmt(ad),
-        pratyantardasha: fmt(pd),
-        chain: [md, ad, pd].map(p => SIGN_ABBR[p.sign]).join('-'),
+    const chain = [];
+    let level = find(mahadashas);
+    while (level && chain.length < chainLevels) {
+      chain.push(level);
+      level = chain.length < chainLevels ? find(subPeriods(level)) : null;
+    }
+    if (chain.length) {
+      current = { as_of: formatTime(t) };
+      chain.forEach((p, i) => { current[levelNames[i]] = fmt(p); });
+      current.chain = chain.map(p => SIGN_ABBR[p.sign]).join('-');
+    }
+
+    let drilled;
+    if (drillDown && drillDown.length) {
+      let periods = mahadashas;
+      const path = [];
+      for (const abbr of drillDown) {
+        // A sign can occur twice in a cycle; take the first occurrence after any already chosen
+        const match = periods.find(p => SIGN_ABBR[p.sign].toLowerCase() === String(abbr).toLowerCase());
+        if (!match) {
+          throw new Error(`drill_down: ${abbr} is not one of ${periods.map(p => SIGN_ABBR[p.sign]).join(', ')}`);
+        }
+        path.push(match);
+        periods = subPeriods(match);
+      }
+      drilled = {
+        path: path.map((p, i) => ({ level: levelNames[i], ...fmt(p) })),
+        [`${levelNames[Math.min(path.length, 4)]}s`]: periods.map(fmt),
       };
     }
 
     const first = cycle.signs[0];
     const last = cycle.signs[8];
     return {
-      method: 'SM Singh: dasa sesham fraction applied to the full cycle; mahadashas strictly from the cycle (back to its start after the last sign); antardashas found from each mahadasha the way mahadashas are found from the navamsa',
+      method: 'SM Singh: dasa sesham fraction applied to the full cycle; mahadashas strictly from the cycle (back to its start after the last sign); sub-periods found from each period\'s sign the way mahadashas are found from the navamsa',
       from: 'Moon (D-1)',
       direction: savya ? 'Savya' : 'Apasavya',
       moon_pada: padaName(pada),
@@ -1181,12 +1226,65 @@ class SwissEphemerisServer {
       deha: SIGN_ABBR[savya ? first : last],
       jiva: SIGN_ABBR[savya ? last : first],
       year: yearDescription,
-      note: 'Checked against Jagannatha Hora: mahadashas on two charts, antardashas and pratyantardashas on one. Times can differ from JHora by up to about 30 minutes.',
       current,
+      ...(drilled ? { drill_down: drilled } : {}),
       mahadashas: mahadashas.map(p => ({
         ...fmt(p),
         antardashas: subPeriods(p).map(fmt),
       })),
+    };
+  }
+
+  // Kalachakra dasha alone, always with Jagannatha Hora's settings: Traditional Lahiri,
+  // true positions, true sidereal solar years and the SM Singh method
+  calculateKalachakraDasha(datetime, options = {}) {
+    const date = new Date(datetime);
+    if (isNaN(date.getTime())) {
+      throw new Error('Invalid datetime format. Use ISO8601 format like 1985-04-12T23:20:50Z');
+    }
+    const asOf = options.as_of ? new Date(options.as_of) : new Date();
+    if (isNaN(asOf.getTime())) {
+      throw new Error('Invalid as_of datetime. Use ISO8601 format like 2024-01-01T00:00:00Z');
+    }
+
+    const ayanamsa = AYANAMSAS.traditional_lahiri;
+    const positionFlag = ' -true';
+    const ephePath = process.env.SE_EPHE_PATH || '/app/vendor/swisseph';
+    const output = execSync(
+      `SE_EPHE_PATH=${ephePath} swetest -b${this.formatDateToSwiss(date)} -ut${this.formatTimeToSwiss(date)} ` +
+      `${ayanamsa.flag}${positionFlag} -p1 -fl -g, -head`,
+      { encoding: 'utf8' }
+    );
+    const moonLon = parseFloat(output.trim());
+    if (isNaN(moonLon)) {
+      throw new Error('Failed to compute the Moon position from swetest');
+    }
+
+    const start = this.kalachakraStart(moonLon);
+    const clock = this.makeDashaClock(date, {
+      ephePath,
+      siderealFlag: ayanamsa.flag,
+      positionFlag,
+      fromYears: start.firstStartYears - 1,
+      toYears: start.lastEndYears + 1,
+    });
+    const yearDescription = 'true sidereal solar year (one sidereal revolution of the Sun, as in Jagannatha Hora)';
+
+    return {
+      settings: {
+        ayanamsa: ayanamsa.name,
+        positions: 'true',
+        year: 'true sidereal solar years',
+        method: 'SM Singh (full cycle fraction, MDs strictly from cycle, ADs from MD like MDs from navamsa)',
+        starting_point: 'Janma tara (Moon), Rasi (D-1)',
+        rohini_4th_pada: 'Leo navamsa',
+      },
+      moon: this.describeSiderealPoint(moonLon),
+      ...this.calculateKalachakra(start, clock, this.makeTimeFormatter(datetime), asOf, yearDescription, {
+        chainLevels: 5,
+        drillDown: options.drill_down,
+      }),
+      datetime,
     };
   }
 
@@ -1450,6 +1548,26 @@ class SwissEphemerisServer {
           as_of,
           dasha_year_days,
         });
+      }
+
+      case 'calculate_kalachakra_dasha': {
+        const { datetime: kcDatetime, as_of: kcAsOf, drill_down } = args;
+
+        if (!kcDatetime || typeof kcDatetime !== 'string') {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            'datetime parameter is required and must be a string'
+          );
+        }
+
+        if (drill_down !== undefined && (!Array.isArray(drill_down) || drill_down.length > 4 || drill_down.some(d => typeof d !== 'string'))) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            'drill_down must be an array of up to 4 sign abbreviations, e.g. ["Ta", "Vi"]'
+          );
+        }
+
+        return this.calculateKalachakraDasha(kcDatetime, { as_of: kcAsOf, drill_down });
       }
 
       default:
