@@ -189,7 +189,7 @@ A connector added on claude.ai is also available in the Claude desktop and mobil
 2. Open the tools menu (the **+** or sliders icon) and make sure **Swiss Ephemeris** is turned on.
 3. Ask, for example:
 
-   > Use calculate_vedic_chart with the Lahiri ayanamsa for 1999-06-06T15:30:03+05:30, latitude 22.1667, longitude 71.6667. Show the Lagna, each planet's nakshatra and sub lord, and the current dasha chain.
+   > Use calculate_vedic_chart for 1999-06-06T15:30:03+05:30, latitude 22.1667, longitude 71.6667. Show the Lagna, each planet's nakshatra and sub lord, and the current Vimshottari and Kalachakra dasha chains.
 
 4. Approve the tool call when Claude asks.
 
@@ -203,7 +203,8 @@ Tips for good results:
 
 | Tool | Use it for |
 |---|---|
-| `calculate_vedic_chart` | Sidereal Vedic/KP chart: nakshatra, pada, star/sub/sub-sub lords, KP cusps, Vimshottari dasha |
+| `calculate_vedic_chart` | Sidereal Vedic/KP chart with JHora defaults: nakshatra, pada, star/sub/sub-sub lords, KP cusps, Vimshottari and Kalachakra (SM Singh) dashas |
+| `calculate_kalachakra_dasha` | Kalachakra dasha only, always with JHora settings; running chain to deha and drill-down into any period |
 | `calculate_planetary_positions` | Tropical (Western) chart |
 | `calculate_transits` | Tropical natal chart plus the current sky |
 | `calculate_solar_revolution` | Tropical solar return |
@@ -319,7 +320,7 @@ After that, also remove the connector in Claude: **Settings → Connectors**.
 | `405` on `GET /mcp` in the logs | This is expected. The server doesn't offer the optional SSE stream, and clients fall back to plain POST. |
 | `404 Session not found` in the logs | This is expected after a cold start. Claude starts a new session automatically. |
 | `Failed to execute swetest` | The image wasn't built from this repository's `Dockerfile`. Redeploy with `--source .`. |
-| Dasha dates differ by a few days from other software | Ayanamsa values and Moon positions differ slightly between programs. Check that you used the same ayanamsa (`lahiri`, `kp_new`, `kp_old`), and set `dasha_year_days` to match the other software. |
+| Dasha dates differ by a few days from other software | Ayanamsa values and Moon positions differ slightly between programs. The defaults match Jagannatha Hora. For other software, set the same ayanamsa (`lahiri`, `kp_new`, `kp_old`), `position_type: apparent`, `node_type: mean` if it uses mean nodes, and `dasha_year_days` (usually 365.25). |
 | Unexpected charges | Check **Billing → Reports**. Make sure `--min-instances` is `0` and the cleanup policy is in place. |
 
 ## Security notes
