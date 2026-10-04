@@ -204,7 +204,7 @@ Tips for good results:
 | Tool | Use it for |
 |---|---|
 | `calculate_vedic_chart` | Sidereal Vedic/KP chart with JHora defaults: nakshatra, pada, star/sub/sub-sub lords, KP cusps, Vimshottari and Kalachakra (SM Singh) dashas |
-| `calculate_kalachakra_dasha` | Kalachakra dasha only, always with JHora settings; running chain to praana and drill-down into any period |
+| `calculate_kalachakra_dasha` | Kalachakra dasha only, always with JHora settings; running chain to deha and drill-down into any period |
 | `calculate_planetary_positions` | Tropical (Western) chart |
 | `calculate_transits` | Tropical natal chart plus the current sky |
 | `calculate_solar_revolution` | Tropical solar return |

@@ -29,6 +29,7 @@ const NAKSHATRAS = [
   'Uttara Bhadrapada', 'Revati'
 ];
 const NAKSHATRA_SPAN = 360 / 27;
+const DASHA_LEVELS = ['mahadasha', 'antardasha', 'pratyantardasha', 'sookshma', 'praana', 'deha'];
 const SIGN_ABBR = ['Ar', 'Ta', 'Ge', 'Cn', 'Le', 'Vi', 'Li', 'Sc', 'Sg', 'Cp', 'Aq', 'Pi'];
 const DEFAULT_AYANAMSA = 'traditional_lahiri';
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -210,7 +211,7 @@ class SwissEphemerisServer {
           },
           {
             name: 'calculate_vedic_chart',
-            description: 'Calculate a sidereal Vedic/KP birth chart with Jagannatha Hora default settings (Traditional Lahiri ayanamsa, true positions, true nodes, true sidereal solar years): planets and Placidus cusps with sign lord, nakshatra, pada, star lord, KP sub lord and sub-sub lord, retrograde status, whole-sign and KP house placement; the Vimshottari dasha timeline with the running Mahadasha-Antardasha-Pratyantardasha-Sookshma chain; and Kalachakra dasha (SM Singh method) with mahadashas, antardashas and the running chain.',
+            description: 'Calculate a sidereal Vedic/KP birth chart with Jagannatha Hora default settings (Traditional Lahiri ayanamsa, true positions, true nodes, true sidereal solar years): planets and Placidus cusps with sign lord, nakshatra, pada, star lord, KP sub lord and sub-sub lord, retrograde status, whole-sign and KP house placement; the Vimshottari dasha timeline with the running chain down to deha (6 levels); and Kalachakra dasha (SM Singh method) with mahadashas, antardashas and the running chain down to deha.',
             inputSchema: {
               type: 'object',
               properties: {
@@ -255,7 +256,7 @@ class SwissEphemerisServer {
           },
           {
             name: 'calculate_kalachakra_dasha',
-            description: 'Calculate Kalachakra dasha only, always with Jagannatha Hora settings: Traditional Lahiri ayanamsa, true positions, true sidereal solar years, SM Singh method (full cycle fraction, MDs strictly from cycle, ADs from MD like MDs from navamsa), from the Moon in D-1, Rohini 4th pada as Leo. Returns Savya/Apasavya, Paramayush, Deha, Jiva, all mahadashas with antardashas, the running chain down to praana, and optionally the sub-periods of any period (drill_down).',
+            description: 'Calculate Kalachakra dasha only, always with Jagannatha Hora settings: Traditional Lahiri ayanamsa, true positions, true sidereal solar years, SM Singh method (full cycle fraction, MDs strictly from cycle, ADs from MD like MDs from navamsa), from the Moon in D-1, Rohini 4th pada as Leo. Returns Savya/Apasavya, Paramayush, Deha, Jiva, all mahadashas with antardashas, the running chain down to deha, and optionally the sub-periods of any period (drill_down).',
             inputSchema: {
               type: 'object',
               properties: {
@@ -874,7 +875,7 @@ class SwissEphemerisServer {
       planets: planetData,
       houses,
       vimshottari_dasha: this.calculateVimshottari(vimshottari, date.getTime(), clock, formatTime, asOf, yearDescription),
-      kalachakra_dasha: this.calculateKalachakra(kalachakra, clock, formatTime, asOf, yearDescription, { chainLevels: 5 }),
+      kalachakra_dasha: this.calculateKalachakra(kalachakra, clock, formatTime, asOf, yearDescription),
       datetime,
       coordinates: { latitude, longitude },
     };
@@ -1054,19 +1055,16 @@ class SwissEphemerisServer {
     const fmt = (p) => ({ lord: p.lord, start: formatTime(p.startMs), end: formatTime(p.endMs) });
 
     let current = null;
-    const md = find(mahadashas);
-    if (md) {
-      const ad = find(subPeriods(md));
-      const pd = find(subPeriods(ad));
-      const sd = find(subPeriods(pd));
-      current = {
-        as_of: formatTime(t),
-        mahadasha: fmt(md),
-        antardasha: fmt(ad),
-        pratyantardasha: fmt(pd),
-        sookshma: fmt(sd),
-        chain: [md.lord, ad.lord, pd.lord, sd.lord].join('-'),
-      };
+    const chain = [];
+    let level = find(mahadashas);
+    while (level && chain.length < DASHA_LEVELS.length) {
+      chain.push(level);
+      level = chain.length < DASHA_LEVELS.length ? find(subPeriods(level)) : null;
+    }
+    if (chain.length) {
+      current = { as_of: formatTime(t) };
+      chain.forEach((p, i) => { current[DASHA_LEVELS[i]] = fmt(p); });
+      current.chain = chain.map(p => p.lord).join('-');
     }
 
     return {
@@ -1103,13 +1101,22 @@ class SwissEphemerisServer {
       : { signs: [...signs].reverse(), positions: positions.reverse() };
   }
 
+  isSavyaPada(pada) {
+    return Math.floor(Math.floor(pada / 4) / 3) % 2 === 0;
+  }
+
+  // Kalachakra navamsa of an absolute pada (0-107): savya padas use their own navamsa,
+  // apasavya padas the mirrored order (Rohini 4 = Leo)
+  kalachakraNavamsa(pada) {
+    const nakshatra = Math.floor(pada / 4);
+    return this.isSavyaPada(pada) ? pada % 12 : KC_APASAVYA_NAVAMSAS[4 * (nakshatra % 3) + (pada % 4)];
+  }
+
   kalachakraStart(moonLon) {
     const padaSpan = NAKSHATRA_SPAN / 4;
     const pada = Math.floor(moonLon / padaSpan);
-    const nakshatra = Math.floor(pada / 4);
-    const savya = Math.floor(nakshatra / 3) % 2 === 0;
-    // Savya padas use their own navamsa; apasavya padas use the mirrored order (Rohini 4 = Leo)
-    const sign = savya ? pada % 12 : KC_APASAVYA_NAVAMSAS[4 * (nakshatra % 3) + (pada % 4)];
+    const savya = this.isSavyaPada(pada);
+    const sign = this.kalachakraNavamsa(pada);
     const cycle = this.kalachakraCycle(savya, sign);
     const paramayush = cycle.signs.reduce((sum, s) => sum + KC_YEARS[s], 0);
 
@@ -1135,20 +1142,22 @@ class SwissEphemerisServer {
   }
 
   // Kalachakra dasha by the SM Singh method. `chainLevels` is how deep the running chain goes
-  // (3 = to pratyantardasha, 5 = to praana); `drillDown` is an optional path of sign
+  // (3 = to pratyantardasha, 6 = to deha); `drillDown` is an optional path of sign
   // abbreviations (e.g. ['Ta', 'Vi']) whose sub-periods are listed, like dividing a period in JHora.
-  calculateKalachakra(start, clock, formatTime, asOf, yearDescription, { chainLevels = 3, drillDown } = {}) {
+  calculateKalachakra(start, clock, formatTime, asOf, yearDescription, { chainLevels = 6, drillDown } = {}) {
     const { pada, savya, sign, cycle, paramayush, firstIndex, firstStartYears } = start;
     const padaName = (q) => `${NAKSHATRAS[Math.floor(q / 4)]} ${(q % 4) + 1}`;
 
     const timed = (p) => ({ ...p, startMs: clock(p.start), endMs: clock(p.end) });
 
-    // SM Singh: sub-periods of a period come from the period's own sign, the way the
-    // mahadashas come from the Moon's navamsa: the sign's savya cycle from its start, each
-    // sign taking its share of the parent in proportion to its years. This holds at every
-    // level, also for apasavya charts (checked against Jagannatha Hora down to praana).
+    // SM Singh: sub-periods of a period come from the pada it stands for, the way the
+    // mahadashas come from the Moon's pada: the cycle of that pada's Kalachakra navamsa from
+    // its start, each sign taking its share of the parent in proportion to its years. The
+    // cycle runs forward when the pada has the same direction (savya/apasavya) as the Moon's
+    // pada and backward otherwise (checked against Jagannatha Hora down to deha level).
     const subPeriods = (parent) => {
-      const sub = this.kalachakraCycle(true, parent.sign);
+      const forward = this.isSavyaPada(parent.position) === savya;
+      const sub = this.kalachakraCycle(forward, this.kalachakraNavamsa(parent.position));
       const total = sub.signs.reduce((sum, s) => sum + KC_YEARS[s], 0);
       const length = parent.end - parent.start;
       const periods = [];
@@ -1179,7 +1188,7 @@ class SwissEphemerisServer {
       end: formatTime(p.endMs),
     });
 
-    const levelNames = ['mahadasha', 'antardasha', 'pratyantardasha', 'sookshma', 'praana'];
+    const levelNames = DASHA_LEVELS;
     const t = asOf.getTime();
     const find = (periods) => periods.find(p => t >= p.startMs && t < p.endMs) || null;
     let current = null;
@@ -1210,7 +1219,7 @@ class SwissEphemerisServer {
       }
       drilled = {
         path: path.map((p, i) => ({ level: levelNames[i], ...fmt(p) })),
-        [`${levelNames[Math.min(path.length, 4)]}s`]: periods.map(fmt),
+        [`${levelNames[Math.min(path.length, 5)]}s`]: periods.map(fmt),
       };
     }
 
@@ -1281,7 +1290,6 @@ class SwissEphemerisServer {
       },
       moon: this.describeSiderealPoint(moonLon),
       ...this.calculateKalachakra(start, clock, this.makeTimeFormatter(datetime), asOf, yearDescription, {
-        chainLevels: 5,
         drillDown: options.drill_down,
       }),
       datetime,
@@ -1560,10 +1568,10 @@ class SwissEphemerisServer {
           );
         }
 
-        if (drill_down !== undefined && (!Array.isArray(drill_down) || drill_down.length > 4 || drill_down.some(d => typeof d !== 'string'))) {
+        if (drill_down !== undefined && (!Array.isArray(drill_down) || drill_down.length > 5 || drill_down.some(d => typeof d !== 'string'))) {
           throw new McpError(
             ErrorCode.InvalidParams,
-            'drill_down must be an array of up to 4 sign abbreviations, e.g. ["Ta", "Vi"]'
+            'drill_down must be an array of up to 5 sign abbreviations, e.g. ["Ta", "Vi"]'
           );
         }
 

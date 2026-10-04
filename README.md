@@ -154,8 +154,8 @@ Calculate a sidereal Vedic/KP birth chart with Vimshottari and Kalachakra dashas
 - `lagna`, `midheaven`: Sidereal Ascendant and MC
 - `planets`: Sun to Pluto plus Rahu/Ketu, each with sign, sign lord, degree, nakshatra, pada, star lord, sub lord, sub-sub lord, retrograde flag, whole-sign house and KP (Placidus cusp) house
 - `houses`: 12 sidereal Placidus cusps with the same lord details (KP cuspal chart)
-- `vimshottari_dasha`: Moon nakshatra, balance at birth, the current Mahadasha-Antardasha-Pratyantardasha-Sookshma chain, and every mahadasha with its antardasha dates
-- `kalachakra_dasha`: Kalachakra dasha from the Moon by the SM Singh method: direction (Savya/Apasavya), Paramayush, Deha and Jiva, the current chain down to praana, and every mahadasha with its antardashas. Each period shows its sign and the nakshatra pada it stands for, like JHora's "Pi (Sata1)".
+- `vimshottari_dasha`: Moon nakshatra, balance at birth, the current chain down to deha (mahadasha, antardasha, pratyantardasha, sookshma, praana, deha), and every mahadasha with its antardasha dates
+- `kalachakra_dasha`: Kalachakra dasha from the Moon by the SM Singh method: direction (Savya/Apasavya), Paramayush, Deha and Jiva, the current chain down to deha, and every mahadasha with its antardashas. Each period shows its sign and the nakshatra pada it stands for, like JHora's "Pi (Sata1)".
 
 **How the defaults match JHora:**
 
@@ -165,9 +165,9 @@ Calculate a sidereal Vedic/KP birth chart with Vimshottari and Kalachakra dashas
 | Positions | True | Not apparent: no light-time or aberration |
 | Nodes | True | |
 | Dasha year | True sidereal solar year | N years have passed when the Sun has moved N × 360° in sidereal longitude |
-| Kalachakra | SM Singh | Elapsed fraction of the Moon's pada applied to the full cycle; mahadashas strictly from the cycle (back to its start after the last sign); every sub-period found from its parent's sign the way mahadashas are found from the navamsa (that sign's savya cycle from its start); Rohini 4 taken as Leo |
+| Kalachakra | SM Singh | Elapsed fraction of the Moon's pada applied to the full cycle; mahadashas strictly from the cycle (back to its start after the last sign); every sub-period found from the pada its parent stands for, the way mahadashas are found from the Moon's pada: the cycle of that pada's Kalachakra navamsa from its start, run forward when the pada has the same direction (savya/apasavya) as the Moon's pada and backward otherwise; Rohini 4 taken as Leo |
 
-Checked against JHora on Sagar's chart: 45 Kalachakra periods across all five levels (mahadasha to praana). Signs and pada labels matched exactly, and times were within 52 seconds.
+Checked against JHora on Sagar's chart: 68 Kalachakra periods and 14 Vimshottari periods, across all six levels from mahadasha to deha. Every sign, pada label and lord matched, and every time was within 52 seconds. What remains is about 0.0002" of Moon position (Kalachakra multiplies it by up to 100 years), plus the two programs' ΔT predictions drifting apart for future dates.
 
 ### `calculate_kalachakra_dasha`
 
@@ -177,9 +177,9 @@ Kalachakra dasha only, always with the JHora settings above. Nothing can be over
 - `datetime` (string): Birth datetime in ISO8601 format with timezone, e.g., "1999-06-06T15:30:00+05:30"
 - `latitude`, `longitude` (number, optional): Accepted for convenience. Kalachakra uses the geocentric Moon, so the place doesn't change the result.
 - `as_of` (string, optional): Date for the running chain (default now)
-- `drill_down` (array, optional): Sign abbreviations naming a period to divide, like left-clicking a period in JHora. `["Ta"]` lists the antardashas of the Ta mahadasha; `["Ta", "Vi", "Aq"]` lists the sookshmas of Ta MD › Vi AD › Aq PD. If a sign appears twice in a list, the first one is used.
+- `drill_down` (array, optional): Up to 5 sign abbreviations naming a period to divide, like left-clicking a period in JHora. `["Ta"]` lists the antardashas of the Ta mahadasha; `["Ta", "Vi", "Aq"]` lists the sookshmas of Ta MD › Vi AD › Aq PD; five signs list the deha periods. If a sign appears twice in a list, the first one is used.
 
-**Returns:** `settings`, the Moon's position, direction (Savya/Apasavya), Paramayush, Deha, Jiva, every mahadasha with its antardashas, the running chain down to praana (`current`), and the requested sub-period list (`drill_down`).
+**Returns:** `settings`, the Moon's position, direction (Savya/Apasavya), Paramayush, Deha, Jiva, every mahadasha with its antardashas, the running chain down to deha (`current`), and the requested sub-period list (`drill_down`).
 
 KP New uses the Swiss Ephemeris "Krishnamurti VP291" ayanamsa (`-sid45`), which needs a recent `swetest` build (the Dockerfile builds the latest).
 
