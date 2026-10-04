@@ -29,18 +29,43 @@ const NAKSHATRAS = [
   'Uttara Bhadrapada', 'Revati'
 ];
 const NAKSHATRA_SPAN = 360 / 27;
+const SIGN_ABBR = ['Ar', 'Ta', 'Ge', 'Cn', 'Le', 'Vi', 'Li', 'Sc', 'Sg', 'Cp', 'Aq', 'Pi'];
+const DEFAULT_AYANAMSA = 'traditional_lahiri';
+const DAY_MS = 24 * 60 * 60 * 1000;
+const SIDEREAL_YEAR_DAYS = 365.256363;
+// Kalachakra dasha (BPHS). Years of each sign, Aries to Pisces
+const KC_YEARS = [7, 16, 9, 21, 5, 9, 16, 7, 10, 4, 4, 10];
+// Savya cycles (sign indexes) for Kalachakra navamsas Aries to Scorpio; Sagittarius to Pisces
+// repeat Aries to Cancer. Read in order, the 12 cycles form the 108-pada savya stream.
+const KC_SAVYA = [
+  [0, 1, 2, 3, 4, 5, 6, 7, 8],
+  [9, 10, 11, 7, 6, 5, 3, 4, 2],
+  [1, 0, 11, 10, 9, 8, 0, 1, 2],
+  [3, 4, 5, 6, 7, 8, 9, 10, 11],
+  [7, 6, 5, 3, 4, 2, 1, 0, 11],
+  [10, 9, 8, 0, 1, 2, 3, 4, 5],
+  [6, 7, 8, 9, 10, 11, 7, 6, 5],
+  [3, 4, 2, 1, 0, 11, 10, 9, 8],
+];
+// Kalachakra navamsas of apasavya padas, by position in their nakshatra triad
+// (Rohini 1-4, Mrigashira 1-4, Ardra 1-4); Rohini 4 is taken as Leo
+const KC_APASAVYA_NAVAMSAS = [7, 6, 5, 4, 3, 2, 1, 0, 11, 10, 9, 8];
 const DASHA_ORDER = ['Ketu', 'Venus', 'Sun', 'Moon', 'Mars', 'Rahu', 'Jupiter', 'Saturn', 'Mercury'];
 const DASHA_YEARS = {
   Ketu: 7, Venus: 20, Sun: 6, Moon: 10, Mars: 7, Rahu: 18, Jupiter: 16, Saturn: 19, Mercury: 17
 };
-// Keys are the tool's ayanamsa values; sid is the swetest -sid number
+// Keys are the tool's ayanamsa values; flag is the swetest sidereal-mode option.
+// Traditional Lahiri (Jagannatha Hora's default) anchors Lahiri's 1956 value under the current
+// precession model; it matches JHora to 0.01" and sits a constant 0.13" below Swiss
+// Ephemeris' own Lahiri (-sid1), which uses IAU 1976 precession.
 const AYANAMSAS = {
-  lahiri: { sid: 1, name: 'Lahiri (Chitrapaksha)' },
-  kp_new: { sid: 45, name: 'KP New (Krishnamurti-Senthilathiban)' },
-  kp_old: { sid: 5, name: 'KP Old (Krishnamurti)' },
-  raman: { sid: 3, name: 'Raman' },
-  yukteshwar: { sid: 7, name: 'Sri Yukteshwar' },
-  fagan_bradley: { sid: 0, name: 'Fagan/Bradley' },
+  traditional_lahiri: { flag: '-sidudef2435553.5,23.245524743', name: 'Traditional Lahiri' },
+  lahiri: { flag: '-sid1', name: 'Lahiri (Swiss Ephemeris)' },
+  kp_new: { flag: '-sid45', name: 'KP New (Krishnamurti-Senthilathiban)' },
+  kp_old: { flag: '-sid5', name: 'KP Old (Krishnamurti)' },
+  raman: { flag: '-sid3', name: 'Raman' },
+  yukteshwar: { flag: '-sid7', name: 'Sri Yukteshwar' },
+  fagan_bradley: { flag: '-sid0', name: 'Fagan/Bradley' },
 };
 
 class SwissEphemerisServer {
@@ -184,13 +209,13 @@ class SwissEphemerisServer {
           },
           {
             name: 'calculate_vedic_chart',
-            description: 'Calculate a sidereal Vedic/KP birth chart: planets and Placidus cusps with sign lord, nakshatra, pada, star lord, KP sub lord and sub-sub lord, retrograde status, whole-sign and KP house placement, plus the full Vimshottari dasha timeline (mahadasha and antardasha dates) and the running Mahadasha-Antardasha-Pratyantardasha-Sookshma chain for a given date.',
+            description: 'Calculate a sidereal Vedic/KP birth chart with Jagannatha Hora default settings (Traditional Lahiri ayanamsa, true positions, true nodes, true sidereal solar years): planets and Placidus cusps with sign lord, nakshatra, pada, star lord, KP sub lord and sub-sub lord, retrograde status, whole-sign and KP house placement; the Vimshottari dasha timeline with the running Mahadasha-Antardasha-Pratyantardasha-Sookshma chain; and Kalachakra dasha (SM Singh method) with mahadashas, antardashas and the running chain.',
             inputSchema: {
               type: 'object',
               properties: {
                 datetime: {
                   type: 'string',
-                  description: 'Birth datetime in ISO8601 format. Include the timezone, e.g., 1999-06-06T15:30:03+05:30 or 1999-06-06T10:00:03Z',
+                  description: 'Birth datetime in ISO8601 format. Include the timezone, e.g., 1999-06-06T15:30:00+05:30; dasha dates are returned in the same offset',
                 },
                 latitude: {
                   type: 'number',
@@ -203,20 +228,25 @@ class SwissEphemerisServer {
                 ayanamsa: {
                   type: 'string',
                   enum: Object.keys(AYANAMSAS),
-                  description: 'Ayanamsa to use (default lahiri). kp_new = Krishnamurti-Senthilathiban, kp_old = original Krishnamurti',
+                  description: 'Ayanamsa to use (default traditional_lahiri, as in Jagannatha Hora). kp_new = Krishnamurti-Senthilathiban, kp_old = original Krishnamurti',
+                },
+                position_type: {
+                  type: 'string',
+                  enum: ['true', 'apparent'],
+                  description: 'True positions (default, as in Jagannatha Hora) or apparent positions (with light-time and aberration, as most other software)',
                 },
                 node_type: {
                   type: 'string',
                   enum: ['mean', 'true'],
-                  description: 'Mean or true lunar node for Rahu/Ketu (default mean)',
+                  description: 'True or mean lunar node for Rahu/Ketu (default true, as in Jagannatha Hora)',
                 },
                 as_of: {
                   type: 'string',
-                  description: 'ISO8601 date for which to report the running dasha chain (default now)',
+                  description: 'ISO8601 date for which to report the running dasha chains (default now)',
                 },
                 dasha_year_days: {
                   type: 'number',
-                  description: 'Days per dasha year (default 365.25; some software uses 365.2425 or 360)',
+                  description: 'Fixed days per dasha year (e.g. 365.25 or 360). Omit to use true sidereal solar years, as in Jagannatha Hora',
                 },
               },
               required: ['datetime', 'latitude', 'longitude'],
@@ -692,34 +722,36 @@ class SwissEphemerisServer {
       throw new Error('Invalid datetime format. Use ISO8601 format like 1985-04-12T23:20:50Z');
     }
 
-    const ayanamsaKey = options.ayanamsa || 'lahiri';
+    const ayanamsaKey = options.ayanamsa || DEFAULT_AYANAMSA;
     const ayanamsa = AYANAMSAS[ayanamsaKey];
     if (!ayanamsa) {
       throw new Error(`Unknown ayanamsa: ${ayanamsaKey}. Use one of: ${Object.keys(AYANAMSAS).join(', ')}`);
     }
-    const nodeType = options.node_type || 'mean';
-    const yearDays = options.dasha_year_days || 365.25;
+    // Defaults follow Jagannatha Hora: true (not apparent) positions and true nodes
+    const nodeType = options.node_type || 'true';
+    const positionType = options.position_type || 'true';
+    const yearDays = options.dasha_year_days;
+
+    const asOf = options.as_of ? new Date(options.as_of) : new Date();
+    if (isNaN(asOf.getTime())) {
+      throw new Error('Invalid as_of datetime. Use ISO8601 format like 2024-01-01T00:00:00Z');
+    }
 
     const swissDate = this.formatDateToSwiss(date);
     const swissTime = this.formatTimeToSwiss(date);
     const ephePath = process.env.SE_EPHE_PATH || '/app/vendor/swisseph';
-    const base = `SE_EPHE_PATH=${ephePath} swetest -b${swissDate} -ut${swissTime} -sid${ayanamsa.sid} -g, -head`;
+    const positionFlag = positionType === 'true' ? ' -true' : '';
+    const base = `SE_EPHE_PATH=${ephePath} swetest -b${swissDate} -ut${swissTime} ${ayanamsa.flag}${positionFlag} -g, -head`;
 
     // 0-9 = Sun through Pluto, m = mean Node, t = true Node; l = decimal longitude, s = daily speed
     const nodeCode = nodeType === 'true' ? 't' : 'm';
     const planetOutput = execSync(`${base} -p0123456789${nodeCode} -fPls`, { encoding: 'utf8' });
     const houseOutput = execSync(`${base} -p -house${longitude},${latitude},P -fPl`, { encoding: 'utf8' });
-    const ayanamsaOutput = execSync(
-      `SE_EPHE_PATH=${ephePath} swetest -b${swissDate} -ut${swissTime} -ay${ayanamsa.sid} -head`,
-      { encoding: 'utf8' }
-    );
-
-    const rows = (output) => output.split('\n')
-      .map(line => line.split(',').map(part => part.trim()))
-      .filter(parts => parts.length >= 2 && parts[1] !== '' && !isNaN(parseFloat(parts[1])));
+    // Without -head, swetest prints the ayanamsa in use (also for user-defined ones)
+    const ayanamsaOutput = execSync(base.replace(' -head', '') + ' -p0', { encoding: 'utf8' });
 
     const planets = {};
-    for (const [name, lon, speed] of rows(planetOutput)) {
+    for (const [name, lon, speed] of this.swetestRows(planetOutput)) {
       const planetName = name.endsWith('Node') ? 'Rahu' : name;
       planets[planetName] = { longitude: parseFloat(lon), speed: parseFloat(speed) };
     }
@@ -730,7 +762,7 @@ class SwissEphemerisServer {
     const cusps = {};
     let ascendantLon = null;
     let mcLon = null;
-    for (const [name, lon] of rows(houseOutput)) {
+    for (const [name, lon] of this.swetestRows(houseOutput)) {
       const houseMatch = name.match(/^house\s+(\d+)$/);
       if (houseMatch) cusps[parseInt(houseMatch[1])] = parseFloat(lon);
       else if (name === 'Ascendant') ascendantLon = parseFloat(lon);
@@ -740,7 +772,7 @@ class SwissEphemerisServer {
       throw new Error('Failed to parse house cusps from swetest output');
     }
 
-    const ayanamsaMatch = ayanamsaOutput.match(/(\d+)°\s*(\d+)'\s*([\d.]+)/);
+    const ayanamsaMatch = ayanamsaOutput.match(/ayanamsa\s*=\s*(\d+)°\s*(\d+)'\s*([\d.]+)/);
     const ayanamsaValue = ayanamsaMatch
       ? parseInt(ayanamsaMatch[1]) + parseInt(ayanamsaMatch[2]) / 60 + parseFloat(ayanamsaMatch[3]) / 3600
       : null;
@@ -778,7 +810,22 @@ class SwissEphemerisServer {
     }
 
     const moonLon = planets.Moon.longitude;
-    const dasha = this.calculateVimshottari(moonLon, date, yearDays, options.as_of);
+    const vimshottari = this.vimshottariStart(moonLon);
+    const kalachakra = this.kalachakraStart(moonLon);
+
+    // One clock covers both dasha systems, from the earliest period start to the latest end
+    const clock = this.makeDashaClock(date, {
+      ephePath,
+      siderealFlag: ayanamsa.flag,
+      positionFlag,
+      yearDays,
+      fromYears: Math.min(-vimshottari.elapsedYears, kalachakra.firstStartYears) - 1,
+      toYears: Math.max(120 - vimshottari.elapsedYears, kalachakra.lastEndYears) + 1,
+    });
+    const formatTime = this.makeTimeFormatter(datetime);
+    const yearDescription = yearDays
+      ? `${yearDays} days`
+      : 'true sidereal solar year (one sidereal revolution of the Sun, as in Jagannatha Hora)';
 
     return {
       zodiac: 'sidereal',
@@ -787,15 +834,102 @@ class SwissEphemerisServer {
         value: ayanamsaValue !== null ? Math.round(ayanamsaValue * 1000000) / 1000000 : null,
         value_dms: ayanamsaValue !== null ? this.formatDms(ayanamsaValue) : null,
       },
+      position_type: positionType,
       node_type: nodeType,
       house_system: 'Placidus (for KP cusps); house_whole_sign counts from the Lagna sign',
       lagna: this.describeSiderealPoint(ascendantLon),
       midheaven: mcLon !== null ? this.describeSiderealPoint(mcLon) : null,
       planets: planetData,
       houses,
-      vimshottari_dasha: dasha,
+      vimshottari_dasha: this.calculateVimshottari(vimshottari, date.getTime(), clock, formatTime, asOf, yearDescription),
+      kalachakra_dasha: this.calculateKalachakra(kalachakra, clock, formatTime, asOf, yearDescription),
       datetime,
       coordinates: { latitude, longitude },
+    };
+  }
+
+  swetestRows(output) {
+    return output.split('\n')
+      .map(line => line.split(',').map(part => part.trim()))
+      .filter(parts => parts.length >= 2 && parts[1] !== '' && !isNaN(parseFloat(parts[1])));
+  }
+
+  // Returns a function converting dasha years (relative to birth) to a timestamp in ms.
+  // With yearDays, a year is a fixed number of days. Otherwise a year is one sidereal
+  // revolution of the true Sun, so N years have passed when the sidereal Sun has moved
+  // N * 360 degrees from its birth position.
+  makeDashaClock(date, { ephePath, siderealFlag, positionFlag, yearDays, fromYears, toYears }) {
+    const birthMs = date.getTime();
+    if (yearDays) {
+      return (years) => birthMs + years * yearDays * DAY_MS;
+    }
+
+    // Sidereal Sun longitude and speed every STEP days across the needed range
+    const STEP = 2;
+    const CHUNK = 18000; // swetest prints at most 36525 lines per call
+    const firstStep = Math.floor(fromYears * SIDEREAL_YEAR_DAYS / STEP);
+    const lastStep = Math.ceil(toYears * SIDEREAL_YEAR_DAYS / STEP);
+    const lons = [];
+    const speeds = [];
+    for (let s = firstStep; s <= lastStep; s += CHUNK) {
+      const count = Math.min(CHUNK, lastStep - s + 1);
+      const start = new Date(birthMs + s * STEP * DAY_MS);
+      const output = execSync(
+        `SE_EPHE_PATH=${ephePath} swetest -b${this.formatDateToSwiss(start)} -ut${this.formatTimeToSwiss(start)} ` +
+        `${siderealFlag}${positionFlag} -p0 -fls -g, -head -n${count} -s${STEP}`,
+        { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 }
+      );
+      for (const [lon, speed] of this.swetestRows(output)) {
+        lons.push(parseFloat(lon));
+        speeds.push(parseFloat(speed));
+      }
+    }
+    if (lons.length !== lastStep - firstStep + 1) {
+      throw new Error('Failed to compute the solar year table from swetest');
+    }
+
+    // Unwrap so the longitude keeps increasing past 360
+    for (let i = 1; i < lons.length; i++) {
+      while (lons[i] < lons[i - 1]) lons[i] += 360;
+    }
+    const birthLon = lons[-firstStep];
+
+    return (years) => {
+      const target = birthLon + years * 360;
+      if (target < lons[0] || target > lons[lons.length - 1]) {
+        return birthMs + years * SIDEREAL_YEAR_DAYS * DAY_MS;
+      }
+      let lo = 0;
+      let hi = lons.length - 1;
+      while (hi - lo > 1) {
+        const mid = (lo + hi) >> 1;
+        if (lons[mid] <= target) lo = mid; else hi = mid;
+      }
+      // Cubic Hermite interpolation between grid points, solved for the target with Newton's method
+      const p0 = lons[lo];
+      const p1 = lons[hi];
+      const m0 = speeds[lo] * STEP;
+      const m1 = speeds[hi] * STEP;
+      let x = (target - p0) / (p1 - p0);
+      for (let k = 0; k < 6; k++) {
+        const x2 = x * x;
+        const x3 = x2 * x;
+        const value = (2 * x3 - 3 * x2 + 1) * p0 + (x3 - 2 * x2 + x) * m0 + (-2 * x3 + 3 * x2) * p1 + (x3 - x2) * m1;
+        const slope = (6 * x2 - 6 * x) * p0 + (3 * x2 - 4 * x + 1) * m0 + (-6 * x2 + 6 * x) * p1 + (3 * x2 - 2 * x) * m1;
+        x -= (value - target) / slope;
+      }
+      return birthMs + (firstStep + lo + x) * STEP * DAY_MS;
+    };
+  }
+
+  // Formats timestamps in the UTC offset given with the birth datetime (e.g. +05:30), else UTC
+  makeTimeFormatter(datetime) {
+    const match = datetime.match(/([+-])(\d{2}):?(\d{2})$/);
+    const offsetMinutes = match ? (match[1] === '-' ? -1 : 1) * (parseInt(match[2]) * 60 + parseInt(match[3])) : 0;
+    const suffix = match ? `${match[1]}${match[2]}:${match[3]}` : 'Z';
+    return (ms) => {
+      const local = new Date(Math.round(ms / 1000) * 1000 + offsetMinutes * 60000);
+      return local.toISOString().replace(/\.\d{3}Z$/, suffix);
     };
   }
 
@@ -840,57 +974,61 @@ class SwissEphemerisServer {
     }
   }
 
-  calculateVimshottari(moonLon, birthDate, yearDays, asOf) {
-    const msPerYear = yearDays * 24 * 60 * 60 * 1000;
+  vimshottariStart(moonLon) {
     const nakshatraIndex = Math.floor(moonLon / NAKSHATRA_SPAN);
     const elapsedFraction = (moonLon - nakshatraIndex * NAKSHATRA_SPAN) / NAKSHATRA_SPAN;
     const firstLord = DASHA_ORDER[nakshatraIndex % 9];
+    return {
+      nakshatraIndex,
+      elapsedFraction,
+      firstLord,
+      // The birth dasha started before birth; only its remaining fraction runs after birth
+      elapsedYears: elapsedFraction * DASHA_YEARS[firstLord],
+    };
+  }
+
+  calculateVimshottari(start, birthMs, clock, formatTime, asOf, yearDescription) {
+    const { nakshatraIndex, elapsedFraction, firstLord, elapsedYears } = start;
     const firstIndex = DASHA_ORDER.indexOf(firstLord);
 
-    // The birth dasha started before birth; only its remaining fraction runs after birth
-    const cycleStart = birthDate.getTime() - elapsedFraction * DASHA_YEARS[firstLord] * msPerYear;
-
-    const toIso = (ms) => new Date(ms).toISOString();
+    // Periods are built in years relative to birth, then turned into times with the clock
+    const timed = (p) => ({ ...p, startMs: clock(p.start), endMs: clock(p.end) });
 
     // Sub-periods of a period: each lord takes its share of the parent, starting from the parent lord
-    const subPeriods = (lord, start, durationMs) => {
-      const startIndex = DASHA_ORDER.indexOf(lord);
+    const subPeriods = (parent) => {
+      const startIndex = DASHA_ORDER.indexOf(parent.lord);
+      const length = parent.end - parent.start;
       const periods = [];
-      let cursor = start;
+      let cursor = parent.start;
       for (let i = 0; i < 9; i++) {
-        const subLord = DASHA_ORDER[(startIndex + i) % 9];
-        const length = durationMs * DASHA_YEARS[subLord] / 120;
-        periods.push({ lord: subLord, start: cursor, end: cursor + length });
-        cursor += length;
+        const lord = DASHA_ORDER[(startIndex + i) % 9];
+        const part = length * DASHA_YEARS[lord] / 120;
+        periods.push(timed({ lord, start: cursor, end: cursor + part }));
+        cursor += part;
       }
       return periods;
     };
 
     const mahadashas = [];
-    let cursor = cycleStart;
+    let cursor = -elapsedYears;
     for (let i = 0; i < 9; i++) {
       const lord = DASHA_ORDER[(firstIndex + i) % 9];
-      const length = DASHA_YEARS[lord] * msPerYear;
-      mahadashas.push({ lord, start: cursor, end: cursor + length });
-      cursor += length;
+      mahadashas.push(timed({ lord, start: cursor, end: cursor + DASHA_YEARS[lord] }));
+      cursor += DASHA_YEARS[lord];
     }
 
-    const target = asOf ? new Date(asOf) : new Date();
-    if (isNaN(target.getTime())) {
-      throw new Error('Invalid as_of datetime. Use ISO8601 format like 2024-01-01T00:00:00Z');
-    }
-    const t = target.getTime();
-    const find = (periods) => periods.find(p => t >= p.start && t < p.end) || null;
+    const t = asOf.getTime();
+    const find = (periods) => periods.find(p => t >= p.startMs && t < p.endMs) || null;
+    const fmt = (p) => ({ lord: p.lord, start: formatTime(p.startMs), end: formatTime(p.endMs) });
 
     let current = null;
     const md = find(mahadashas);
     if (md) {
-      const ad = find(subPeriods(md.lord, md.start, md.end - md.start));
-      const pd = find(subPeriods(ad.lord, ad.start, ad.end - ad.start));
-      const sd = find(subPeriods(pd.lord, pd.start, pd.end - pd.start));
-      const fmt = (p) => ({ lord: p.lord, start: toIso(p.start), end: toIso(p.end) });
+      const ad = find(subPeriods(md));
+      const pd = find(subPeriods(ad));
+      const sd = find(subPeriods(pd));
       current = {
-        as_of: target.toISOString(),
+        as_of: formatTime(t),
         mahadasha: fmt(md),
         antardasha: fmt(ad),
         pratyantardasha: fmt(pd),
@@ -905,19 +1043,149 @@ class SwissEphemerisServer {
         lord: firstLord,
         years: Math.round((1 - elapsedFraction) * DASHA_YEARS[firstLord] * 10000) / 10000,
       },
-      year_length_days: yearDays,
+      year: yearDescription,
       current,
       mahadashas: mahadashas.map(p => ({
         lord: p.lord,
-        start: toIso(Math.max(p.start, birthDate.getTime())),
-        end: toIso(p.end),
-        antardashas: subPeriods(p.lord, p.start, p.end - p.start)
-          .filter(ad => ad.end > birthDate.getTime())
+        start: formatTime(Math.max(p.startMs, birthMs)),
+        end: formatTime(p.endMs),
+        antardashas: subPeriods(p)
+          .filter(ad => ad.endMs > birthMs)
           .map(ad => ({
             lord: ad.lord,
-            start: toIso(Math.max(ad.start, birthDate.getTime())),
-            end: toIso(ad.end),
+            start: formatTime(Math.max(ad.startMs, birthMs)),
+            end: formatTime(ad.endMs),
           })),
+      })),
+    };
+  }
+
+  // Kalachakra cycle (9 signs) for a pada of the given direction whose Kalachakra navamsa is `sign`,
+  // with the stream positions (absolute padas, 0-107) of its entries, used for labels.
+  // An apasavya cycle is the savya cycle of the same sign read backwards.
+  // `nearPada` picks between the two identical copies of the Ashwini-type cycles.
+  kalachakraCycle(savya, sign, nearPada) {
+    const group = sign;
+    const copies = group < 4 ? [group, group + 8] : group >= 8 ? [group, group - 8] : [group];
+    const distance = (g) => {
+      const d = Math.abs(9 * g + 4 - nearPada);
+      return Math.min(d, 108 - d);
+    };
+    const chosen = copies.reduce((best, g) => (distance(g) < distance(best) ? g : best));
+    const signs = KC_SAVYA[group % 8];
+    const positions = signs.map((_, i) => 9 * chosen + i);
+    // Apasavya cycles run the savya stream backwards
+    return savya
+      ? { signs, positions }
+      : { signs: [...signs].reverse(), positions: positions.reverse() };
+  }
+
+  kalachakraStart(moonLon) {
+    const padaSpan = NAKSHATRA_SPAN / 4;
+    const pada = Math.floor(moonLon / padaSpan);
+    const nakshatra = Math.floor(pada / 4);
+    const savya = Math.floor(nakshatra / 3) % 2 === 0;
+    // Savya padas use their own navamsa; apasavya padas use the mirrored order (Rohini 4 = Leo)
+    const sign = savya ? pada % 12 : KC_APASAVYA_NAVAMSAS[4 * (nakshatra % 3) + (pada % 4)];
+    const cycle = this.kalachakraCycle(savya, sign, pada);
+    const paramayush = cycle.signs.reduce((sum, s) => sum + KC_YEARS[s], 0);
+
+    // SM Singh: the elapsed fraction of the Moon's pada is applied to the whole cycle
+    const elapsedFraction = (moonLon - pada * padaSpan) / padaSpan;
+    const elapsedYears = elapsedFraction * paramayush;
+    let firstIndex = 0;
+    let cumulative = 0;
+    while (cumulative + KC_YEARS[cycle.signs[firstIndex]] <= elapsedYears) {
+      cumulative += KC_YEARS[cycle.signs[firstIndex]];
+      firstIndex++;
+    }
+    return {
+      pada,
+      savya,
+      sign,
+      cycle,
+      paramayush,
+      firstIndex,
+      firstStartYears: cumulative - elapsedYears,
+      lastEndYears: cumulative - elapsedYears + paramayush,
+    };
+  }
+
+  calculateKalachakra(start, clock, formatTime, asOf, yearDescription) {
+    const { pada, savya, sign, cycle, paramayush, firstIndex, firstStartYears } = start;
+    const padaName = (q) => `${NAKSHATRAS[Math.floor(q / 4)]} ${(q % 4) + 1}`;
+    const isSavyaPada = (q) => Math.floor(Math.floor(q / 4) / 3) % 2 === 0;
+
+    const timed = (p) => ({ ...p, startMs: clock(p.start), endMs: clock(p.end) });
+
+    // SM Singh: sub-periods of a period come from the period's own sign, the way the
+    // mahadashas come from the Moon's navamsa: its cycle from the start, each sign taking
+    // its share of the parent in proportion to its years
+    const subPeriods = (parent) => {
+      const sub = this.kalachakraCycle(isSavyaPada(parent.position), parent.sign, parent.position);
+      const total = sub.signs.reduce((sum, s) => sum + KC_YEARS[s], 0);
+      const length = parent.end - parent.start;
+      const periods = [];
+      let cursor = parent.start;
+      sub.signs.forEach((s, i) => {
+        const part = length * KC_YEARS[s] / total;
+        periods.push(timed({ sign: s, position: sub.positions[i], start: cursor, end: cursor + part }));
+        cursor += part;
+      });
+      return periods;
+    };
+
+    // Mahadashas run strictly through the cycle, returning to its beginning after the last sign
+    const mahadashas = [];
+    let cursor = firstStartYears;
+    for (let i = 0; i < 9; i++) {
+      const index = (firstIndex + i) % 9;
+      const s = cycle.signs[index];
+      mahadashas.push(timed({ sign: s, position: cycle.positions[index], start: cursor, end: cursor + KC_YEARS[s] }));
+      cursor += KC_YEARS[s];
+    }
+
+    const fmt = (p) => ({
+      sign: SIGNS[p.sign],
+      sign_abbr: SIGN_ABBR[p.sign],
+      pada: padaName(p.position),
+      start: formatTime(p.startMs),
+      end: formatTime(p.endMs),
+    });
+
+    const t = asOf.getTime();
+    const find = (periods) => periods.find(p => t >= p.startMs && t < p.endMs) || null;
+    let current = null;
+    const md = find(mahadashas);
+    if (md) {
+      const ad = find(subPeriods(md));
+      const pd = find(subPeriods(ad));
+      current = {
+        as_of: formatTime(t),
+        mahadasha: fmt(md),
+        antardasha: fmt(ad),
+        pratyantardasha: fmt(pd),
+        chain: [md, ad, pd].map(p => SIGN_ABBR[p.sign]).join('-'),
+      };
+    }
+
+    const first = cycle.signs[0];
+    const last = cycle.signs[8];
+    return {
+      method: 'SM Singh: dasa sesham fraction applied to the full cycle; mahadashas strictly from the cycle (back to its start after the last sign); antardashas found from each mahadasha the way mahadashas are found from the navamsa',
+      from: 'Moon (D-1)',
+      direction: savya ? 'Savya' : 'Apasavya',
+      moon_pada: padaName(pada),
+      navamsa: SIGNS[sign],
+      paramayush,
+      deha: SIGN_ABBR[savya ? first : last],
+      jiva: SIGN_ABBR[savya ? last : first],
+      year: yearDescription,
+      note: 'Checked against Jagannatha Hora: mahadashas on two charts, antardashas and pratyantardashas on one. Times can differ from JHora by up to about 30 minutes.',
+      current,
+      mahadashas: mahadashas.map(p => ({
+        ...fmt(p),
+        antardashas: subPeriods(p).map(fmt),
       })),
     };
   }
@@ -1124,7 +1392,7 @@ class SwissEphemerisServer {
         };
 
       case 'calculate_vedic_chart': {
-        const { datetime: vedicDatetime, latitude: vedicLatitude, longitude: vedicLongitude, ayanamsa, node_type, as_of, dasha_year_days } = args;
+        const { datetime: vedicDatetime, latitude: vedicLatitude, longitude: vedicLongitude, ayanamsa, position_type, node_type, as_of, dasha_year_days } = args;
 
         if (!vedicDatetime || typeof vedicDatetime !== 'string') {
           throw new McpError(
@@ -1154,6 +1422,13 @@ class SwissEphemerisServer {
           );
         }
 
+        if (position_type !== undefined && position_type !== 'true' && position_type !== 'apparent') {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            'position_type must be "true" or "apparent"'
+          );
+        }
+
         if (node_type !== undefined && node_type !== 'mean' && node_type !== 'true') {
           throw new McpError(
             ErrorCode.InvalidParams,
@@ -1170,6 +1445,7 @@ class SwissEphemerisServer {
 
         return this.calculateVedicChart(vedicDatetime, vedicLatitude, vedicLongitude, {
           ayanamsa,
+          position_type,
           node_type,
           as_of,
           dasha_year_days,

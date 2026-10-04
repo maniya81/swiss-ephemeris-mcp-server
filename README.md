@@ -137,16 +137,17 @@ Calculate synastry chart between two people for relationship compatibility analy
 
 ### `calculate_vedic_chart`
 
-Calculate a sidereal Vedic/KP birth chart and Vimshottari dasha timeline.
+Calculate a sidereal Vedic/KP birth chart with Vimshottari and Kalachakra dashas. The defaults follow Jagannatha Hora (JHora): Traditional Lahiri ayanamsa, true positions, true nodes and true sidereal solar years.
 
 **Parameters:**
-- `datetime` (string): Birth datetime in ISO8601 format, including the timezone, e.g., "1999-06-06T15:30:03+05:30"
+- `datetime` (string): Birth datetime in ISO8601 format, including the timezone, e.g., "1999-06-06T15:30:00+05:30". Dasha dates are returned in the same UTC offset.
 - `latitude` (number): Birth latitude in decimal degrees
 - `longitude` (number): Birth longitude in decimal degrees, positive east
-- `ayanamsa` (string, optional): `lahiri` (default), `kp_new`, `kp_old`, `raman`, `yukteshwar`, `fagan_bradley`
-- `node_type` (string, optional): `mean` (default) or `true` node for Rahu/Ketu
-- `as_of` (string, optional): Date for the running dasha chain (default now)
-- `dasha_year_days` (number, optional): Days per dasha year (default 365.25)
+- `ayanamsa` (string, optional): `traditional_lahiri` (default), `lahiri`, `kp_new`, `kp_old`, `raman`, `yukteshwar`, `fagan_bradley`
+- `position_type` (string, optional): `true` (default) or `apparent` planet positions
+- `node_type` (string, optional): `true` (default) or `mean` node for Rahu/Ketu
+- `as_of` (string, optional): Date for the running dasha chains (default now)
+- `dasha_year_days` (number, optional): Fixed days per dasha year, e.g. 365.25. Omit it to use true sidereal solar years.
 
 **Returns:**
 - `ayanamsa`: Name and value used
@@ -154,6 +155,19 @@ Calculate a sidereal Vedic/KP birth chart and Vimshottari dasha timeline.
 - `planets`: Sun to Pluto plus Rahu/Ketu, each with sign, sign lord, degree, nakshatra, pada, star lord, sub lord, sub-sub lord, retrograde flag, whole-sign house and KP (Placidus cusp) house
 - `houses`: 12 sidereal Placidus cusps with the same lord details (KP cuspal chart)
 - `vimshottari_dasha`: Moon nakshatra, balance at birth, the current Mahadasha-Antardasha-Pratyantardasha-Sookshma chain, and every mahadasha with its antardasha dates
+- `kalachakra_dasha`: Kalachakra dasha from the Moon by the SM Singh method: direction (Savya/Apasavya), Paramayush, Deha and Jiva, the current Mahadasha-Antardasha-Pratyantardasha chain, and every mahadasha with its antardashas. Each period shows its sign and the nakshatra pada it stands for, like JHora's "Pi (Sata1)".
+
+**How the defaults match JHora:**
+
+| Setting | Value | Notes |
+|---|---|---|
+| Ayanamsa | Traditional Lahiri | Lahiri's 1956 value under the current precession model. Matches JHora to 0.01"; Swiss Ephemeris' own Lahiri (`lahiri`) is 0.13" higher. |
+| Positions | True | Not apparent: no light-time or aberration |
+| Nodes | True | |
+| Dasha year | True sidereal solar year | N years have passed when the Sun has moved N × 360° in sidereal longitude |
+| Kalachakra | SM Singh | Elapsed fraction of the Moon's pada applied to the full cycle; mahadashas strictly from the cycle (back to its start after the last sign); antardashas found from each mahadasha the way mahadashas are found from the navamsa; Rohini 4 taken as Leo |
+
+Kalachakra results were checked against JHora on two charts. The mahadasha signs, padas, Paramayush, Deha and Jiva matched exactly; antardashas and pratyantardashas matched to the day. Times can be up to about 30 minutes off JHora's, because Kalachakra multiplies tiny differences in the Moon's position by up to 100 years.
 
 KP New uses the Swiss Ephemeris "Krishnamurti VP291" ayanamsa (`-sid45`), which needs a recent `swetest` build (the Dockerfile builds the latest).
 
