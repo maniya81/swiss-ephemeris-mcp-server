@@ -34,6 +34,10 @@ const SIGN_ABBR = ['Ar', 'Ta', 'Ge', 'Cn', 'Le', 'Vi', 'Li', 'Sc', 'Sg', 'Cp', '
 const DEFAULT_AYANAMSA = 'traditional_lahiri';
 // Birth times without a UTC offset are taken as Indian Standard Time
 const DEFAULT_BIRTH_OFFSET = '+05:30';
+// Limits for batch dates and birth-time sweeps
+const MAX_AS_OF_DATES = 200;
+const MAX_SWEEP_CANDIDATES = 3601;
+const MAX_SWEEP_CHAINS = 100000;
 const SERVER_INSTRUCTIONS = `Vedic astrology calculations (Swiss Ephemeris). Defaults match Jagannatha Hora: Traditional Lahiri ayanamsa, true positions, true nodes, true sidereal solar years; Kalachakra by the SM Singh method.
 
 Birth time and place:
@@ -47,7 +51,13 @@ Current location (dual-time reporting):
 - Dasha transitions happen at one physical moment; show them in both the birth timezone and the native's current local time.
 - If you do not know where the native lives now, give the results in the birth timezone and ask: "I have calculated your chart and dashas in your birth timezone (IST). If you are currently living in another city or country (e.g., Melbourne, London, New York), please let me know your current location so I can display all active dasha transition timestamps in your local time."
 - Once known, pass current_timezone as an IANA name (Australia/Melbourne, Europe/London, America/New_York). Every start/end then comes with start_local/end_local converted with the real daylight-saving rules for that date; use those values, do not add offsets yourself.
-- Present transitions in a table with both columns, e.g. | Level | Sign & Pada | Birth Time (IST) | Current Local Time (Melbourne) |, and never round off seconds.`;
+- Present transitions in a table with both columns, e.g. | Level | Sign & Pada | Birth Time (IST) | Current Local Time (Melbourne) |, and never round off seconds.
+
+Keeping calls small:
+- When you only need the running period, pass output: "chain" (no full dasha tree); levels (1-6) limits the depth.
+- For several dates (e.g. life events), pass as_of as a list: one call returns a compact chain per date.
+- For birth-time rectification, use calculate_kalachakra_dasha with birth_time_sweep and the event dates as as_of; birth times giving the same chains are merged into ranges. birth_time_sensitivity gives the days of shift per second of birth time.
+- Each current level includes ends_in and next (the following period at that level). Kalachakra periods carry gati (Simhavalokana, Manduka, Markati jumps).`;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SIDEREAL_YEAR_DAYS = 365.256363;
 // Kalachakra dasha (BPHS). Years of each sign, Aries to Pisces
@@ -234,7 +244,7 @@ class SwissEphemerisServer {
               properties: {
                 datetime: {
                   type: 'string',
-                  description: 'Birth datetime in ISO8601 format with the birth UTC offset and seconds, e.g., 1999-06-06T15:30:00+05:30. Without an offset IST (+05:30) is assumed. Dasha dates are returned in the same offset',
+                  description: 'Birth datetime in ISO8601 format with the birth UTC offset and seconds (fractions allowed, e.g. 15:30:00.25), e.g., 1999-06-06T15:30:00+05:30. Without an offset IST (+05:30) is assumed. Dasha dates are returned in the same offset',
                 },
                 latitude: {
                   type: 'number',
@@ -260,8 +270,19 @@ class SwissEphemerisServer {
                   description: 'True or mean lunar node for Rahu/Ketu (default true, as in Jagannatha Hora)',
                 },
                 as_of: {
+                  oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' }, maxItems: 200 }],
+                  description: 'ISO8601 date for the running dasha chains (default now), or a list of up to 200 dates to get one compact chain per date. Dates without an offset are taken as IST',
+                },
+                output: {
                   type: 'string',
-                  description: 'ISO8601 date for which to report the running dasha chains (default now)',
+                  enum: ['full', 'chain'],
+                  description: 'full (default): dasha trees plus running chains. chain: running chains only (far fewer tokens). A list of as_of dates is always compact',
+                },
+                levels: {
+                  type: 'integer',
+                  minimum: 1,
+                  maximum: 6,
+                  description: 'How deep the dasha chains go: 1 mahadasha ... 6 deha (default 6)',
                 },
                 current_timezone: {
                   type: 'string',
@@ -277,13 +298,13 @@ class SwissEphemerisServer {
           },
           {
             name: 'calculate_kalachakra_dasha',
-            description: 'Calculate Kalachakra dasha only, always with Jagannatha Hora settings: Traditional Lahiri ayanamsa, true positions, true sidereal solar years, SM Singh method (full cycle fraction, MDs strictly from cycle, ADs from MD like MDs from navamsa), from the Moon in D-1, Rohini 4th pada as Leo. Returns Savya/Apasavya, Paramayush, Deha, Jiva, all mahadashas with antardashas, the running chain down to deha, and optionally the sub-periods of any period (drill_down).',
+            description: 'Calculate Kalachakra dasha only, always with Jagannatha Hora settings: Traditional Lahiri ayanamsa, true positions, true sidereal solar years, SM Singh method (full cycle fraction, MDs strictly from cycle, ADs from MD like MDs from navamsa), from the Moon in D-1, Rohini 4th pada as Leo. Returns Savya/Apasavya, Paramayush, Deha, Jiva, gati (Simhavalokana/Manduka/Markati) jumps, the running chain down to deha with countdowns and next periods, the birth-time sensitivity, and optionally all mahadashas with antardashas, the sub-periods of any period (drill_down), chains for a list of dates, or a birth-time sweep for rectification.',
             inputSchema: {
               type: 'object',
               properties: {
                 datetime: {
                   type: 'string',
-                  description: 'Birth datetime in ISO8601 format with the birth UTC offset and seconds, e.g., 1999-06-06T15:30:00+05:30. Without an offset IST (+05:30) is assumed. Dates are returned in the same offset',
+                  description: 'Birth datetime in ISO8601 format with the birth UTC offset and seconds (fractions allowed, e.g. 15:30:00.25), e.g., 1999-06-06T15:30:00+05:30. Without an offset IST (+05:30) is assumed. Dates are returned in the same offset',
                 },
                 latitude: {
                   type: 'number',
@@ -294,8 +315,29 @@ class SwissEphemerisServer {
                   description: 'Birth longitude, positive east (optional, see latitude)',
                 },
                 as_of: {
+                  oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' }, maxItems: 200 }],
+                  description: 'ISO8601 date for the running chain (default now), or a list of up to 200 dates (e.g. life events) to get one compact chain per date. Dates without an offset are taken as IST',
+                },
+                output: {
                   type: 'string',
-                  description: 'ISO8601 date for the running chain (default now)',
+                  enum: ['full', 'chain'],
+                  description: 'full (default): all mahadashas with antardashas plus the running chain. chain: only the running chain with countdowns and next periods (far fewer tokens). A list of as_of dates is always compact',
+                },
+                levels: {
+                  type: 'integer',
+                  minimum: 1,
+                  maximum: 6,
+                  description: 'How deep chains go: 1 mahadasha, 2 antardasha, 3 pratyantardasha, 4 sookshma, 5 praana, 6 deha (default 6)',
+                },
+                birth_time_sweep: {
+                  type: 'object',
+                  properties: {
+                    from_seconds: { type: 'number', description: 'First birth time, in seconds relative to datetime (e.g. -300)' },
+                    to_seconds: { type: 'number', description: 'Last birth time, in seconds relative to datetime (e.g. 300)' },
+                    step_seconds: { type: 'number', description: 'Step between birth times in seconds (fractions allowed)' },
+                  },
+                  required: ['from_seconds', 'to_seconds', 'step_seconds'],
+                  description: 'Rectification: recompute the Kalachakra for each birth time in this range and return the chain at every as_of date for each (compact). Birth times giving identical chains are merged into ranges. Up to 3601 birth times and 100000 chains (birth times x dates)',
                 },
                 current_timezone: {
                   type: 'string',
@@ -790,16 +832,18 @@ class SwissEphemerisServer {
     const positionType = options.position_type || 'true';
     const yearDays = options.dasha_year_days;
 
-    const asOf = options.as_of ? new Date(options.as_of) : new Date();
-    if (isNaN(asOf.getTime())) {
-      throw new Error('Invalid as_of datetime. Use ISO8601 format like 2024-01-01T00:00:00Z');
+    const asOfInputs = Array.isArray(options.as_of) ? options.as_of : null;
+    const asOfTimes = (asOfInputs || [options.as_of]).map(a => (a ? new Date(a) : new Date()));
+    if (asOfTimes.some(t => isNaN(t.getTime()))) {
+      throw new Error('Invalid as_of datetime. Use ISO8601 format like 2024-01-01T00:00:00+05:30');
     }
+    const asOf = asOfTimes[0];
+    const levels = options.levels || 6;
+    const compact = options.output === 'chain' || Boolean(asOfInputs);
 
-    const swissDate = this.formatDateToSwiss(date);
-    const swissTime = this.formatTimeToSwiss(date);
     const ephePath = process.env.SE_EPHE_PATH || '/app/vendor/swisseph';
     const positionFlag = positionType === 'true' ? ' -true' : '';
-    const base = `SE_EPHE_PATH=${ephePath} swetest -b${swissDate} -ut${swissTime} ${ayanamsa.flag}${positionFlag} -g, -head`;
+    const base = `SE_EPHE_PATH=${ephePath} swetest ${this.swissTimeArgs(date)} ${ayanamsa.flag}${positionFlag} -g, -head`;
 
     // 0-9 = Sun through Pluto, m = mean Node, t = true Node; l = decimal longitude, s = daily speed
     const nodeCode = nodeType === 'true' ? 't' : 'm';
@@ -872,14 +916,14 @@ class SwissEphemerisServer {
     const kalachakra = this.kalachakraStart(moonLon);
 
     // One clock covers both dasha systems, from the earliest period start to the latest end
-    const clock = this.makeDashaClock(date, {
-      ephePath,
-      siderealFlag: ayanamsa.flag,
-      positionFlag,
-      yearDays,
-      fromYears: Math.min(-vimshottari.elapsedYears, kalachakra.firstStartYears) - 1,
-      toYears: Math.max(120 - vimshottari.elapsedYears, kalachakra.lastEndYears) + 1,
-    });
+    const sunTable = yearDays ? null : this.makeSunTableForYears(
+      date.getTime(),
+      { ephePath, siderealFlag: ayanamsa.flag, positionFlag },
+      Math.min(-vimshottari.elapsedYears, kalachakra.firstStartYears),
+      Math.max(120 - vimshottari.elapsedYears, kalachakra.lastEndYears)
+    );
+    const clock = this.makeDashaClock(date.getTime(), { sunTable, yearDays });
+    const dashaOptions = { levels, compact, asOfList: asOfInputs ? asOfTimes.map(t => t.getTime()) : null };
     const formatTime = this.makeTimeFormatter(datetime);
     const yearDescription = yearDays
       ? `${yearDays} days`
@@ -899,8 +943,9 @@ class SwissEphemerisServer {
       midheaven: mcLon !== null ? this.describeSiderealPoint(mcLon) : null,
       planets: planetData,
       houses,
-      vimshottari_dasha: this.calculateVimshottari(vimshottari, date.getTime(), clock, formatTime, asOf, yearDescription),
-      kalachakra_dasha: this.calculateKalachakra(kalachakra, clock, formatTime, asOf, yearDescription),
+      birth_time_sensitivity: this.birthTimeSensitivity(planets.Moon.speed, vimshottari, kalachakra),
+      vimshottari_dasha: this.calculateVimshottari(vimshottari, date.getTime(), clock, formatTime, asOf, yearDescription, dashaOptions),
+      kalachakra_dasha: this.calculateKalachakra(kalachakra, clock, formatTime, asOf, yearDescription, { ...dashaOptions, ayanamsaName: ayanamsa.name }),
       datetime,
       coordinates: { latitude, longitude },
     };
@@ -912,29 +957,28 @@ class SwissEphemerisServer {
       .filter(parts => parts.length >= 2 && parts[1] !== '' && !isNaN(parseFloat(parts[1])));
   }
 
-  // Returns a function converting dasha years (relative to birth) to a timestamp in ms.
-  // With yearDays, a year is a fixed number of days. Otherwise a year is one sidereal
-  // revolution of the true Sun, so N years have passed when the sidereal Sun has moved
-  // N * 360 degrees from its birth position.
-  makeDashaClock(date, { ephePath, siderealFlag, positionFlag, yearDays, fromYears, toYears }) {
-    const birthMs = date.getTime();
-    if (yearDays) {
-      return (years) => birthMs + years * yearDays * DAY_MS;
-    }
+  // swetest date arguments for an instant, keeping fractional seconds
+  swissTimeArgs(date) {
+    const ms = date.getUTCMilliseconds();
+    const time = this.formatTimeToSwiss(date) + (ms ? `.${String(ms).padStart(3, '0')}` : '');
+    return `-b${this.formatDateToSwiss(date)} -ut${time}`;
+  }
 
-    // Sidereal Sun longitude and speed every STEP days across the needed range
+  // Sidereal Sun longitude (unwrapped, so it keeps increasing past 360) and speed every
+  // STEP days from fromMs to toMs, with lookups in both directions by cubic Hermite
+  // interpolation. One table can serve several birth times (see makeDashaClock).
+  makeSunTable({ ephePath, siderealFlag, positionFlag, fromMs, toMs }) {
     const STEP = 2;
     const CHUNK = 18000; // swetest prints at most 36525 lines per call
-    const firstStep = Math.floor(fromYears * SIDEREAL_YEAR_DAYS / STEP);
-    const lastStep = Math.ceil(toYears * SIDEREAL_YEAR_DAYS / STEP);
+    const count = Math.ceil((toMs - fromMs) / (STEP * DAY_MS)) + 1;
     const lons = [];
     const speeds = [];
-    for (let s = firstStep; s <= lastStep; s += CHUNK) {
-      const count = Math.min(CHUNK, lastStep - s + 1);
-      const start = new Date(birthMs + s * STEP * DAY_MS);
+    for (let s = 0; s < count; s += CHUNK) {
+      const n = Math.min(CHUNK, count - s);
+      const start = new Date(fromMs + s * STEP * DAY_MS);
       const output = execSync(
-        `SE_EPHE_PATH=${ephePath} swetest -b${this.formatDateToSwiss(start)} -ut${this.formatTimeToSwiss(start)} ` +
-        `${siderealFlag}${positionFlag} -p0 -fls -g, -head -n${count} -s${STEP}`,
+        `SE_EPHE_PATH=${ephePath} swetest ${this.swissTimeArgs(start)} ` +
+        `${siderealFlag}${positionFlag} -p0 -fls -g, -head -n${n} -s${STEP}`,
         { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 }
       );
       this.swetestRows(output).forEach(([lon, speed]) => {
@@ -942,45 +986,107 @@ class SwissEphemerisServer {
         speeds.push(parseFloat(speed));
       });
     }
-    if (lons.length !== lastStep - firstStep + 1) {
+    if (lons.length !== count) {
       throw new Error('Failed to compute the solar year table from swetest');
     }
-
-    // Unwrap so the longitude keeps increasing past 360
     for (let i = 1; i < lons.length; i++) {
       while (lons[i] < lons[i - 1]) lons[i] += 360;
     }
-    const birthLon = lons[-firstStep];
 
-    return (years) => {
-      const target = birthLon + years * 360;
-      if (target < lons[0] || target > lons[lons.length - 1]) {
-        return birthMs + years * SIDEREAL_YEAR_DAYS * DAY_MS;
-      }
-      let lo = 0;
-      let hi = lons.length - 1;
-      while (hi - lo > 1) {
-        const mid = (lo + hi) >> 1;
-        if (lons[mid] <= target) lo = mid; else hi = mid;
-      }
-      // Cubic Hermite interpolation between grid points, solved for the target with Newton's method
-      const p0 = lons[lo];
-      const p1 = lons[hi];
-      const m0 = speeds[lo] * STEP;
-      const m1 = speeds[hi] * STEP;
-      let x = (target - p0) / (p1 - p0);
-      for (let k = 0; k < 6; k++) {
-        const x2 = x * x;
-        const x3 = x2 * x;
-        const value = (2 * x3 - 3 * x2 + 1) * p0 + (x3 - 2 * x2 + x) * m0 + (-2 * x3 + 3 * x2) * p1 + (x3 - x2) * m1;
-        const slope = (6 * x2 - 6 * x) * p0 + (3 * x2 - 4 * x + 1) * m0 + (-6 * x2 + 6 * x) * p1 + (3 * x2 - 2 * x) * m1;
-        x -= (value - target) / slope;
-      }
-      return birthMs + (firstStep + lo + x) * STEP * DAY_MS;
+    // Cubic Hermite value and slope at fraction x between grid points i and i + 1
+    const hermite = (i, x) => {
+      const p0 = lons[i];
+      const p1 = lons[i + 1];
+      const m0 = speeds[i] * STEP;
+      const m1 = speeds[i + 1] * STEP;
+      const x2 = x * x;
+      const x3 = x2 * x;
+      return {
+        value: (2 * x3 - 3 * x2 + 1) * p0 + (x3 - 2 * x2 + x) * m0 + (-2 * x3 + 3 * x2) * p1 + (x3 - x2) * m1,
+        slope: (6 * x2 - 6 * x) * p0 + (3 * x2 - 4 * x + 1) * m0 + (-6 * x2 + 6 * x) * p1 + (3 * x2 - 2 * x) * m1,
+      };
+    };
+
+    return {
+      covers: (ms) => ms >= fromMs && ms <= fromMs + (count - 1) * STEP * DAY_MS,
+      lonAt: (ms) => {
+        const pos = Math.min(Math.max((ms - fromMs) / (STEP * DAY_MS), 0), count - 1.000001);
+        const i = Math.floor(pos);
+        return hermite(i, pos - i).value;
+      },
+      // Time (ms) at which the unwrapped longitude reaches `target`, or null outside the table
+      msAtLon: (target) => {
+        if (target < lons[0] || target > lons[count - 1]) return null;
+        let lo = 0;
+        let hi = count - 1;
+        while (hi - lo > 1) {
+          const mid = (lo + hi) >> 1;
+          if (lons[mid] <= target) lo = mid; else hi = mid;
+        }
+        let x = (target - lons[lo]) / (lons[hi] - lons[lo]);
+        for (let k = 0; k < 6; k++) {
+          const { value, slope } = hermite(lo, x);
+          x -= (value - target) / slope;
+        }
+        return fromMs + (lo + x) * STEP * DAY_MS;
+      },
     };
   }
 
-  // Formats timestamps in the UTC offset given with the birth datetime (e.g. +05:30), else UTC
+  // Returns a function converting dasha years (relative to birth) to a timestamp in ms.
+  // With yearDays, a year is a fixed number of days. Otherwise a year is one sidereal
+  // revolution of the true Sun, so N years have passed when the sidereal Sun has moved
+  // N * 360 degrees from its birth position (Jagannatha Hora's true sidereal solar years).
+  makeDashaClock(birthMs, { sunTable, yearDays }) {
+    if (yearDays) {
+      return (years) => birthMs + years * yearDays * DAY_MS;
+    }
+    const birthLon = sunTable.lonAt(birthMs);
+    return (years) => sunTable.msAtLon(birthLon + years * 360) ?? birthMs + years * SIDEREAL_YEAR_DAYS * DAY_MS;
+  }
+
+  // Sun table covering [fromYears, toYears] around a birth time (plus a year of margin)
+  makeSunTableForYears(birthMs, settings, fromYears, toYears) {
+    return this.makeSunTable({
+      ...settings,
+      fromMs: birthMs + (fromYears - 1) * SIDEREAL_YEAR_DAYS * DAY_MS,
+      toMs: birthMs + (toYears + 1) * SIDEREAL_YEAR_DAYS * DAY_MS,
+    });
+  }
+
+  // Kalachakra gati (jump) when the dasha moves from sign `a` to sign `b`. Markati (monkey)
+  // is the Cancer-Leo step taken between frog jumps; `prevGati`/`nextIsManduka` give that context.
+  kalachakraGati(a, b, neighbourIsManduka) {
+    const d = (b - a + 12) % 12;
+    if (d === 4 || d === 8) return 'Simhavalokana';
+    if (d === 2 || d === 10) return 'Manduka';
+    if ((d === 1 || d === 11) && ((a === 3 && b === 4) || (a === 4 && b === 3)) && neighbourIsManduka) return 'Markati';
+    if (d === 1 || d === 11) return null;
+    return 'other jump';
+  }
+
+  // Sets p.gati on each period of a sibling list from the sign change into it
+  markGatis(periods) {
+    const raw = periods.map((p, i) => (i ? this.kalachakraGati(periods[i - 1].sign, p.sign, false) : null));
+    periods.forEach((p, i) => {
+      if (!i) return;
+      const neighbourIsManduka = raw[i - 1] === 'Manduka' || raw[i + 1] === 'Manduka';
+      p.gati = this.kalachakraGati(periods[i - 1].sign, p.sign, neighbourIsManduka);
+    });
+    return periods;
+  }
+
+  // Human-readable time remaining, e.g. "12d 04:33:10"
+  formatDuration(ms) {
+    const total = Math.max(0, Math.round(ms / 1000));
+    const days = Math.floor(total / 86400);
+    const rest = total % 86400;
+    const hh = String(Math.floor(rest / 3600)).padStart(2, '0');
+    const mm = String(Math.floor((rest % 3600) / 60)).padStart(2, '0');
+    const ss = String(rest % 60).padStart(2, '0');
+    return `${days}d ${hh}:${mm}:${ss}`;
+  }
+
   // Adds DEFAULT_BIRTH_OFFSET to an ISO datetime that has no UTC offset
   withDefaultOffset(datetime) {
     if (typeof datetime !== 'string' || /(Z|[+-]\d{2}:?\d{2})$/i.test(datetime.trim())) return datetime;
@@ -1035,6 +1141,7 @@ class SwissEphemerisServer {
     return result;
   }
 
+  // Formats timestamps in the UTC offset given with the birth datetime (e.g. +05:30), else UTC
   makeTimeFormatter(datetime) {
     const match = datetime.match(/([+-])(\d{2}):?(\d{2})$/);
     const offsetMinutes = match ? (match[1] === '-' ? -1 : 1) * (parseInt(match[2]) * 60 + parseInt(match[3])) : 0;
@@ -1086,6 +1193,49 @@ class SwissEphemerisServer {
     }
   }
 
+  // Running chain (down to `levels`) at time t, or [] when t is outside the dashas
+  dashaChainAt(t, mahadashas, subPeriods, levels) {
+    const find = (periods) => periods.find(p => t >= p.startMs && t < p.endMs) || null;
+    const chain = [];
+    let level = find(mahadashas);
+    while (level && chain.length < levels) {
+      chain.push(level);
+      level = chain.length < levels ? find(subPeriods(level)) : null;
+    }
+    return chain;
+  }
+
+  // The `current` block: each level with time remaining and the period that follows it
+  // at the same level (which can fall under the next parent period)
+  describeCurrentChain(t, engine, levels, formatTime, label) {
+    const chain = this.dashaChainAt(t, engine.mahadashas, engine.subPeriods, levels);
+    if (!chain.length) return null;
+    const current = { as_of: formatTime(t) };
+    chain.forEach((p, i) => {
+      const nextChain = this.dashaChainAt(p.endMs + 1, engine.mahadashas, engine.subPeriods, i + 1);
+      const next = nextChain.length > i ? nextChain[i] : null;
+      current[DASHA_LEVELS[i]] = {
+        ...engine.fmt(p),
+        ends_in: this.formatDuration(p.endMs - t),
+        next: next ? { ...engine.fmt(next), starts_in: this.formatDuration(next.startMs - t) } : null,
+      };
+    });
+    current.chain = chain.map(label).join('-');
+    return current;
+  }
+
+  // Compact chains for several dates: just the labels and each level's start/end
+  describeChains(times, engine, levels, formatTime, label) {
+    return times.map(t => {
+      const chain = this.dashaChainAt(t, engine.mahadashas, engine.subPeriods, levels);
+      return {
+        as_of: formatTime(t),
+        chain: chain.map(label).join('-') || null,
+        periods: chain.map((p, i) => ({ level: DASHA_LEVELS[i], ...engine.fmt(p) })),
+      };
+    });
+  }
+
   vimshottariStart(moonLon) {
     const nakshatraIndex = Math.floor(moonLon / NAKSHATRA_SPAN);
     const elapsedFraction = (moonLon - nakshatraIndex * NAKSHATRA_SPAN) / NAKSHATRA_SPAN;
@@ -1099,8 +1249,8 @@ class SwissEphemerisServer {
     };
   }
 
-  calculateVimshottari(start, birthMs, clock, formatTime, asOf, yearDescription) {
-    const { nakshatraIndex, elapsedFraction, firstLord, elapsedYears } = start;
+  vimshottariEngine(start, clock, formatTime) {
+    const { firstLord, elapsedYears } = start;
     const firstIndex = DASHA_ORDER.indexOf(firstLord);
 
     // Periods are built in years relative to birth, then turned into times with the clock
@@ -1129,22 +1279,14 @@ class SwissEphemerisServer {
       cursor += DASHA_YEARS[lord];
     }
 
-    const t = asOf.getTime();
-    const find = (periods) => periods.find(p => t >= p.startMs && t < p.endMs) || null;
     const fmt = (p) => ({ lord: p.lord, start: formatTime(p.startMs), end: formatTime(p.endMs) });
+    return { mahadashas, subPeriods, fmt };
+  }
 
-    let current = null;
-    const chain = [];
-    let level = find(mahadashas);
-    while (level && chain.length < DASHA_LEVELS.length) {
-      chain.push(level);
-      level = chain.length < DASHA_LEVELS.length ? find(subPeriods(level)) : null;
-    }
-    if (chain.length) {
-      current = { as_of: formatTime(t) };
-      chain.forEach((p, i) => { current[DASHA_LEVELS[i]] = fmt(p); });
-      current.chain = chain.map(p => p.lord).join('-');
-    }
+  calculateVimshottari(start, birthMs, clock, formatTime, asOf, yearDescription, { levels = 6, compact = false, asOfList } = {}) {
+    const { nakshatraIndex, elapsedFraction, firstLord } = start;
+    const engine = this.vimshottariEngine(start, clock, formatTime);
+    const label = (p) => p.lord;
 
     return {
       moon_nakshatra: NAKSHATRAS[nakshatraIndex],
@@ -1153,19 +1295,23 @@ class SwissEphemerisServer {
         years: Math.round((1 - elapsedFraction) * DASHA_YEARS[firstLord] * 10000) / 10000,
       },
       year: yearDescription,
-      current,
-      mahadashas: mahadashas.map(p => ({
-        lord: p.lord,
-        start: formatTime(Math.max(p.startMs, birthMs)),
-        end: formatTime(p.endMs),
-        antardashas: subPeriods(p)
-          .filter(ad => ad.endMs > birthMs)
-          .map(ad => ({
-            lord: ad.lord,
-            start: formatTime(Math.max(ad.startMs, birthMs)),
-            end: formatTime(ad.endMs),
-          })),
-      })),
+      ...(asOfList
+        ? { chains: this.describeChains(asOfList, engine, levels, formatTime, label) }
+        : { current: this.describeCurrentChain(asOf.getTime(), engine, levels, formatTime, label) }),
+      ...(compact ? {} : {
+        mahadashas: engine.mahadashas.map(p => ({
+          lord: p.lord,
+          start: formatTime(Math.max(p.startMs, birthMs)),
+          end: formatTime(p.endMs),
+          antardashas: engine.subPeriods(p)
+            .filter(ad => ad.endMs > birthMs)
+            .map(ad => ({
+              lord: ad.lord,
+              start: formatTime(Math.max(ad.startMs, birthMs)),
+              end: formatTime(ad.endMs),
+            })),
+        })),
+      }),
     };
   }
 
@@ -1220,13 +1366,9 @@ class SwissEphemerisServer {
     };
   }
 
-  // Kalachakra dasha by the SM Singh method. `chainLevels` is how deep the running chain goes
-  // (3 = to pratyantardasha, 6 = to deha); `drillDown` is an optional path of sign
-  // abbreviations (e.g. ['Ta', 'Vi']) whose sub-periods are listed, like dividing a period in JHora.
-  calculateKalachakra(start, clock, formatTime, asOf, yearDescription, { chainLevels = 6, drillDown } = {}) {
-    const { pada, savya, sign, cycle, paramayush, firstIndex, firstStartYears } = start;
+  kalachakraEngine(start, clock, formatTime) {
+    const { savya, cycle, firstIndex, firstStartYears } = start;
     const padaName = (q) => `${NAKSHATRAS[Math.floor(q / 4)]} ${(q % 4) + 1}`;
-
     const timed = (p) => ({ ...p, startMs: clock(p.start), endMs: clock(p.end) });
 
     // SM Singh: sub-periods of a period come from the pada it stands for, the way the
@@ -1246,7 +1388,7 @@ class SwissEphemerisServer {
         periods.push(timed({ sign: s, position: sub.positions[i], start: cursor, end: cursor + part }));
         cursor += part;
       });
-      return periods;
+      return this.markGatis(periods);
     };
 
     // Mahadashas run strictly through the cycle, returning to its beginning after the last sign
@@ -1255,72 +1397,103 @@ class SwissEphemerisServer {
     for (let i = 0; i < 9; i++) {
       const index = (firstIndex + i) % 9;
       const s = cycle.signs[index];
-      mahadashas.push(timed({ sign: s, position: cycle.positions[index], start: cursor, end: cursor + KC_YEARS[s] }));
+      mahadashas.push(timed({
+        sign: s,
+        position: cycle.positions[index],
+        start: cursor,
+        end: cursor + KC_YEARS[s],
+        cycleRestart: i > 0 && index === 0,
+      }));
       cursor += KC_YEARS[s];
     }
+    this.markGatis(mahadashas);
 
     const fmt = (p) => ({
       sign: SIGNS[p.sign],
       sign_abbr: SIGN_ABBR[p.sign],
       pada: padaName(p.position),
+      ...(p.gati ? { gati: p.gati } : {}),
+      ...(p.cycleRestart ? { cycle_restart: true } : {}),
       start: formatTime(p.startMs),
       end: formatTime(p.endMs),
     });
+    return { mahadashas, subPeriods, fmt, padaName };
+  }
 
-    const levelNames = DASHA_LEVELS;
-    const t = asOf.getTime();
-    const find = (periods) => periods.find(p => t >= p.startMs && t < p.endMs) || null;
-    let current = null;
-    const chain = [];
-    let level = find(mahadashas);
-    while (level && chain.length < chainLevels) {
-      chain.push(level);
-      level = chain.length < chainLevels ? find(subPeriods(level)) : null;
-    }
-    if (chain.length) {
-      current = { as_of: formatTime(t) };
-      chain.forEach((p, i) => { current[levelNames[i]] = fmt(p); });
-      current.chain = chain.map(p => SIGN_ABBR[p.sign]).join('-');
-    }
+  // Kalachakra dasha by the SM Singh method. `levels` is how deep the running chain goes
+  // (3 = to pratyantardasha, 6 = to deha); `drillDown` is an optional path of sign
+  // abbreviations (e.g. ['Ta', 'Vi']) whose sub-periods are listed, like dividing a period in JHora.
+  // `compact` leaves out the full mahadasha/antardasha tree; `asOfList` gives chains for several dates.
+  calculateKalachakra(start, clock, formatTime, asOf, yearDescription, { levels = 6, drillDown, compact = false, asOfList, ayanamsaName } = {}) {
+    const { pada, savya, sign, cycle, paramayush } = start;
+    const engine = this.kalachakraEngine(start, clock, formatTime);
+    const label = (p) => SIGN_ABBR[p.sign];
 
     let drilled;
     if (drillDown && drillDown.length) {
-      let periods = mahadashas;
+      let periods = engine.mahadashas;
       const path = [];
       for (const abbr of drillDown) {
-        // A sign can occur twice in a cycle; take the first occurrence after any already chosen
+        // A sign can occur twice in a cycle; take the first occurrence
         const match = periods.find(p => SIGN_ABBR[p.sign].toLowerCase() === String(abbr).toLowerCase());
         if (!match) {
           throw new Error(`drill_down: ${abbr} is not one of ${periods.map(p => SIGN_ABBR[p.sign]).join(', ')}`);
         }
         path.push(match);
-        periods = subPeriods(match);
+        periods = engine.subPeriods(match);
       }
       drilled = {
-        path: path.map((p, i) => ({ level: levelNames[i], ...fmt(p) })),
-        [`${levelNames[Math.min(path.length, 5)]}s`]: periods.map(fmt),
+        path: path.map((p, i) => ({ level: DASHA_LEVELS[i], ...engine.fmt(p) })),
+        [`${DASHA_LEVELS[Math.min(path.length, 5)]}s`]: periods.map(engine.fmt),
       };
     }
 
     const first = cycle.signs[0];
     const last = cycle.signs[8];
     return {
-      method: 'SM Singh: dasa sesham fraction applied to the full cycle; mahadashas strictly from the cycle (back to its start after the last sign); sub-periods found from each period\'s sign the way mahadashas are found from the navamsa',
+      method: 'SM Singh: dasa sesham fraction applied to the full cycle; mahadashas strictly from the cycle (back to its start after the last sign); sub-periods found from each period\'s pada the way mahadashas are found from the Moon\'s pada',
+      ayanamsa: `${ayanamsaName} (Kalachakra is very sensitive to the ayanamsa: another ayanamsa can move the whole timeline by months or years)`,
       from: 'Moon (D-1)',
       direction: savya ? 'Savya' : 'Apasavya',
-      moon_pada: padaName(pada),
+      moon_pada: engine.padaName(pada),
       navamsa: SIGNS[sign],
       paramayush,
       deha: SIGN_ABBR[savya ? first : last],
       jiva: SIGN_ABBR[savya ? last : first],
       year: yearDescription,
-      current,
+      gati_legend: 'gati marks the jump into a period: Simhavalokana (lion, trinal jump), Manduka (frog, jump over a sign), Markati (monkey, the Cancer-Leo step between frog jumps), other jump (e.g. where the cycle restarts); cycle_restart marks a mahadasha where the SM Singh cycle begins again',
+      ...(asOfList
+        ? { chains: this.describeChains(asOfList, engine, levels, formatTime, label) }
+        : { current: this.describeCurrentChain(asOf.getTime(), engine, levels, formatTime, label) }),
       ...(drilled ? { drill_down: drilled } : {}),
-      mahadashas: mahadashas.map(p => ({
-        ...fmt(p),
-        antardashas: subPeriods(p).map(fmt),
-      })),
+      ...(compact ? {} : {
+        mahadashas: engine.mahadashas.map(p => ({
+          ...engine.fmt(p),
+          antardashas: engine.subPeriods(p).map(engine.fmt),
+        })),
+      }),
     };
+  }
+
+  // Days by which each dasha system's boundaries move per second of birth time. The Moon's
+  // motion moves the elapsed part of the birth dasha; a later birth moves boundaries earlier.
+  birthTimeSensitivity(moonSpeed, vimshottari, kalachakra) {
+    const moonPerSecond = moonSpeed / 86400;
+    const round = (v) => Math.round(v * 10000) / 10000;
+    return {
+      kalachakra_days_per_birth_second: round(moonPerSecond / (NAKSHATRA_SPAN / 4) * kalachakra.paramayush * SIDEREAL_YEAR_DAYS),
+      vimshottari_days_per_birth_second: round(moonPerSecond / NAKSHATRA_SPAN * DASHA_YEARS[vimshottari.firstLord] * SIDEREAL_YEAR_DAYS),
+      note: 'A birth time 1 s later moves every boundary this many days earlier (and the reverse). The Moon at birth sets these, so they hold for the whole timeline.',
+    };
+  }
+
+  // Formats an instant in a fixed UTC offset with milliseconds when present
+  formatInstant(ms, datetime) {
+    const match = datetime.match(/([+-])(\d{2}):?(\d{2})$/);
+    const offsetMinutes = match ? (match[1] === '-' ? -1 : 1) * (parseInt(match[2]) * 60 + parseInt(match[3])) : 0;
+    const suffix = match ? `${match[1]}${match[2]}:${match[3]}` : 'Z';
+    const iso = new Date(ms + offsetMinutes * 60000).toISOString();
+    return (iso.endsWith('.000Z') ? iso.replace('.000Z', '') : iso.replace('Z', '')) + suffix;
   }
 
   // Kalachakra dasha alone, always with Jagannatha Hora's settings: Traditional Lahiri,
@@ -1330,46 +1503,105 @@ class SwissEphemerisServer {
     if (isNaN(date.getTime())) {
       throw new Error('Invalid datetime format. Use ISO8601 format like 1985-04-12T23:20:50Z');
     }
-    const asOf = options.as_of ? new Date(options.as_of) : new Date();
-    if (isNaN(asOf.getTime())) {
-      throw new Error('Invalid as_of datetime. Use ISO8601 format like 2024-01-01T00:00:00Z');
+    const asOfInputs = Array.isArray(options.as_of) ? options.as_of : null;
+    const asOfTimes = (asOfInputs || [options.as_of]).map(a => (a ? new Date(a) : new Date()));
+    if (asOfTimes.some(t => isNaN(t.getTime()))) {
+      throw new Error('Invalid as_of datetime. Use ISO8601 format like 2024-01-01T00:00:00+05:30');
     }
+    const levels = options.levels || 6;
 
     const ayanamsa = AYANAMSAS.traditional_lahiri;
     const positionFlag = ' -true';
     const ephePath = process.env.SE_EPHE_PATH || '/app/vendor/swisseph';
-    const output = execSync(
-      `SE_EPHE_PATH=${ephePath} swetest -b${this.formatDateToSwiss(date)} -ut${this.formatTimeToSwiss(date)} ` +
-      `${ayanamsa.flag}${positionFlag} -p1 -fl -g, -head`,
-      { encoding: 'utf8' }
-    );
-    const moonLon = parseFloat(output.trim());
-    if (isNaN(moonLon)) {
-      throw new Error('Failed to compute the Moon position from swetest');
+    const sunSettings = { ephePath, siderealFlag: ayanamsa.flag, positionFlag };
+    const yearDescription = 'true sidereal solar year (one sidereal revolution of the Sun, as in Jagannatha Hora)';
+    const settings = {
+      ayanamsa: ayanamsa.name,
+      positions: 'true',
+      year: 'true sidereal solar years',
+      method: 'SM Singh (full cycle fraction, MDs strictly from cycle, ADs from MD like MDs from navamsa)',
+      starting_point: 'Janma tara (Moon), Rasi (D-1)',
+      rohini_4th_pada: 'Leo navamsa',
+    };
+
+    // Moon longitude and speed at `count` instants `stepSeconds` apart from `from`
+    const moonAt = (from, count = 1, stepSeconds = 1) => {
+      const output = execSync(
+        `SE_EPHE_PATH=${ephePath} swetest ${this.swissTimeArgs(from)} ${ayanamsa.flag}${positionFlag} ` +
+        `-p1 -fls -g, -head -n${count} -s${stepSeconds / 86400}`,
+        { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 }
+      );
+      const rows = output.trim().split('\n').map(l => l.split(',').map(parseFloat)).filter(r => !isNaN(r[0]));
+      if (rows.length !== count) throw new Error('Failed to compute the Moon position from swetest');
+      return rows.map(([lon, speed]) => ({ lon, speed }));
+    };
+
+    // Birth-time sweep: compact chains at every as_of date for each candidate birth time
+    const sweep = options.birth_time_sweep;
+    if (sweep) {
+      const count = Math.floor((sweep.to_seconds - sweep.from_seconds) / sweep.step_seconds + 1e-9) + 1;
+      const first = new Date(date.getTime() + sweep.from_seconds * 1000);
+      const moons = moonAt(first, count, sweep.step_seconds);
+      const starts = moons.map(m => this.kalachakraStart(m.lon));
+      // One Sun table serves every candidate
+      const fromYears = Math.min(...starts.map(s => s.firstStartYears));
+      const toYears = Math.max(...starts.map(s => s.lastEndYears));
+      const sunTable = this.makeSunTableForYears(date.getTime(), sunSettings, fromYears - 1, toYears + 1);
+      const label = (p) => SIGN_ABBR[p.sign];
+      const formatTime = this.makeTimeFormatter(datetime);
+      const roundOffset = (v) => Math.round(v * 1000) / 1000;
+      // Consecutive birth times with identical chains at every date are merged into one range
+      const ranges = [];
+      moons.forEach((m, i) => {
+        const offset = sweep.from_seconds + i * sweep.step_seconds;
+        const birthMs = date.getTime() + offset * 1000;
+        const engine = this.kalachakraEngine(starts[i], this.makeDashaClock(birthMs, { sunTable }), formatTime);
+        const chains = asOfTimes.map(t => this.dashaChainAt(t.getTime(), engine.mahadashas, engine.subPeriods, levels).map(label).join('-') || null);
+        const last = ranges[ranges.length - 1];
+        if (last && last.chains.every((c, k) => c === chains[k])) {
+          last.to_offset_seconds = roundOffset(offset);
+          last.birth_to = this.formatInstant(birthMs, datetime);
+          last.count++;
+        } else {
+          ranges.push({
+            from_offset_seconds: roundOffset(offset),
+            to_offset_seconds: roundOffset(offset),
+            birth_from: this.formatInstant(birthMs, datetime),
+            birth_to: this.formatInstant(birthMs, datetime),
+            count: 1,
+            chains,
+          });
+        }
+      });
+      return {
+        settings,
+        ayanamsa_note: 'Kalachakra here always uses Traditional Lahiri; another ayanamsa can move the whole timeline by months or years',
+        levels: DASHA_LEVELS.slice(0, levels),
+        as_of: asOfTimes.map(t => formatTime(t.getTime())),
+        birth_time_sensitivity: this.birthTimeSensitivity(moons[0].speed, this.vimshottariStart(moons[0].lon), starts[0]),
+        birth_times_checked: moons.length,
+        note: 'Each range lists the birth times (inclusive, in step_seconds steps) that give the same chain at every as_of date; chains[k] belongs to as_of[k]. Use a lower levels value for wider ranges.',
+        ranges,
+        datetime,
+      };
     }
 
-    const start = this.kalachakraStart(moonLon);
-    const clock = this.makeDashaClock(date, {
-      ephePath,
-      siderealFlag: ayanamsa.flag,
-      positionFlag,
-      fromYears: start.firstStartYears - 1,
-      toYears: start.lastEndYears + 1,
-    });
-    const yearDescription = 'true sidereal solar year (one sidereal revolution of the Sun, as in Jagannatha Hora)';
+    const [moon] = moonAt(date);
+    const start = this.kalachakraStart(moon.lon);
+    const sunTable = this.makeSunTableForYears(date.getTime(), sunSettings, start.firstStartYears, start.lastEndYears);
+    const clock = this.makeDashaClock(date.getTime(), { sunTable });
+    const compact = options.output === 'chain' || Boolean(asOfInputs);
 
     return {
-      settings: {
-        ayanamsa: ayanamsa.name,
-        positions: 'true',
-        year: 'true sidereal solar years',
-        method: 'SM Singh (full cycle fraction, MDs strictly from cycle, ADs from MD like MDs from navamsa)',
-        starting_point: 'Janma tara (Moon), Rasi (D-1)',
-        rohini_4th_pada: 'Leo navamsa',
-      },
-      moon: this.describeSiderealPoint(moonLon),
-      ...this.calculateKalachakra(start, clock, this.makeTimeFormatter(datetime), asOf, yearDescription, {
+      settings,
+      moon: this.describeSiderealPoint(moon.lon),
+      birth_time_sensitivity: this.birthTimeSensitivity(moon.speed, this.vimshottariStart(moon.lon), start),
+      ...this.calculateKalachakra(start, clock, this.makeTimeFormatter(datetime), asOfTimes[0], yearDescription, {
+        levels,
         drillDown: options.drill_down,
+        compact,
+        asOfList: asOfInputs ? asOfTimes.map(t => t.getTime()) : null,
+        ayanamsaName: ayanamsa.name,
       }),
       datetime,
     };
@@ -1382,6 +1614,30 @@ class SwissEphemerisServer {
     if (s === 60) { s = 0; m += 1; }
     if (m === 60) { m = 0; d += 1; }
     return `${d}°${String(m).padStart(2, '0')}'${String(s).padStart(2, '0')}"`;
+  }
+
+  // as_of may be one date or a list of dates; each gets IST when it has no offset
+  normalizeAsOf(asOf) {
+    if (asOf === undefined) return undefined;
+    if (Array.isArray(asOf)) {
+      if (!asOf.length || asOf.length > MAX_AS_OF_DATES || asOf.some(a => typeof a !== 'string')) {
+        throw new McpError(ErrorCode.InvalidParams, `as_of must be a date string or a list of 1 to ${MAX_AS_OF_DATES} date strings`);
+      }
+      return asOf.map(a => this.withDefaultOffset(a));
+    }
+    if (typeof asOf !== 'string') {
+      throw new McpError(ErrorCode.InvalidParams, 'as_of must be a date string or a list of date strings');
+    }
+    return this.withDefaultOffset(asOf);
+  }
+
+  validateDashaOutput({ levels, output }) {
+    if (levels !== undefined && (!Number.isInteger(levels) || levels < 1 || levels > 6)) {
+      throw new McpError(ErrorCode.InvalidParams, 'levels must be an integer from 1 (mahadasha) to 6 (deha)');
+    }
+    if (output !== undefined && output !== 'full' && output !== 'chain') {
+      throw new McpError(ErrorCode.InvalidParams, 'output must be "full" or "chain"');
+    }
   }
 
   validateTimezone(timeZone) {
@@ -1642,13 +1898,16 @@ class SwissEphemerisServer {
         }
 
         this.validateTimezone(args.current_timezone);
+        this.validateDashaOutput(args);
         const vedicBirth = this.withDefaultOffset(vedicDatetime);
         const vedicResult = this.calculateVedicChart(vedicBirth, vedicLatitude, vedicLongitude, {
           ayanamsa,
           position_type,
           node_type,
-          as_of: this.withDefaultOffset(as_of),
+          as_of: this.normalizeAsOf(as_of),
           dasha_year_days,
+          levels: args.levels,
+          output: args.output,
         });
         vedicResult.datetime_input = vedicDatetime;
         return this.withCurrentTimezone(vedicResult, vedicBirth, args.current_timezone, ['vimshottari_dasha', 'kalachakra_dasha']);
@@ -1672,10 +1931,30 @@ class SwissEphemerisServer {
         }
 
         this.validateTimezone(args.current_timezone);
+        this.validateDashaOutput(args);
+        const kcAsOfList = this.normalizeAsOf(kcAsOf);
+        const sweep = args.birth_time_sweep;
+        if (sweep !== undefined) {
+          const { from_seconds: from, to_seconds: to, step_seconds: step } = sweep || {};
+          if (![from, to, step].every(v => typeof v === 'number' && isFinite(v)) || step <= 0 || to < from) {
+            throw new McpError(ErrorCode.InvalidParams, 'birth_time_sweep needs numbers from_seconds <= to_seconds and step_seconds > 0');
+          }
+          const candidates = Math.floor((to - from) / step + 1e-9) + 1;
+          const dates = Array.isArray(kcAsOfList) ? kcAsOfList.length : 1;
+          if (candidates > MAX_SWEEP_CANDIDATES || candidates * dates > MAX_SWEEP_CHAINS) {
+            throw new McpError(ErrorCode.InvalidParams, `birth_time_sweep is limited to ${MAX_SWEEP_CANDIDATES} birth times and ${MAX_SWEEP_CHAINS} chains (birth times x as_of dates); this request has ${candidates} x ${dates}`);
+          }
+        }
         const kcBirth = this.withDefaultOffset(kcDatetime);
-        const kcResult = this.calculateKalachakraDasha(kcBirth, { as_of: this.withDefaultOffset(kcAsOf), drill_down });
+        const kcResult = this.calculateKalachakraDasha(kcBirth, {
+          as_of: kcAsOfList,
+          drill_down,
+          levels: args.levels,
+          output: args.output,
+          birth_time_sweep: sweep,
+        });
         kcResult.datetime_input = kcDatetime;
-        return this.withCurrentTimezone(kcResult, kcBirth, args.current_timezone, ['current', 'drill_down', 'mahadashas']);
+        return this.withCurrentTimezone(kcResult, kcBirth, args.current_timezone, ['current', 'chains', 'drill_down', 'mahadashas']);
       }
 
       default:
