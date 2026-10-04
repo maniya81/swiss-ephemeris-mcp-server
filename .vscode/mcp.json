@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "swissEphemeris": {
+      "type": "stdio",
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "swiss-ephemeris-mcp"]
+    }
+  }
+}
