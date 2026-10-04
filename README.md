@@ -155,6 +155,10 @@ docker run -p 8000:8000 -e MCP_HTTP_MODE=true swiss-ephemeris-mcp
 curl http://localhost:8000/health
 ```
 
+## Deploy to Google Cloud
+
+To host the server on Cloud Run (free tier) and connect it to Claude as a custom connector, or to run it locally for Claude Desktop and VS Code Copilot, see [docs/DEPLOY_GCP.md](docs/DEPLOY_GCP.md).
+
 ## Transport Modes
 
 - **Stdio**: Default mode for Claude Desktop integration
