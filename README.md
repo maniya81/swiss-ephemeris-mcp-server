@@ -2,6 +2,19 @@
 
 A Model Context Protocol (MCP) server that provides astronomical calculations using the Swiss Ephemeris library. Calculate planetary positions, houses, chart points, and asteroids for any date and location.
 
+## 🚀 Live Hosted Server (Google Cloud Run)
+
+The server is deployed live on Google Cloud Run and available for public MCP and HTTP integration:
+
+- **Service URL**: `https://swiss-ephemeris-mcp-372282693829.us-central1.run.app`
+- **MCP Endpoint**: `https://swiss-ephemeris-mcp-372282693829.us-central1.run.app/mcp`
+- **Health Check**: `https://swiss-ephemeris-mcp-372282693829.us-central1.run.app/health`
+
+### Quick Connect
+
+- **Claude.ai**: Go to **Settings → Connectors → Add custom connector**, set Name to `Swiss Ephemeris` and URL to `https://swiss-ephemeris-mcp-372282693829.us-central1.run.app/mcp`.
+- **VS Code**: Use the preconfigured `swissEphemerisGCP` entry in `.vscode/mcp.json`.
+
 ## Features
 
 - **Planetary Positions**: Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto
@@ -155,20 +168,22 @@ docker run -p 8000:8000 -e MCP_HTTP_MODE=true swiss-ephemeris-mcp
 curl http://localhost:8000/health
 ```
 
-## Deploy to Google Cloud
+## Deploy to Google Cloud & Free CI/CD
 
-To host the server on Cloud Run (free tier) and connect it to Claude as a custom connector, or to run it locally for Claude Desktop and VS Code Copilot, see [docs/DEPLOY_GCP.md](docs/DEPLOY_GCP.md).
+- **Deployment Guide**: See [docs/DEPLOY_GCP.md](docs/DEPLOY_GCP.md) for step-by-step setup details.
+- **Automated CI/CD**: A `cloudbuild.yaml` file is included in this repository. Connecting your repository to a GCP Cloud Build GitHub Trigger provides 100% free automated deployments on push to `main` (staying well within GCP's 120 free build-minutes/day).
 
 ## Transport Modes
 
-- **Stdio**: Default mode for Claude Desktop integration
-- **HTTP**: Use `MCP_HTTP_MODE=true` for web integration via ngrok
+- **HTTP**: Live on Google Cloud Run with `MCP_HTTP_MODE=true` at `/mcp` (Streamable HTTP).
+- **Stdio**: Local Docker or development mode for desktop clients.
 
 ## Links
 
-- **MCP URL**: https://www.theme-astral.me/mcp
-- **Repository**: https://github.com/dm0lz/swiss-ephemeris-mcp-server
-- **Swiss Ephemeris**: https://www.astro.com/swisseph/
+- **Live MCP Endpoint**: https://swiss-ephemeris-mcp-372282693829.us-central1.run.app/mcp
+- **Health Check**: https://swiss-ephemeris-mcp-372282693829.us-central1.run.app/health
+- **GCP Project**: `swiss-ephemeris-mcp-5573` (region: `us-central1`)
+- **Swiss Ephemeris Documentation**: https://www.astro.com/swisseph/
 
 ## License
 
