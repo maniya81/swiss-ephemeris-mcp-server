@@ -32,6 +32,22 @@ const NAKSHATRA_SPAN = 360 / 27;
 const DASHA_LEVELS = ['mahadasha', 'antardasha', 'pratyantardasha', 'sookshma', 'praana', 'deha'];
 const SIGN_ABBR = ['Ar', 'Ta', 'Ge', 'Cn', 'Le', 'Vi', 'Li', 'Sc', 'Sg', 'Cp', 'Aq', 'Pi'];
 const DEFAULT_AYANAMSA = 'traditional_lahiri';
+// Birth times without a UTC offset are taken as Indian Standard Time
+const DEFAULT_BIRTH_OFFSET = '+05:30';
+const SERVER_INSTRUCTIONS = `Vedic astrology calculations (Swiss Ephemeris). Defaults match Jagannatha Hora: Traditional Lahiri ayanamsa, true positions, true nodes, true sidereal solar years; Kalachakra by the SM Singh method.
+
+Birth time and place:
+- Always pass datetime as YYYY-MM-DDTHH:mm:ss with an explicit UTC offset, e.g. 1999-06-06T15:30:00+05:30. Keep the seconds exactly as given (15:30:00 and 15:30:03 are different charts).
+- If the user gives no timezone or country for the birth, use Indian Standard Time (+05:30). The server also assumes +05:30 when the offset is missing and says so in birth_timezone.
+- If the user names a birth place or zone (New York, London, UTC...), use the offset in force there on the birth date.
+- For a named Indian city (Bhavnagar, Botad, Mumbai, Ahmedabad...) use its own coordinates. If only "India" is given, use 21°46'N 72°09'E (21.7667, 72.15) when the context points to Gujarat / Western India.
+- Kalachakra (calculate_kalachakra_dasha) always runs with the Jagannatha Hora settings and does not depend on the birth place.
+
+Current location (dual-time reporting):
+- Dasha transitions happen at one physical moment; show them in both the birth timezone and the native's current local time.
+- If you do not know where the native lives now, give the results in the birth timezone and ask: "I have calculated your chart and dashas in your birth timezone (IST). If you are currently living in another city or country (e.g., Melbourne, London, New York), please let me know your current location so I can display all active dasha transition timestamps in your local time."
+- Once known, pass current_timezone as an IANA name (Australia/Melbourne, Europe/London, America/New_York). Every start/end then comes with start_local/end_local converted with the real daylight-saving rules for that date; use those values, do not add offsets yourself.
+- Present transitions in a table with both columns, e.g. | Level | Sign & Pada | Birth Time (IST) | Current Local Time (Melbourne) |, and never round off seconds.`;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SIDEREAL_YEAR_DAYS = 365.256363;
 // Kalachakra dasha (BPHS). Years of each sign, Aries to Pisces
@@ -86,6 +102,7 @@ class SwissEphemerisServer {
         capabilities: {
           tools: {},
         },
+        instructions: SERVER_INSTRUCTIONS,
       }
     );
 
@@ -217,7 +234,7 @@ class SwissEphemerisServer {
               properties: {
                 datetime: {
                   type: 'string',
-                  description: 'Birth datetime in ISO8601 format. Include the timezone, e.g., 1999-06-06T15:30:00+05:30; dasha dates are returned in the same offset',
+                  description: 'Birth datetime in ISO8601 format with the birth UTC offset and seconds, e.g., 1999-06-06T15:30:00+05:30. Without an offset IST (+05:30) is assumed. Dasha dates are returned in the same offset',
                 },
                 latitude: {
                   type: 'number',
@@ -246,6 +263,10 @@ class SwissEphemerisServer {
                   type: 'string',
                   description: 'ISO8601 date for which to report the running dasha chains (default now)',
                 },
+                current_timezone: {
+                  type: 'string',
+                  description: 'IANA timezone where the native lives now, e.g. Australia/Melbourne, Europe/London, America/New_York. Adds start_local/end_local to every dasha period, converted with that zone\'s daylight-saving rules',
+                },
                 dasha_year_days: {
                   type: 'number',
                   description: 'Fixed days per dasha year (e.g. 365.25 or 360). Omit to use true sidereal solar years, as in Jagannatha Hora',
@@ -262,7 +283,7 @@ class SwissEphemerisServer {
               properties: {
                 datetime: {
                   type: 'string',
-                  description: 'Birth datetime in ISO8601 format with timezone, e.g., 1999-06-06T15:30:00+05:30; dates are returned in the same offset',
+                  description: 'Birth datetime in ISO8601 format with the birth UTC offset and seconds, e.g., 1999-06-06T15:30:00+05:30. Without an offset IST (+05:30) is assumed. Dates are returned in the same offset',
                 },
                 latitude: {
                   type: 'number',
@@ -275,6 +296,10 @@ class SwissEphemerisServer {
                 as_of: {
                   type: 'string',
                   description: 'ISO8601 date for the running chain (default now)',
+                },
+                current_timezone: {
+                  type: 'string',
+                  description: 'IANA timezone where the native lives now, e.g. Australia/Melbourne, Europe/London, America/New_York. Adds start_local/end_local to every dasha period, converted with that zone\'s daylight-saving rules',
                 },
                 drill_down: {
                   type: 'array',
@@ -956,6 +981,60 @@ class SwissEphemerisServer {
   }
 
   // Formats timestamps in the UTC offset given with the birth datetime (e.g. +05:30), else UTC
+  // Adds DEFAULT_BIRTH_OFFSET to an ISO datetime that has no UTC offset
+  withDefaultOffset(datetime) {
+    if (typeof datetime !== 'string' || /(Z|[+-]\d{2}:?\d{2})$/i.test(datetime.trim())) return datetime;
+    const trimmed = datetime.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return `${trimmed}T00:00:00${DEFAULT_BIRTH_OFFSET}`;
+    return /T\d{2}:\d{2}$/.test(trimmed) ? `${trimmed}:00${DEFAULT_BIRTH_OFFSET}` : `${trimmed}${DEFAULT_BIRTH_OFFSET}`;
+  }
+
+  // Formats a timestamp as wall-clock time in an IANA timezone, e.g.
+  // "2026-09-12 14:14:26 AEST (UTC+10:00)", using that zone's daylight-saving rules
+  makeZoneFormatter(timeZone) {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23', timeZoneName: 'longOffset',
+    });
+    const names = ['en-US', 'en-AU', 'en-GB', 'en-IN', 'en-NZ', 'en-CA'].map(locale =>
+      new Intl.DateTimeFormat(locale, { timeZone, timeZoneName: 'short' }));
+    return (ms) => {
+      const date = new Date(ms);
+      const p = Object.fromEntries(parts.formatToParts(date).map(x => [x.type, x.value]));
+      const offset = p.timeZoneName === 'GMT' ? '+00:00' : p.timeZoneName.replace('GMT', '');
+      const abbreviation = names
+        .map(f => f.formatToParts(date).find(x => x.type === 'timeZoneName').value)
+        .find(n => !/^(GMT|UTC)/.test(n));
+      return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second} ${abbreviation ? `${abbreviation} ` : ''}(UTC${offset})`;
+    };
+  }
+
+  // Adds start_local/end_local (and as_of_local) next to every start/end in a dasha result
+  addLocalTimes(value, formatLocal) {
+    if (Array.isArray(value)) {
+      value.forEach(v => this.addLocalTimes(v, formatLocal));
+    } else if (value && typeof value === 'object') {
+      for (const key of ['start', 'end', 'as_of']) {
+        if (typeof value[key] === 'string') value[`${key}_local`] = formatLocal(new Date(value[key]).getTime());
+      }
+      Object.values(value).forEach(v => this.addLocalTimes(v, formatLocal));
+    }
+    return value;
+  }
+
+  // Applies the optional current_timezone to the dasha parts of a result
+  withCurrentTimezone(result, datetime, currentTimezone, dashaKeys) {
+    result.birth_timezone = /[+-]\d{2}:?\d{2}$/.test(datetime) ? `UTC${datetime.slice(-6)}` : 'UTC';
+    if (datetime !== result.datetime_input) result.birth_timezone += ' (assumed IST: no offset given)';
+    delete result.datetime_input;
+    if (currentTimezone) {
+      const formatLocal = this.makeZoneFormatter(currentTimezone);
+      result.current_timezone = currentTimezone;
+      dashaKeys.forEach(key => this.addLocalTimes(result[key], formatLocal));
+    }
+    return result;
+  }
+
   makeTimeFormatter(datetime) {
     const match = datetime.match(/([+-])(\d{2}):?(\d{2})$/);
     const offsetMinutes = match ? (match[1] === '-' ? -1 : 1) * (parseInt(match[2]) * 60 + parseInt(match[3])) : 0;
@@ -1305,6 +1384,19 @@ class SwissEphemerisServer {
     return `${d}°${String(m).padStart(2, '0')}'${String(s).padStart(2, '0')}"`;
   }
 
+  validateTimezone(timeZone) {
+    if (timeZone === undefined) return;
+    try {
+      if (typeof timeZone !== 'string') throw new Error();
+      new Intl.DateTimeFormat('en-US', { timeZone });
+    } catch {
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        'current_timezone must be an IANA timezone name, e.g. Australia/Melbourne, Europe/London, America/New_York'
+      );
+    }
+  }
+
   async handleToolCall(name, args) {
     switch (name) {
       case 'calculate_planetary_positions':
@@ -1549,13 +1641,17 @@ class SwissEphemerisServer {
           );
         }
 
-        return this.calculateVedicChart(vedicDatetime, vedicLatitude, vedicLongitude, {
+        this.validateTimezone(args.current_timezone);
+        const vedicBirth = this.withDefaultOffset(vedicDatetime);
+        const vedicResult = this.calculateVedicChart(vedicBirth, vedicLatitude, vedicLongitude, {
           ayanamsa,
           position_type,
           node_type,
-          as_of,
+          as_of: this.withDefaultOffset(as_of),
           dasha_year_days,
         });
+        vedicResult.datetime_input = vedicDatetime;
+        return this.withCurrentTimezone(vedicResult, vedicBirth, args.current_timezone, ['vimshottari_dasha', 'kalachakra_dasha']);
       }
 
       case 'calculate_kalachakra_dasha': {
@@ -1575,7 +1671,11 @@ class SwissEphemerisServer {
           );
         }
 
-        return this.calculateKalachakraDasha(kcDatetime, { as_of: kcAsOf, drill_down });
+        this.validateTimezone(args.current_timezone);
+        const kcBirth = this.withDefaultOffset(kcDatetime);
+        const kcResult = this.calculateKalachakraDasha(kcBirth, { as_of: this.withDefaultOffset(kcAsOf), drill_down });
+        kcResult.datetime_input = kcDatetime;
+        return this.withCurrentTimezone(kcResult, kcBirth, args.current_timezone, ['current', 'drill_down', 'mahadashas']);
       }
 
       default:
