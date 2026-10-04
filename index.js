@@ -1206,6 +1206,20 @@ class SwissEphemerisServer {
         try {
           console.log(`Received ${req.method} MCP request from Claude via ngrok`);
           
+          // This server never sends server-initiated messages, so refuse the optional
+          // long-lived GET stream; on Cloud Run an open stream is billed as a busy instance
+          if (req.method === 'GET') {
+            res.set('Allow', 'POST, DELETE');
+            return res.status(405).json({
+              jsonrpc: '2.0',
+              error: {
+                code: -32000,
+                message: 'Method not allowed: this server does not offer an SSE stream',
+              },
+              id: null,
+            });
+          }
+
           // Check for existing session ID
           const sessionId = req.headers['mcp-session-id'];
           let transport;
