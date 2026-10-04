@@ -45,7 +45,12 @@ const AYANAMSAS = {
 
 class SwissEphemerisServer {
   constructor() {
-    this.server = new Server(
+    this.server = this.createServer();
+  }
+
+  // Each HTTP session gets its own Server, since a Server can only be connected to one transport
+  createServer() {
+    const server = new Server(
       {
         name: 'swiss-ephemeris-mcp-server',
         version: '1.0.0',
@@ -57,11 +62,12 @@ class SwissEphemerisServer {
       }
     );
 
-    this.setupToolHandlers();
+    this.setupToolHandlers(server);
+    return server;
   }
 
-  setupToolHandlers() {
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+  setupToolHandlers(server) {
+    server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
         tools: [
           {
@@ -220,7 +226,7 @@ class SwissEphemerisServer {
       };
     });
 
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
 
       try {
@@ -1213,8 +1219,12 @@ class SwissEphemerisServer {
               sessionIdGenerator: () => Math.random().toString(36).substring(2, 15),
             });
 
-            // Connect to the MCP server
-            await this.server.connect(transport);
+            transport.onclose = () => {
+              if (transport.sessionId) delete transports[transport.sessionId];
+            };
+
+            // Connect a fresh MCP server for this session
+            await this.createServer().connect(transport);
             
             // Handle the request first, then store the transport
             await transport.handleRequest(req, res, req.body);
@@ -1226,6 +1236,16 @@ class SwissEphemerisServer {
             }
             
             return; // Exit early since we already handled the request
+          } else if (sessionId) {
+            // Unknown session (e.g. the server restarted); 404 tells the client to start a new session
+            return res.status(404).json({
+              jsonrpc: '2.0',
+              error: {
+                code: -32001,
+                message: 'Session not found',
+              },
+              id: null,
+            });
           } else {
             // Invalid request
             return res.status(400).json({
