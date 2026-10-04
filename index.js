@@ -1706,7 +1706,39 @@ class SwissEphemerisServer {
       // SSE endpoint for Claude MCP Connector
       app.all('/mcp', async (req, res) => {
         try {
-          console.log(`Received ${req.method} MCP request from Claude via ngrok`);
+          // Extract client IP and location info from standard proxy headers
+          const forwarded = req.headers['x-forwarded-for'];
+          const clientIp = (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : null) || req.socket.remoteAddress;
+          const userAgent = req.headers['user-agent'] || 'unknown';
+          const country = req.headers['x-appengine-country'] || req.headers['x-client-geo-country'] || 'unknown';
+          const city = req.headers['x-appengine-city'] || req.headers['x-client-geo-city'] || null;
+
+          // Extract JSON-RPC / MCP metadata
+          const mcpMethod = req.body?.method || 'unknown';
+          const toolName = req.body?.params?.name || null;
+          const toolArguments = req.body?.params?.arguments || null;
+          const clientSessionId = req.headers['mcp-session-id'] || null;
+
+          // Output structured JSON log for Google Cloud Logging
+          console.log(JSON.stringify({
+            severity: 'INFO',
+            message: toolName
+              ? `MCP tool call: ${toolName} from ${clientIp}`
+              : `MCP ${req.method} ${mcpMethod} from ${clientIp}`,
+            client: {
+              ip: clientIp,
+              country,
+              city,
+              userAgent,
+            },
+            mcp: {
+              httpMethod: req.method,
+              sessionId: clientSessionId,
+              jsonrpcMethod: mcpMethod,
+              tool: toolName,
+              arguments: toolArguments,
+            },
+          }));
           
           // This server never sends server-initiated messages, so refuse the optional
           // long-lived GET stream; on Cloud Run an open stream is billed as a busy instance
