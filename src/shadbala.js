@@ -279,9 +279,9 @@ export function computeBhavabala({ sidereal, lagna, moonRule }, shadbalaVirupas)
 }
 
 export function compactShadbala(s) {
-  return Object.fromEntries(Object.entries(s.planets).map(([p, x]) => [p, `${x.rupas} rupas (need ${x.required_rupas}, ratio ${x.ratio}, rank ${x.rank}); sthana ${x.sthana.total} dig ${x.dig} kala ${x.kala.total} cheshta ${x.cheshta} naisargika ${x.naisargika} drik ${x.drik}; ishta ${x.ishta_phala} kashta ${x.kashta_phala}`]));
+  return Object.entries(s.planets).map(([p, x]) => `${p.slice(0, 2)} ${x.rupas} ${x.ratio}x #${x.rank}`).join(', ');
 }
 
 export function compactBhavabala(b) {
-  return Object.fromEntries(Object.entries(b).map(([h, x]) => [h, `${x.rupas} rupas (rank ${x.rank}): lord ${x.lord} ${x.bhavadhipati}, dig ${x.dig}, drishti ${x.drishti}`]));
+  return Object.entries(b).map(([h, x]) => `H${h} ${x.rupas} #${x.rank}`).join(', ');
 }

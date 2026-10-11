@@ -78,11 +78,10 @@ export function kpSignificators(longitudes, cusps) {
 }
 
 export function compactSignificators(sig) {
-  const ab = (list) => list.map(p => PLANET_ABBR[p]).join(',') || '-';
   return {
-    planets: Object.fromEntries(Object.entries(sig.planets).map(([p, x]) => [p, `A ${x.A_star_lord_occupies.join(',')} B ${x.B_occupies.join(',')} C ${x.C_star_lord_owns.join(',') || '-'} D ${x.D_owns.join(',') || '-'}${x.in_node_star ? ` (in ${x.in_node_star} star)` : ''}`])),
-    cusps: Object.fromEntries(Object.entries(sig.cusps).map(([h, x]) => [h, `${ab(x.A_in_star_of_occupants)} | ${ab(x.B_occupants)} | ${ab(x.C_in_star_of_owner)} | ${ab(x.D_owner)}`])),
-    legend: 'planets: A houses occupied by the star lord, B occupied, C owned by the star lord, D owned. cusps: A in the star of occupants | B occupants | C in the star of the owner | D owner (strongest first)',
+    legend: 'planets: houses signified; cusps: significators, strongest first (A-D levels with output "full")',
+    planets: Object.entries(sig.planets).map(([p, x]) => `${PLANET_ABBR[p]} ${x.houses.join(',')}${x.in_node_star ? ` (${PLANET_ABBR[x.in_node_star]} star)` : ''}`).join('; '),
+    cusps: Object.entries(sig.cusps).map(([h, x]) => `${h}: ${x.ordered.map(p => PLANET_ABBR[p]).join(' ')}`).join('; '),
   };
 }
 

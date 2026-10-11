@@ -1071,7 +1071,10 @@ class SwissEphemerisServer {
       Math.max(120 - vimshottari.elapsedYears, kalachakra.lastEndYears, 125)
     );
     const clock = this.makeDashaClock(date.getTime(), { sunTable, yearDays });
-    const dashaOptions = { levels, compact, asOfList: asOfInputs ? asOfTimes.map(t => t.getTime()) : null };
+    // Compact output shows three levels of the running chain unless levels is given (date
+    // lists keep the full depth: they are one short string per date)
+    const currentLevels = compact && !asOfInputs && !options.levels ? 3 : levels;
+    const dashaOptions = { levels: asOfInputs ? levels : currentLevels, compact, asOfList: asOfInputs ? asOfTimes.map(t => t.getTime()) : null };
     const formatTime = this.makeTimeFormatter(datetime);
     const yearDescription = yearDays
       ? `${yearDays} days`
@@ -1095,14 +1098,19 @@ class SwissEphemerisServer {
     const blocks = this.chartBlocks(ctx, options, compact);
     const vimshottariDasha = this.calculateVimshottari(vimshottari, date.getTime(), clock, formatTime, asOf, yearDescription, dashaOptions);
     const kalachakraDasha = this.calculateKalachakra(kalachakra, clock, formatTime, asOf, yearDescription, { ...dashaOptions, ayanamsaName: ayanamsa.name });
-    const settings = this.chartSettings({ ayanamsa, positionType, nodeType, yearDays, extra: this.blockSettings(options) });
+    const settings = compact
+      ? this.compactChartSettings({ ayanamsa, positionType, nodeType, yearDays, options })
+      : this.chartSettings({ ayanamsa, positionType, nodeType, yearDays, extra: this.blockSettings(options) });
     // KP hour trigger at an explicit as_of: transit Moon and rising-degree sub lords (birth place)
     // against the running Vimshottari lords
     if (blocks.kp_significators && ctx.transitDate && vimshottariDasha.current) {
       const eph = createEphemeris(ephePath);
       const transit = eph.grahas(ctx.transitDate, { siderealFlag: ayanamsa.flag, positionFlag, nodeType });
       const rising = eph.houses(ctx.transitDate, latitude, longitude, { siderealFlag: ayanamsa.flag, positionFlag });
-      blocks.kp_significators.hour_trigger = this.hourTrigger(vimshottariDasha.current.chain.split('-'), kpLords(transit.Moon.lon).sub_lord, kpLords(rising.asc).sub_lord, formatTime(ctx.transitDate.getTime()));
+      const trigger = this.hourTrigger(vimshottariDasha.current.chain.split('-'), kpLords(transit.Moon.lon).sub_lord, kpLords(rising.asc).sub_lord, formatTime(ctx.transitDate.getTime()));
+      blocks.kp_significators.hour_trigger = compact
+        ? `${trigger.triggered ? 'triggered' : 'not triggered'}: Moon sub lord ${trigger.moon_sub_lord}${trigger.moon_sub_lord_matches.length ? ` = ${trigger.moon_sub_lord_matches.join('/')} lord` : ''}, lagna sub lord ${trigger.lagna_sub_lord}${trigger.lagna_sub_lord_matches.length ? ` = ${trigger.lagna_sub_lord_matches.join('/')} lord` : ''}`
+        : trigger;
     }
 
     if (compact) {
@@ -1174,7 +1182,7 @@ class SwissEphemerisServer {
       const changes = this.lagnaSignChanges(ctx, options.vargas, options.varga_method);
       if (compact) {
         out.vargas = compactVargas(vargas);
-        out.vimshopaka = Object.fromEntries(Object.entries(vimshopaka).map(([g, v]) => [g, `shad ${v.shadvarga} sapta ${v.saptavarga} dasha ${v.dashavarga} shodasha ${v.shodashavarga}`]));
+        out.vimshopaka = `shodashavarga, of 20: ${Object.entries(vimshopaka).map(([g, v]) => `${g.slice(0, 2)} ${v.shodashavarga}`).join(', ')}`;
         out.lagna_sign_change = Object.fromEntries(Object.entries(changes).map(([v, c]) => [v, `${c.earlier_s ?? 'none'}s / +${c.later_s ?? 'none'}s`]));
       } else {
         out.vargas = vargas;
@@ -1236,7 +1244,7 @@ class SwissEphemerisServer {
         const transit = createEphemeris().grahas(ctx.transitDate, ctx.sweepSettings);
         const t = transitBindus(_raw, Object.fromEntries(GRAHA_NAMES.map(g => [g, transit[g].lon])));
         out.ashtakavarga.transit = compact
-          ? Object.fromEntries(Object.entries(t).map(([g, x]) => [g, `${x.sign} SAV ${x.sav_bindus}${x.bav_bindus !== undefined ? ` BAV ${x.bav_bindus} kakshya ${x.kakshya.number} (${x.kakshya.lord}${x.kakshya.lord_gave_bindu ? ', bindu' : ', no bindu'})` : ''}`]))
+          ? `sign SAV/BAV, kakshya lord (+ gave a bindu): ${Object.entries(t).map(([g, x]) => `${g.slice(0, 2)} ${x.sign} ${x.sav_bindus}${x.bav_bindus !== undefined ? `/${x.bav_bindus} ${x.kakshya.lord.slice(0, 2)}${x.kakshya.lord_gave_bindu ? '+' : '-'}` : ''}`).join(', ')}`
           : { as_of: ctx.formatTime(ctx.transitDate.getTime()), planets: t };
       }
     }
@@ -1340,6 +1348,28 @@ class SwissEphemerisServer {
         jaimini_aspects: Boolean(a.jaimini_aspects),
       };
     }
+    return out;
+  }
+
+  // Settings in compact output: one short line per choice (output "full" lists the method notes)
+  compactChartSettings({ ayanamsa, positionType, nodeType, yearDays, options }) {
+    const include = new Set(options.include);
+    const d = options.dignity_options || {};
+    const a = options.aspect_options || {};
+    const out = {
+      ayanamsa: ayanamsa.name,
+      base: `${positionType} positions, ${nodeType} nodes, Placidus KP cusps, ${yearDays ? `${yearDays}-day` : 'sidereal solar'} dasha year, Kalachakra SM Singh`,
+    };
+    if (include.has('vargas')) {
+      const methods = ['D2', 'D3', 'D30'].map(v => (options.varga_method || {})[v]).filter(Boolean);
+      out.vargas = `${options.vargas.join(' ')}; methods ${methods.length ? JSON.stringify(options.varga_method) : 'parashara'}`;
+    }
+    if (include.has('dignity')) out.dignity = `rahu_exaltation ${d.rahu_exaltation || 'Ta'}, war_winner ${d.war_winner || 'latitude'}, moolatrikona ${d.moolatrikona ? 'custom' : 'BPHS'}, combustion ${d.combustion_limits ? 'custom' : 'default'}`;
+    if (include.has('aspects')) out.aspects = `rahu_ketu_aspects ${a.rahu_ketu_aspects || '5_9'}`;
+    if (include.has('shadbala') || include.has('bhavabala')) out.shadbala = `B.V. Raman; moon_benefic ${options.moon_benefic || 'ashtami'}; sunrise ${options.sunrise || 'standard'}`;
+    if (include.has('chara')) out.chara = options.chara_method || 'pvn_rao';
+    if (!options.levels_given) out.levels = `running chains: 3 levels${['yogini', 'ashtottari', 'chara', 'narayana'].some(x => include.has(x)) ? ' (other dashas 2)' : ''}; pass levels for more`;
+    out.notes = 'output "full": method notes and every sub-part';
     return out;
   }
 
@@ -2691,9 +2721,26 @@ class SwissEphemerisServer {
       fmt: (p) => ({ ...fmtLabel(p), start: ctx.formatTime(Math.max(p.startMs, birthMs)), end: ctx.formatTime(p.endMs) }),
     };
     const label = (p) => raw.label(p);
-    if (asOfList) return { ...info, year: yearDescription, chains: this.describeChains(asOfList, engine, levels, ctx.formatTime, label).map(c => ({ as_of: c.as_of, chain: c.chain })) };
-    const current = this.describeCurrentChain(asOf.getTime(), engine, levels, ctx.formatTime, label);
-    if (compact) return { ...info, year: yearDescription, current: this.compactCurrent(current) };
+    // Compact output: a one-line summary instead of the method notes, and (unless levels was
+    // given) three levels
+    const brief = () => {
+      const b = {};
+      if (info.balance_at_birth) b.balance_at_birth = `${info.balance_at_birth.yogini || info.balance_at_birth.lord} ${info.balance_at_birth.years} years`;
+      if (info.applicability) b.applicability = `${info.applicability.applicable ? 'applicable' : 'not applicable'} (Rahu ${info.applicability.rahu_rule.rahu_house_from_lagna_lord} from lagna lord ${info.applicability.rahu_rule.lagna_lord}${info.applicability.rahu_rule.rahu_in_lagna ? ', in lagna' : ''}; paksha rule ${info.applicability.paksha_rule.passed ? 'met' : 'not met'})`;
+      if (info.first_sign) b.first_sign = info.first_sign;
+      return b;
+    };
+    const depth = compact && !options.levels_given ? Math.min(levels, 2) : levels;
+    if (asOfList) return { ...(compact ? brief() : info), chains: this.describeChains(asOfList, engine, depth, ctx.formatTime, label).map(c => ({ as_of: c.as_of, chain: c.chain })) };
+    const current = this.describeCurrentChain(asOf.getTime(), engine, depth, ctx.formatTime, label);
+    if (compact) {
+      const nameOf = (x) => x.yogini || x.lord || x.sign;
+      const abbr = ['MD', 'AD', 'PD', 'SD', 'PrD', 'DD'];
+      return {
+        ...brief(),
+        current: current ? DASHA_LEVELS.filter(l => current[l]).map((l, i) => `${abbr[i]} ${nameOf(current[l])} to ${current[l].end} (${current[l].ends_in} left, next ${current[l].next ? nameOf(current[l].next) : 'none'})`).join('; ') : null,
+      };
+    }
     return {
       ...info,
       year: yearDescription,
@@ -2971,7 +3018,7 @@ class SwissEphemerisServer {
     const sunrise = choice('sunrise', ['standard', 'hindu']);
     const moonBenefic = choice('moon_benefic', ['ashtami', 'waxing']);
     const charaMethod = choice('chara_method', ['pvn_rao', 'kn_rao']);
-    return { include, vargas, varga_method: methods, dignity_options: dignityOptions, aspect_options: aspectOptions, shodhana: Boolean(args.shodhana), sunrise, moon_benefic: moonBenefic, chara_method: charaMethod };
+    return { include, vargas, varga_method: methods, dignity_options: dignityOptions, aspect_options: aspectOptions, shodhana: Boolean(args.shodhana), sunrise, moon_benefic: moonBenefic, chara_method: charaMethod, levels_given: args.levels !== undefined };
   }
 
   // birth_time_sweep, sweep_output and their size limits

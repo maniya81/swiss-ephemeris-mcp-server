@@ -182,17 +182,16 @@ export function computeDignity(grahas, lagnaLon, options = {}) {
   return result;
 }
 
-// One-line summary per graha for compact output
+// One-line summary per graha for compact output: status and the flags that change readings
+// (avasthas and lordships are in the full output)
 export function compactDignity(name, d) {
-  const flags = [d.status];
+  const flags = [d.status.replace(' sign', '')];
   const isNode = name === 'Rahu' || name === 'Ketu';
-  if (d.combust) flags.push(`combust ${d.combust_orb_deg}° of ${d.combust_limit_deg}°`);
-  if (!isNode && d.retrograde) flags.push('retrograde');
+  if (d.combust) flags.push(`combust ${d.combust_orb_deg}/${d.combust_limit_deg}°`);
+  if (!isNode && d.retrograde) flags.push('R');
   if (d.stationary) flags.push('stationary');
-  if (d.graha_yuddha) flags.push(...d.graha_yuddha.map(w => `war with ${w.opponent} (${w.won ? 'won' : 'lost'})`));
-  flags.push(`${d.baladi}/${d.jagradadi}/${d.deeptadi.join('+')}`);
-  if (d.lordships) flags.push(`rules H${d.lordships.from_lagna.join('+H')}`);
-  return flags.join('; ');
+  if (d.graha_yuddha) flags.push(...d.graha_yuddha.map(w => `war ${w.won ? 'won vs' : 'lost to'} ${w.opponent}`));
+  return flags.join(', ');
 }
 
 export { SIGN_ABBR, SEVEN };

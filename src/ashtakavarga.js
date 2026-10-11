@@ -139,10 +139,10 @@ export function transitBindus(raw, transitLongitudes) {
 export function compactAshtakavarga(av) {
   const line = (obj) => SIGN_ABBR.map(s => `${s}${obj[s]}`).join(' ');
   const out = {
-    sav: `${line(av.sarvashtakavarga)} = ${av.sarvashtakavarga.total} (${av.sav_self_check.passed ? '337 check passed' : 'CHECK FAILED'})`,
-    bav: Object.fromEntries(Object.entries(av.bhinnashtakavarga).map(([p, b]) => [p, `${SIGN_ABBR.map(s => b[s]).join(' ')} = ${b.total}`])),
+    sav: `${line(av.sarvashtakavarga)} = ${av.sarvashtakavarga.total}${av.sav_self_check.passed ? ' (337 ok)' : ' (337 CHECK FAILED)'}`,
+    bav_totals: Object.entries(av.bhinnashtakavarga).map(([p, b]) => `${p.slice(0, 2)} ${b.total}`).join(', '),
   };
-  if (av.shodhana) out.shodhya_pinda = Object.fromEntries(Object.entries(av.shodhana).map(([p, x]) => [p, x.shodhya_pinda]));
+  if (av.shodhana) out.shodhya_pinda = Object.entries(av.shodhana).map(([p, x]) => `${p.slice(0, 2)} ${x.shodhya_pinda}`).join(', ');
   return out;
 }
 
