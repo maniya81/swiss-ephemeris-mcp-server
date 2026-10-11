@@ -13,10 +13,14 @@ import { execSync } from 'node:child_process';
 import express from 'express';
 import { ToolError, invalid } from './src/errors.js';
 import { createEphemeris } from './src/ephemeris.js';
-import { PLANET_ABBR, round } from './src/constants.js';
+import { PLANET_ABBR, GRAHAS as GRAHA_NAMES, round } from './src/constants.js';
+import { computeDignity, compactDignity } from './src/dignity.js';
+import { computeVargas, computeVimshopaka, compactVargas, vargaPosition, ALL_VARGAS, VARGA_METHODS } from './src/vargas.js';
+import { computeAspects, compactAspects } from './src/aspects.js';
+import { computeAshtakavarga, compactAshtakavarga, transitBindus } from './src/ashtakavarga.js';
 import {
   MAX_SWEEP_CHARS, roundOffset, sampleOffsets, flipsOf, countChanges, passWindows, intersectWindows, bestSubset,
-  fitToBudget, makeLongitudeInterpolator, makeLinearInterpolator,
+  fitToBudget, makeLongitudeInterpolator, makeLinearInterpolator, refineChanges,
 } from './src/sweep.js';
 
 // Vedic / KP reference data
@@ -46,6 +50,10 @@ const MAX_AS_OF_DATES = 200;
 const MAX_SWEEP_CANDIDATES = 3601;
 const MAX_SWEEP_CHAINS = 3601 * 200;
 const MAX_EVENT_TESTS = 50;
+// Optional calculate_vedic_chart blocks and the default set
+const CHART_BLOCKS = ['dignity', 'vargas', 'aspects', 'ashtakavarga', 'shadbala', 'bhavabala', 'kp_significators', 'yogini', 'ashtottari', 'chara', 'narayana'];
+const DEFAULT_INCLUDE = ['dignity', 'vargas', 'aspects'];
+const SEVEN_PLANETS = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn'];
 const SERVER_INSTRUCTIONS = `Vedic astrology calculations (Swiss Ephemeris). Defaults match Jagannatha Hora: Traditional Lahiri ayanamsa, true positions, true nodes, true sidereal solar years; Kalachakra by the SM Singh method.
 
 Birth time and place:
@@ -985,7 +993,47 @@ class SwissEphemerisServer {
       ? `${yearDays} days`
       : 'true sidereal solar year (one sidereal revolution of the Sun, as in Jagannatha Hora)';
 
+    const ctx = {
+      date,
+      place: { latitude, longitude },
+      lagnaLon: ascendantLon,
+      cusps,
+      grahas: createEphemeris(ephePath).grahas(date, { siderealFlag: ayanamsa.flag, positionFlag, nodeType }),
+      sweepSettings: { siderealFlag: ayanamsa.flag, positionFlag },
+      ayanamsa,
+      formatTime,
+      // Transit-dependent blocks use an as_of date only when one was given
+      transitDate: options.as_of && !asOfInputs ? asOf : null,
+    };
+    const blocks = this.chartBlocks(ctx, options, compact);
+    const vimshottariDasha = this.calculateVimshottari(vimshottari, date.getTime(), clock, formatTime, asOf, yearDescription, dashaOptions);
+    const kalachakraDasha = this.calculateKalachakra(kalachakra, clock, formatTime, asOf, yearDescription, { ...dashaOptions, ayanamsaName: ayanamsa.name });
+    const settings = this.chartSettings({ ayanamsa, positionType, nodeType, yearDays, extra: this.blockSettings(options) });
+
+    if (compact) {
+      // Compact: one string per planet, cusp and dasha level
+      const planetLine = (name, p) => this.compactPoint(p, ` WS${p.house_whole_sign} KP${p.house_kp}${p.retrograde && name !== 'Rahu' && name !== 'Ketu' ? ' R' : ''}`);
+      const compactDasha = (d) => {
+        const { current, chains, mahadashas, ...rest } = d;
+        return { ...rest, ...(chains ? { chains: chains.map(c => ({ as_of: c.as_of, chain: c.chain })) } : { current: this.compactCurrent(current) }) };
+      };
+      return {
+        settings,
+        ayanamsa_value: ayanamsaValue !== null ? this.formatDms(ayanamsaValue) : null,
+        lagna: this.compactPoint(this.describeSiderealPoint(ascendantLon)),
+        planets: Object.fromEntries(Object.entries(planetData).map(([n, p]) => [n, planetLine(n, p)])),
+        cusps: Object.fromEntries(Object.entries(houses).map(([h, p]) => [h, this.compactPoint(p)])),
+        ...blocks,
+        birth_time_sensitivity: this.birthTimeSensitivity(planets.Moon.speed, vimshottari, kalachakra),
+        vimshottari_dasha: compactDasha(vimshottariDasha),
+        kalachakra_dasha: compactDasha({ ...kalachakraDasha, method: undefined, gati_legend: undefined }),
+        datetime,
+        coordinates: { latitude, longitude },
+      };
+    }
+
     return {
+      settings,
       zodiac: 'sidereal',
       ayanamsa: {
         name: ayanamsa.name,
@@ -999,12 +1047,151 @@ class SwissEphemerisServer {
       midheaven: mcLon !== null ? this.describeSiderealPoint(mcLon) : null,
       planets: planetData,
       houses,
+      ...blocks,
       birth_time_sensitivity: this.birthTimeSensitivity(planets.Moon.speed, vimshottari, kalachakra),
-      vimshottari_dasha: this.calculateVimshottari(vimshottari, date.getTime(), clock, formatTime, asOf, yearDescription, dashaOptions),
-      kalachakra_dasha: this.calculateKalachakra(kalachakra, clock, formatTime, asOf, yearDescription, { ...dashaOptions, ayanamsaName: ayanamsa.name }),
+      vimshottari_dasha: vimshottariDasha,
+      kalachakra_dasha: kalachakraDasha,
       datetime,
       coordinates: { latitude, longitude },
     };
+  }
+
+  // Optional chart blocks (dignity, vargas, aspects, ...). `ctx` holds the chart: grahas
+  // (longitude, latitude, speed, declination, magnitude), lagna, cusps, date, place and settings.
+  chartBlocks(ctx, options, compact) {
+    const include = new Set(options.include);
+    const out = {};
+    const longitudes = Object.fromEntries(GRAHA_NAMES.map(g => [g, ctx.grahas[g].lon]));
+
+    if (include.has('dignity')) {
+      const dignity = computeDignity(ctx.grahas, ctx.lagnaLon, options.dignity_options);
+      out.dignity = compact
+        ? Object.fromEntries(Object.entries(dignity).map(([g, d]) => [g, compactDignity(g, d)]))
+        : dignity;
+    }
+
+    if (include.has('vargas')) {
+      const vargas = computeVargas(longitudes, ctx.lagnaLon, options.vargas, options.varga_method);
+      const d1 = Object.fromEntries(GRAHA_NAMES.map(g => [g, vargaPosition('D1', longitudes[g]).sign]));
+      out.vargottama = GRAHA_NAMES.filter(g => vargaPosition('D9', longitudes[g], options.varga_method).sign === d1[g]);
+      if (vargaPosition('D9', ctx.lagnaLon).sign === vargaPosition('D1', ctx.lagnaLon).sign) out.vargottama.unshift('Lagna');
+      const vimshopaka = computeVimshopaka(longitudes, options.varga_method);
+      const changes = this.lagnaSignChanges(ctx, options.vargas, options.varga_method);
+      if (compact) {
+        out.vargas = compactVargas(vargas);
+        out.vimshopaka = Object.fromEntries(Object.entries(vimshopaka).map(([g, v]) => [g, `shad ${v.shadvarga} sapta ${v.saptavarga} dasha ${v.dashavarga} shodasha ${v.shodashavarga}`]));
+        out.lagna_sign_change = Object.fromEntries(Object.entries(changes).map(([v, c]) => [v, `${c.earlier_s ?? 'none'}s / +${c.later_s ?? 'none'}s`]));
+      } else {
+        out.vargas = vargas;
+        out.vimshopaka = vimshopaka;
+        out.lagna_sign_change = changes;
+      }
+    }
+
+    if (include.has('aspects')) {
+      const aspects = computeAspects(longitudes, ctx.lagnaLon, options.aspect_options);
+      out.aspects = compact ? compactAspects(aspects) : aspects;
+    }
+
+    if (include.has('ashtakavarga')) {
+      const av = computeAshtakavarga(longitudes, ctx.lagnaLon, { prastara: !compact, shodhana: options.shodhana });
+      const { _raw, ...shown } = av;
+      out.ashtakavarga = compact ? compactAshtakavarga(av) : shown;
+      // Transit bindus and kakshyas at an explicit as_of date
+      if (ctx.transitDate) {
+        const transit = createEphemeris().grahas(ctx.transitDate, ctx.sweepSettings);
+        const t = transitBindus(_raw, Object.fromEntries(GRAHA_NAMES.map(g => [g, transit[g].lon])));
+        out.ashtakavarga.transit = compact
+          ? Object.fromEntries(Object.entries(t).map(([g, x]) => [g, `${x.sign} SAV ${x.sav_bindus}${x.bav_bindus !== undefined ? ` BAV ${x.bav_bindus} kakshya ${x.kakshya.number} (${x.kakshya.lord}${x.kakshya.lord_gave_bindu ? ', bindu' : ', no bindu'})` : ''}`]))
+          : { as_of: ctx.formatTime(ctx.transitDate.getTime()), planets: t };
+      }
+    }
+    return out;
+  }
+
+  // Seconds of birth time until the lagna changes sign in each varga, earlier (negative) and
+  // later, searched within ±3 hours (null when no change in that window)
+  lagnaSignChanges(ctx, vargas, methods = {}) {
+    const step = 5;
+    const half = 3 * 3600;
+    const count = Math.floor((2 * half) / step) + 1;
+    const series = createEphemeris().housesSeries(new Date(ctx.date.getTime() - half * 1000), count, step, ctx.place.latitude, ctx.place.longitude, ctx.sweepSettings);
+    const ascAt = makeLinearInterpolator(-half, step, series.map(h => h.asc));
+    const offsets = Array.from({ length: count }, (_, i) => -half + i * step);
+    const middle = Math.round(half / step);
+    const out = {};
+    for (const varga of vargas) {
+      const signAt = (o) => (o === 0 ? vargaPosition(varga, ctx.lagnaLon, methods).sign : vargaPosition(varga, ascAt(o), methods).sign);
+      const here = signAt(0);
+      const find = (direction) => {
+        for (let i = middle + direction; i >= 0 && i < count; i += direction) {
+          if (signAt(offsets[i]) !== here) {
+            const [a, b] = direction > 0 ? [offsets[i - direction], offsets[i]] : [offsets[i], offsets[i - direction]];
+            const keyAt = (o) => String(signAt(o));
+            const [lo, hi] = direction > 0 ? [Math.max(a, 0), b] : [a, Math.min(b, 0)];
+            const changes = refineChanges(keyAt, lo, hi, keyAt(lo), keyAt(hi), 0.01);
+            const at = direction > 0 ? changes[0].at : changes[changes.length - 1].at;
+            return Math.round(at * 10) / 10;
+          }
+        }
+        return null;
+      };
+      out[varga] = { earlier_s: find(-1), later_s: find(1) };
+    }
+    return out;
+  }
+
+  // One string per planet/cusp for compact output
+  compactPoint(p, extra = '') {
+    return `${SIGN_ABBR[SIGNS.indexOf(p.sign)]} ${p.degree_dms} ${p.nakshatra} ${p.nakshatra_pada} ${PLANET_ABBR[p.star_lord]}/${PLANET_ABBR[p.sub_lord]}/${PLANET_ABBR[p.sub_sub_lord]}${extra}`;
+  }
+
+  // Running dasha chain as one string per level (compact output)
+  compactCurrent(current) {
+    if (!current) return null;
+    const levels = DASHA_LEVELS.filter(l => current[l]).map((l) => {
+      const p = current[l];
+      const name = p.lord || `${p.sign_abbr} ${p.pada}`;
+      const next = p.next ? (p.next.lord || `${p.next.sign_abbr} ${p.next.pada}`) : 'none';
+      return `${l} ${name}${p.gati ? ` [${p.gati}]` : ''}: ${p.start} -> ${p.end} (ends in ${p.ends_in}; next ${next})`;
+    });
+    return { as_of: current.as_of, chain: current.chain, levels };
+  }
+
+  // Settings of the optional blocks that were computed
+  blockSettings(options) {
+    const include = new Set(options.include);
+    const out = { blocks: [...include] };
+    if (include.has('vargas')) {
+      out.vargas = options.vargas;
+      out.varga_method = { D2: 'parashara', D3: 'parashara', D30: 'parashara', ...options.varga_method };
+      out.vimshopaka_points = 'BPHS: own 20, adhimitra 18, mitra 15, sama 10, shatru 7, adhishatru 5 (compound relationships)';
+    }
+    if (include.has('dignity')) {
+      const d = options.dignity_options || {};
+      out.dignity = {
+        rahu_exaltation: d.rahu_exaltation || 'Ta',
+        moolatrikona: d.moolatrikona ? 'custom' : 'BPHS',
+        combustion_limits: { Moon: 12, Mars: 17, Mercury: 14, Mercury_retrograde: 12, Jupiter: 11, Venus: 10, Venus_retrograde: 8, Saturn: 15, ...(d.combustion_limits || {}) },
+        war_winner: d.war_winner || 'latitude',
+        stationary_ratio: d.stationary_ratio ?? 0.1,
+        node_relationships: 'Rahu as Saturn, Ketu as Mars',
+      };
+    }
+    if (include.has('ashtakavarga')) {
+      out.ashtakavarga = { tables: 'Parashara (BPHS) benefic places', shodhana: Boolean(options.shodhana), kakshya_lords: 'Saturn, Jupiter, Mars, Sun, Venus, Mercury, Moon, Lagna' };
+    }
+    if (include.has('aspects')) {
+      const a = options.aspect_options || {};
+      const rk = a.rahu_ketu_aspects || '5_9';
+      out.aspects = {
+        rule: 'sign-based graha drishti: all 7th; Mars 4,8; Jupiter 5,9; Saturn 3,10',
+        rahu_ketu_aspects: `${rk} (${{ none: 'no aspects', '5_9': '5th, 7th and 9th', '5_7_9_12': '5th, 7th, 9th and 12th' }[rk]})`,
+        aspect_strength: Boolean(a.aspect_strength),
+        jaimini_aspects: Boolean(a.jaimini_aspects),
+      };
+    }
+    return out;
   }
 
   // The settings a chart was calculated with
@@ -2070,6 +2257,55 @@ class SwissEphemerisServer {
     }
   }
 
+  // Chart options: include, vargas, varga_method and the classical choices of each block
+  normalizeChartOptions(args) {
+    let include = args.include === undefined ? [...DEFAULT_INCLUDE] : args.include;
+    if (include === 'all') include = [...CHART_BLOCKS];
+    if (!Array.isArray(include) || include.some(b => !CHART_BLOCKS.includes(b))) {
+      throw invalid('include', `include must be "all" or a list of: ${CHART_BLOCKS.join(', ')}`);
+    }
+    if (args.kp_significators === true && !include.includes('kp_significators')) include = [...include, 'kp_significators'];
+    let vargas = args.vargas === undefined ? ['D1', 'D9'] : args.vargas;
+    if (vargas === 'all') vargas = [...ALL_VARGAS];
+    if (!Array.isArray(vargas) || !vargas.length || vargas.some(v => !ALL_VARGAS.includes(v))) {
+      throw invalid('vargas', `vargas must be "all" or a list of: ${ALL_VARGAS.join(', ')}`);
+    }
+    if (args.vargas !== undefined && !include.includes('vargas')) include = [...include, 'vargas'];
+    const methods = args.varga_method || {};
+    if (typeof methods !== 'object' || Object.entries(methods).some(([v, m]) => !VARGA_METHODS[v] || !VARGA_METHODS[v].includes(m))) {
+      throw invalid('varga_method', `varga_method may set ${Object.entries(VARGA_METHODS).map(([v, m]) => `${v}: ${m.join('|')}`).join('; ')}`);
+    }
+    const choice = (name, allowed) => {
+      if (args[name] !== undefined && !allowed.includes(args[name])) throw invalid(name, `${name} must be one of: ${allowed.join(', ')}`);
+      return args[name];
+    };
+    const dignityOptions = {
+      rahu_exaltation: choice('rahu_exaltation', ['Ta', 'Ge']),
+      war_winner: choice('war_winner', ['latitude', 'brightness']),
+    };
+    if (args.combustion_limits !== undefined) {
+      if (typeof args.combustion_limits !== 'object' || Object.values(args.combustion_limits).some(v => typeof v !== 'number' || v < 0 || v > 30)) {
+        throw invalid('combustion_limits', 'combustion_limits must map planets (e.g. "Mercury", "Mercury_retrograde") to degrees between 0 and 30');
+      }
+      dignityOptions.combustion_limits = args.combustion_limits;
+    }
+    if (args.stationary_ratio !== undefined) {
+      if (typeof args.stationary_ratio !== 'number' || args.stationary_ratio < 0 || args.stationary_ratio > 1) throw invalid('stationary_ratio', 'stationary_ratio must be a number from 0 to 1');
+      dignityOptions.stationary_ratio = args.stationary_ratio;
+    }
+    if (args.moolatrikona !== undefined) {
+      const ok = typeof args.moolatrikona === 'object' && Object.entries(args.moolatrikona).every(([pl, r]) => SEVEN_PLANETS.includes(pl) && Array.isArray(r) && r.length === 3);
+      if (!ok) throw invalid('moolatrikona', 'moolatrikona must map planets to [sign index 0-11, from degree, to degree]');
+      dignityOptions.moolatrikona = args.moolatrikona;
+    }
+    const aspectOptions = {
+      rahu_ketu_aspects: choice('rahu_ketu_aspects', ['none', '5_9', '5_7_9_12']),
+      aspect_strength: Boolean(args.aspect_strength),
+      jaimini_aspects: Boolean(args.jaimini_aspects),
+    };
+    return { include, vargas, varga_method: methods, dignity_options: dignityOptions, aspect_options: aspectOptions, shodhana: Boolean(args.shodhana) };
+  }
+
   // birth_time_sweep, sweep_output and their size limits
   validateSweep(args, asOfList) {
     const sweep = args.birth_time_sweep;
@@ -2432,8 +2668,14 @@ class SwissEphemerisServer {
         const vedicAsOf = this.normalizeAsOf(as_of);
         this.validateSweep(args, vedicAsOf);
         const vedicEventTests = this.normalizeEventTests(args.event_tests, 'vimshottari', Boolean(args.birth_time_sweep), { latitude: vedicLatitude, longitude: vedicLongitude });
+        const chartOptions = this.normalizeChartOptions(args);
         const vedicBirth = this.withDefaultOffset(vedicDatetime);
         const vedicResult = this.calculateVedicChart(vedicBirth, vedicLatitude, vedicLongitude, {
+          ...chartOptions,
+          // In a sweep, varga lagnas are tracked when vargas are asked for
+          vargaLagnaKey: args.vargas !== undefined
+            ? (asc) => chartOptions.vargas.map(v => `${v}:${SIGN_ABBR[vargaPosition(v, asc, chartOptions.varga_method).sign]}`).join(' ')
+            : null,
           birth_time_sweep: args.birth_time_sweep,
           sweep_output: args.sweep_output,
           event_tests: vedicEventTests,
