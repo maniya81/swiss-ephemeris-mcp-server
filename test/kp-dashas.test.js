@@ -17,8 +17,8 @@ test('Ruling planets at the birth moment are JH\'s KP lords and weekday', { skip
   assert.equal(JH.key_info.vedic_weekday, 'Sunday');
   assert.equal(c.day_lord, 'Sun');
   // Lagna Libra, Moon Aquarius; star and sub lords from JH's KP tab
-  assert.deepEqual([AB[c.lagna.sign_lord], AB[c.lagna.star_lord], AB[c.lagna.sub_lord]], ['Ve', ...JH.kp.As.slice(0, 2)]);
-  assert.deepEqual([AB[c.moon.sign_lord], AB[c.moon.star_lord], AB[c.moon.sub_lord]], ['Sa', ...JH.kp.Mo.slice(0, 2)]);
+  assert.deepEqual([AB[c.lagna.sign_lord], AB[c.lagna.star_lord], AB[c.lagna.sub_lord]], ['Ve', ...JH.kp.bodies.As.slice(0, 2)]);
+  assert.deepEqual([AB[c.moon.sign_lord], AB[c.moon.star_lord], AB[c.moon.sub_lord]], ['Sa', ...JH.kp.bodies.Mo.slice(0, 2)]);
   assert.equal(result.ruling_planets[0], 'Mars'); // lagna star lord first
   assert.ok(result.cleaned.every(p => !result.excluded.some(e => e.planet === p)));
   // Hour trigger: the Moon's sub lord against the running Vimshottari chain
@@ -34,7 +34,7 @@ test('KP significators: four levels per planet and ordered cusp significators', 
   const { result } = await ok(srv, 'calculate_vedic_chart', { ...SAGAR, include: ['kp_significators'] });
   const sig = result.kp_significators;
   // JH: the Moon is in Rahu's star (Satabhishak)
-  assert.equal(AB[sig.planets.Moon.star_lord], JH.kp.Mo[0]);
+  assert.equal(AB[sig.planets.Moon.star_lord], JH.kp.bodies.Mo[0]);
   assert.equal(sig.planets.Moon.in_node_star, 'Rahu');
   assert.ok(sig.in_node_stars.includes('Moon'));
   for (const [p, x] of Object.entries(sig.planets)) {

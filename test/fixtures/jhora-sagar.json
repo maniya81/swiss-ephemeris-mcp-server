@@ -11,9 +11,10 @@
  "jh_settings": {
   "ayanamsa": "Traditional Lahiri (no correction)",
   "positions": "geocentric, true positions",
-  "nodes": "mean nodes (Planet Calculation Options) for every value recorded so far; the server defaults to true nodes, so node-dependent values here (Rahu/Ketu vargas, Rahu Vimshopaka) are compared with node_type \"mean\"",
+  "nodes": "mean nodes for the screens recorded first (shadbala, ashtakavarga, Kalachakra, Vimshottari, D-3, D-9, Other strengths: there only Rahu depends on it, kept as vimshopaka.rahu_mean_nodes); true nodes from the Basics/KP/D-7/D-10/D-60 batch on, as the server's default. D-3 and D-9 node signs are the same either way",
   "dasa_year": "true sidereal solar years",
-  "kalachakra": "Janma tara (Moon), Rasi D-1, SM Singh (full cycle fraction, MDs strictly from cycle, ADs from MD like MDs from navamsa), Rohini 4th pada = Leo navamsa"
+  "kalachakra": "Janma tara (Moon), Rasi D-1, SM Singh (full cycle fraction, MDs strictly from cycle, ADs from MD like MDs from navamsa), Rohini 4th pada = Leo navamsa",
+  "kp_houses": "equal houses from the lagna degree in JH's KP tab (cusp n = lagna + 30 x (n - 1)); the server's KP cusps are Placidus"
  },
  "key_info": {
   "lagna": "Li 0°39'20\"",
@@ -25,40 +26,346 @@
   "hora_lord": "Mercury",
   "lunar_year_month": "Pramathi - Adhika Jyeshtha"
  },
+ "basics": {
+  "screen": "Basics > planet positions (true nodes)",
+  "bodies": {
+   "Lagna": {
+    "longitude": "0 Li 39' 20.00\"",
+    "nakshatra": "Chit",
+    "pada": 3,
+    "rasi": "Li",
+    "navamsa": "Li"
+   },
+   "Sun": {
+    "longitude": "21 Ta 25' 59.32\"",
+    "nakshatra": "Rohi",
+    "pada": 4,
+    "rasi": "Ta",
+    "navamsa": "Cn"
+   },
+   "Moon": {
+    "longitude": "12 Aq 05' 23.20\"",
+    "nakshatra": "Sata",
+    "pada": 2,
+    "rasi": "Aq",
+    "navamsa": "Cp"
+   },
+   "Mars": {
+    "longitude": "0 Li 37' 58.02\"",
+    "nakshatra": "Chit",
+    "pada": 3,
+    "rasi": "Li",
+    "navamsa": "Li"
+   },
+   "Mercury": {
+    "longitude": "5 Ge 00' 11.62\"",
+    "nakshatra": "Mrig",
+    "pada": 4,
+    "rasi": "Ge",
+    "navamsa": "Sc"
+   },
+   "Jupiter": {
+    "longitude": "2 Ar 14' 05.04\"",
+    "nakshatra": "Aswi",
+    "pada": 1,
+    "rasi": "Ar",
+    "navamsa": "Ar"
+   },
+   "Venus": {
+    "longitude": "6 Cn 40' 47.63\"",
+    "nakshatra": "Push",
+    "pada": 2,
+    "rasi": "Cn",
+    "navamsa": "Vi"
+   },
+   "Saturn": {
+    "longitude": "17 Ar 50' 07.47\"",
+    "nakshatra": "Bhar",
+    "pada": 2,
+    "rasi": "Ar",
+    "navamsa": "Vi"
+   },
+   "Rahu": {
+    "longitude": "20 Cn 52' 02.67\"",
+    "nakshatra": "Asre",
+    "pada": 2,
+    "rasi": "Cn",
+    "navamsa": "Cp"
+   },
+   "Ketu": {
+    "longitude": "20 Cp 52' 02.67\"",
+    "nakshatra": "Srav",
+    "pada": 4,
+    "rasi": "Cp",
+    "navamsa": "Cn"
+   }
+  },
+  "chara_karakas": {
+   "AK": "Sun",
+   "AmK": "Saturn",
+   "BK": "Moon",
+   "MK": "Rahu",
+   "PiK": "Venus",
+   "PK": "Mercury",
+   "GK": "Jupiter",
+   "DK": "Mars"
+  },
+  "special_points": {
+   "Maandi": "18 Li 32' 10.38\" Swat 4 Li Pi",
+   "Gulika": "7 Li 18' 46.52\" Swat 1 Li Sg",
+   "Bhava Lagna": "13 Li 08' 04.64\" Swat 2 Li Cp",
+   "Hora Lagna": "5 Pi 12' 49.76\" UBha 1 Pi Le",
+   "Ghati Lagna": "11 Ta 27' 05.11\" Rohi 1 Ta Ar",
+   "Vighati Lagna": "12 Ar 38' 21.91\" Aswi 4 Ar Cn",
+   "Varnada Lagna": "0 Vi 39' 20.00\" UPha 2 Vi Pi",
+   "Sree Lagna": "27 Aq 04' 46.38\" PBha 3 Aq Ge",
+   "Pranapada Lagna": "13 Sg 01' 01.71\" Mool 4 Sg Cn",
+   "Indu Lagna": "12 Vi 05' 23.20\" Hast 1 Vi Ar",
+   "Bhrigu Bindu": "1 Sc 28' 42.93\" Visa 4 Sc Cn",
+   "Dhooma": "4 Li 45' 59.32\" Chit 4 Li Sc",
+   "Vyatipata": "25 Vi 14' 00.68\" Chit 1 Vi Le",
+   "Parivesha": "25 Pi 14' 00.68\" Reva 3 Pi Aq",
+   "Indra Chapa": "4 Ar 45' 59.32\" Aswi 2 Ar Ta",
+   "Upaketu": "21 Ar 25' 59.32\" Bhar 3 Ar Li",
+   "Kaala": "2 Ge 55' 40.84\" Mrig 3 Ge Li",
+   "Mrityu": "17 Cn 21' 18.68\" Asre 1 Cn Sg",
+   "Artha Prahara": "9 Le 46' 46.69\" Magh 3 Le Ge",
+   "Yama Ghantaka": "2 Vi 48' 04.03\" UPha 2 Vi Cp",
+   "Prana Sphuta": "10 Ar 35' 26.52\" Aswi 4 Ar Cn",
+   "Deha Sphuta": "14 Vi 01' 52.11\" Hast 2 Vi Ta",
+   "Mrityu Sphuta": "12 Cp 37' 24.96\" Srav 1 Cp Ar",
+   "Sookshma TriSphuta": "7 Cn 14' 43.60\" Push 2 Cn Vi",
+   "Tithi Sphuta": "20 Sg 39' 23.88\" PSha 3 Sg Li",
+   "Yoga Sphuta (Sun-Moon)": "3 Ar 31' 22.52\" Aswi 2 Ar Ta",
+   "Rahu Tithi Sphuta": "29 Ta 26' 03.35\" Mrig 2 Ta Vi",
+   "Kshetra Sphuta": "14 Le 57' 26.26\" PPha 1 Le Le",
+   "Beeja Sphuta": "0 Vi 20' 52.00\" UPha 2 Vi Cp",
+   "TriSphuta": "20 Aq 03' 29.72\" PBha 1 Aq Ar",
+   "ChatusSphuta": "11 Ar 29' 29.04\" Aswi 4 Ar Cn",
+   "PanchaSphuta": "2 Le 21' 31.71\" Magh 1 Le Ar",
+   "V2": "0 Sg 39' 20.00\" Mool 1 Sg Ar",
+   "V3": "0 Ta 39' 20.00\" Krit 2 Ta Cn",
+   "V4": "0 Ar 39' 20.00\" Aswi 1 Ar Le",
+   "V5": "0 Ta 39' 20.00\" Krit 2 Ta Sc",
+   "V6": "0 Sg 39' 20.00\" Mool 1 Sg Sg",
+   "V7": "0 Vi 39' 20.00\" UPha 2 Vi Pi",
+   "V8": "0 Sg 39' 20.00\" Mool 1 Sg Ar",
+   "V9": "0 Ta 39' 20.00\" Krit 2 Ta Cn",
+   "V10": "0 Ar 39' 20.00\" Aswi 1 Ar Le",
+   "V11": "0 Ta 39' 20.00\" Krit 2 Ta Sc",
+   "V12": "0 Sg 39' 20.00\" Mool 1 Sg Sg",
+   "Kunda": "23 Sc 06' 00.06\" Jye 2 Sc Cp",
+   "Yoga Sphuta": "6 Cn 51' 22.52\" Push 2 Cn Vi",
+   "Avayoga Sphuta": "13 Cp 31' 22.52\" Srav 2 Cp Ta"
+  }
+ },
  "kp": {
-  "As": [
-   "Ma",
-   "Me",
-   "Ve",
-   "Me",
-   "Ra",
-   "Ju"
-  ],
-  "Su": [
-   "Mo",
-   "Ve",
-   "Ra",
-   "Me",
-   "Sa",
-   "Ra"
-  ],
-  "Mo": [
-   "Ra",
-   "Sa",
-   "Ra",
-   "Sa",
-   "Ra",
-   "Mo"
-  ],
-  "cusp12": [
-   "Su",
-   "Ra",
-   "Ve",
-   "Ra",
-   "Ke",
-   "Ra"
-  ],
-  "columns": "nakshatra lord, sub, prati-sub, sookshma-sub, praana-sub, deha-sub"
+  "screen": "KP tab (true nodes); houses are equal houses from the lagna degree",
+  "columns": "nakshatra lord, sub, prati-sub, sookshma-sub, praana-sub, deha-sub",
+  "bodies": {
+   "As": [
+    "Ma",
+    "Me",
+    "Ve",
+    "Me",
+    "Ra",
+    "Ju"
+   ],
+   "Su": [
+    "Mo",
+    "Ve",
+    "Ra",
+    "Me",
+    "Sa",
+    "Ra"
+   ],
+   "Mo": [
+    "Ra",
+    "Sa",
+    "Ra",
+    "Sa",
+    "Ra",
+    "Mo"
+   ],
+   "Ma": [
+    "Ma",
+    "Me",
+    "Ve",
+    "Me",
+    "Me",
+    "Mo"
+   ],
+   "Me": [
+    "Ma",
+    "Su",
+    "Ma",
+    "Ke",
+    "Ve",
+    "Ke"
+   ],
+   "Ju": [
+    "Ke",
+    "Ve",
+    "Sa",
+    "Sa",
+    "Su",
+    "Me"
+   ],
+   "Ve": [
+    "Sa",
+    "Me",
+    "Ra",
+    "Ke",
+    "Me",
+    "Ra"
+   ],
+   "Sa": [
+    "Ve",
+    "Ma",
+    "Ke",
+    "Ve",
+    "Ve",
+    "Mo"
+   ],
+   "Ra": [
+    "Me",
+    "Ve",
+    "Sa",
+    "Ke",
+    "Ve",
+    "Ra"
+   ],
+   "Ke": [
+    "Mo",
+    "Ve",
+    "Su",
+    "Ju",
+    "Ra",
+    "Mo"
+   ],
+   "Ur": [
+    "Mo",
+    "Su",
+    "Ra",
+    "Me",
+    "Ju",
+    "Ma"
+   ],
+   "Ne": [
+    "Mo",
+    "Mo",
+    "Ra",
+    "Ve",
+    "Ju",
+    "Sa"
+   ],
+   "Pl": [
+    "Sa",
+    "Ju",
+    "Ju",
+    "Ra",
+    "Me",
+    "Ve"
+   ]
+  },
+  "houses": {
+   "1": [
+    "Ma",
+    "Me",
+    "Ve",
+    "Me",
+    "Ra",
+    "Ju"
+   ],
+   "2": [
+    "Ju",
+    "Ma",
+    "Ra",
+    "Me",
+    "Ke",
+    "Sa"
+   ],
+   "3": [
+    "Ke",
+    "Ke",
+    "Sa",
+    "Ju",
+    "Sa",
+    "Ra"
+   ],
+   "4": [
+    "Su",
+    "Ra",
+    "Ve",
+    "Ra",
+    "Ke",
+    "Ra"
+   ],
+   "5": [
+    "Ma",
+    "Me",
+    "Ve",
+    "Me",
+    "Ra",
+    "Ju"
+   ],
+   "6": [
+    "Ju",
+    "Ma",
+    "Ra",
+    "Me",
+    "Ke",
+    "Sa"
+   ],
+   "7": [
+    "Ke",
+    "Ke",
+    "Sa",
+    "Ju",
+    "Sa",
+    "Ra"
+   ],
+   "8": [
+    "Su",
+    "Ra",
+    "Ve",
+    "Ra",
+    "Ke",
+    "Ra"
+   ],
+   "9": [
+    "Ma",
+    "Me",
+    "Ve",
+    "Me",
+    "Ra",
+    "Ju"
+   ],
+   "10": [
+    "Ju",
+    "Ma",
+    "Ra",
+    "Me",
+    "Ke",
+    "Sa"
+   ],
+   "11": [
+    "Ke",
+    "Ke",
+    "Sa",
+    "Ju",
+    "Sa",
+    "Ra"
+   ],
+   "12": [
+    "Su",
+    "Ra",
+    "Ve",
+    "Ra",
+    "Ke",
+    "Ra"
+   ]
+  }
  },
  "d9": {
   "lagna": "Li",
@@ -71,6 +378,45 @@
   "Saturn": "Vi",
   "Rahu": "Cp",
   "Ketu": "Cn"
+ },
+ "d7": {
+  "lagna": "Li",
+  "Sun": "Ar",
+  "Moon": "Ar",
+  "Mars": "Li",
+  "Mercury": "Cn",
+  "Jupiter": "Ar",
+  "Venus": "Aq",
+  "Saturn": "Le",
+  "Rahu": "Ta",
+  "Ketu": "Sc",
+  "nodes": "true"
+ },
+ "d10": {
+  "lagna": "Li",
+  "Sun": "Le",
+  "Moon": "Ge",
+  "Mars": "Li",
+  "Mercury": "Cn",
+  "Jupiter": "Ar",
+  "Venus": "Ta",
+  "Saturn": "Vi",
+  "Rahu": "Vi",
+  "Ketu": "Pi",
+  "nodes": "true"
+ },
+ "d60": {
+  "lagna": "Sc",
+  "Sun": "Sc",
+  "Moon": "Aq",
+  "Mars": "Sc",
+  "Mercury": "Ar",
+  "Jupiter": "Le",
+  "Venus": "Le",
+  "Saturn": "Pi",
+  "Rahu": "Sg",
+  "Ketu": "Ge",
+  "nodes": "true"
  },
  "d3": {
   "lagna": "Li",
@@ -319,6 +665,7 @@
    53.85
   ],
   "vimshopaka": {
+   "nodes": "true (the seven planets do not depend on the node type)",
    "order": [
     "Sun",
     "Moon",
@@ -327,7 +674,8 @@
     "Jupiter",
     "Venus",
     "Saturn",
-    "Rahu"
+    "Rahu",
+    "Ketu"
    ],
    "dashavarga": [
     10.75,
@@ -337,7 +685,8 @@
     12,
     10.6,
     9.48,
-    11.2
+    11.8,
+    14.78
    ],
    "shodashavarga": [
     10.53,
@@ -347,7 +696,8 @@
     11.35,
     10.13,
     11.13,
-    10.63
+    11,
+    13.73
    ],
    "saptavarga": [
     9.75,
@@ -357,7 +707,8 @@
     10,
     11.25,
     8.45,
-    12.48
+    12.63,
+    14.85
    ],
    "shadvarga": [
     9.5,
@@ -367,8 +718,15 @@
     10,
     11,
     9.35,
-    11.2
-   ]
+    11.2,
+    13.85
+   ],
+   "rahu_mean_nodes": {
+    "dashavarga": 11.2,
+    "shodashavarga": 10.63,
+    "saptavarga": 12.48,
+    "shadvarga": 11.2
+   }
   }
  },
  "aspects_on_houses_percent": {

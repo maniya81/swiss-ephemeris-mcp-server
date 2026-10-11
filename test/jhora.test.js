@@ -1,17 +1,25 @@
-// Sagar's chart against Jagannatha Hora (fixtures/jhora-sagar.json): Kalachakra down to deha,
-// Vimshottari, ashtakavarga, shadbala, Ishta/Kashta, Vimshopaka, aspect strengths, D-3, D-9 and
-// KP lords
+// Sagar's chart against Jagannatha Hora (fixtures/jhora-sagar.json): positions, Kalachakra down
+// to deha, Vimshottari, ashtakavarga, shadbala, Ishta/Kashta, Vimshopaka, aspect strengths,
+// D-3/D-7/D-9/D-10/D-60 and KP lords
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { server, ok, SKIP } from './helpers.js';
 import { drishtiVirupas } from '../src/aspects.js';
+import { kpLords } from '../src/kp.js';
 
 const JH = JSON.parse(readFileSync(new URL('./fixtures/jhora-sagar.json', import.meta.url)));
 const BIRTH = { datetime: JH.birth.datetime, latitude: JH.birth.latitude, longitude: JH.birth.longitude };
-// JH's screens so far were made with mean nodes (the server's default is true nodes): values that
-// depend on Rahu/Ketu are compared with node_type "mean"
-const JH_NODES = { node_type: 'mean' };
+// JH's first screens were made with mean nodes; from the Basics/KP/D-7/D-10/D-60 batch on it uses
+// true nodes, the server's default. Rahu values recorded with mean nodes use node_type "mean".
+const MEAN_NODES = { node_type: 'mean' };
+const AB = { Sun: 'Su', Moon: 'Mo', Mars: 'Ma', Mercury: 'Me', Jupiter: 'Ju', Venus: 'Ve', Saturn: 'Sa', Rahu: 'Ra', Ketu: 'Ke', Uranus: 'Ur', Neptune: 'Ne', Pluto: 'Pl' };
+const SIGN_AB = ['Ar', 'Ta', 'Ge', 'Cn', 'Le', 'Vi', 'Li', 'Sc', 'Sg', 'Cp', 'Aq', 'Pi'];
+// "21 Ta 25' 59.32\"" -> sidereal longitude in degrees
+const parseLon = (text) => {
+  const m = text.match(/^(\d+) (\w\w) (\d+)' ([\d.]+)"$/);
+  return SIGN_AB.indexOf(m[2]) * 30 + Number(m[1]) + Number(m[3]) / 60 + Number(m[4]) / 3600;
+};
 const SIGNS = ['Ar', 'Ta', 'Ge', 'Cn', 'Le', 'Vi', 'Li', 'Sc', 'Sg', 'Cp', 'Aq', 'Pi'];
 const JH_PADA = ['Aswi', 'Bhar', 'Krit', 'Rohi', 'Mrig', 'Ardr', 'Puna', 'Push', 'Asre', 'Magh', 'PPha', 'UPha', 'Hast', 'Chit', 'Swat', 'Visa', 'Anu', 'Jye', 'Mool', 'PSha', 'USha', 'Srav', 'Dhan', 'Sata', 'PBha', 'UBha', 'Reva'];
 const NAKSHATRAS = ['Ashwini', 'Bharani', 'Krittika', 'Rohini', 'Mrigashira', 'Ardra', 'Punarvasu', 'Pushya', 'Ashlesha', 'Magha', 'Purva Phalguni', 'Uttara Phalguni', 'Hasta', 'Chitra', 'Swati', 'Vishakha', 'Anuradha', 'Jyeshtha', 'Mula', 'Purva Ashadha', 'Uttara Ashadha', 'Shravana', 'Dhanishta', 'Shatabhisha', 'Purva Bhadrapada', 'Uttara Bhadrapada', 'Revati'];
@@ -88,14 +96,19 @@ test('Shadbala totals, Ishta and Kashta match Jagannatha Hora\'s Other strengths
   assert.ok(Math.abs(sb.Sun.cheshta - 54.80) <= 0.01, `Sun cheshta ${sb.Sun.cheshta}`);
 });
 
-test('Vimshopaka bala matches Jagannatha Hora in all four schemes, Rahu included', { skip: SKIP }, async () => {
-  const { result } = await ok(srv, 'calculate_vedic_chart', { ...BIRTH, ...JH_NODES, include: ['vargas'] });
+test('Vimshopaka bala matches Jagannatha Hora in all four schemes, Rahu and Ketu included', { skip: SKIP }, async () => {
+  const { result } = await ok(srv, 'calculate_vedic_chart', { ...BIRTH, include: ['vargas'] });
   const v = JH.other_strengths.vimshopaka;
   for (const scheme of ['dashavarga', 'shodashavarga', 'saptavarga', 'shadvarga']) {
     v.order.forEach((p, i) => {
       // Both sides round to 0.01; JH prints the Moon's 11.925 as 11.92 once and 11.93 once
       assert.ok(Math.abs(result.vimshopaka[p][scheme] - v[scheme][i]) <= 0.0101, `${scheme} ${p}: ${result.vimshopaka[p][scheme]} vs JH ${v[scheme][i]}`);
     });
+  }
+  // JH's Rahu row with mean nodes
+  const mean = (await ok(srv, 'calculate_vedic_chart', { ...BIRTH, ...MEAN_NODES, include: ['vargas'] })).result;
+  for (const [scheme, value] of Object.entries(v.rahu_mean_nodes)) {
+    assert.ok(Math.abs(mean.vimshopaka.Rahu[scheme] - value) <= 0.0101, `mean-node Rahu ${scheme}: ${mean.vimshopaka.Rahu[scheme]} vs JH ${value}`);
   }
 });
 
@@ -125,15 +138,44 @@ test('Aspect strengths on the houses match Jagannatha Hora', { skip: SKIP }, asy
   }
 });
 
-test('D-3, D-9 and KP lords match Jagannatha Hora', { skip: SKIP }, async () => {
-  const { result } = await ok(srv, 'calculate_vedic_chart', { ...BIRTH, ...JH_NODES, include: ['vargas'], vargas: ['D1', 'D3', 'D9'] });
-  for (const [varga, jh] of [['D3', JH.d3], ['D9', JH.d9]]) {
+test('D-3, D-7, D-9, D-10 and D-60 match Jagannatha Hora', { skip: SKIP }, async () => {
+  const grahas = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn', 'Rahu', 'Ketu'];
+  const charts = [['D3', JH.d3], ['D7', JH.d7], ['D9', JH.d9], ['D10', JH.d10], ['D60', JH.d60]];
+  const { result } = await ok(srv, 'calculate_vedic_chart', { ...BIRTH, include: ['vargas'], vargas: ['D1', ...charts.map(([v]) => v)] });
+  for (const [varga, jh] of charts) {
     assert.equal(result.vargas[varga].lagna.sign, jh.lagna, `${varga} lagna`);
-    for (const p of ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn', 'Rahu', 'Ketu']) assert.equal(result.vargas[varga].planets[p].sign, jh[p], `${varga} ${p}`);
+    for (const p of grahas) assert.equal(result.vargas[varga].planets[p].sign, jh[p], `${varga} ${p}`);
   }
-  const ab = { Sun: 'Su', Moon: 'Mo', Mars: 'Ma', Mercury: 'Me', Jupiter: 'Ju', Venus: 'Ve', Saturn: 'Sa', Rahu: 'Ra', Ketu: 'Ke' };
-  const lords = (x) => [ab[x.star_lord], ab[x.sub_lord], ab[x.sub_sub_lord]];
-  assert.deepEqual(lords(result.lagna), JH.kp.As.slice(0, 3));
-  assert.deepEqual(lords(result.planets.Sun), JH.kp.Su.slice(0, 3));
-  assert.deepEqual(lords(result.planets.Moon), JH.kp.Mo.slice(0, 3));
+  // D-3 and D-9 were read with mean nodes; Rahu and Ketu sit in the same signs either way
+  const mean = (await ok(srv, 'calculate_vedic_chart', { ...BIRTH, ...MEAN_NODES, include: ['vargas'], vargas: ['D1', 'D3', 'D9'] })).result;
+  for (const [varga, jh] of charts.filter(([v]) => v === 'D3' || v === 'D9')) {
+    for (const p of ['Rahu', 'Ketu']) assert.equal(mean.vargas[varga].planets[p].sign, jh[p], `${varga} ${p} (mean)`);
+  }
+});
+
+test('Positions match Jagannatha Hora\'s Basics table to the arc-second', { skip: SKIP }, async () => {
+  const { result } = await ok(srv, 'calculate_vedic_chart', { ...BIRTH, include: [], output: 'full' });
+  for (const [p, jh] of Object.entries(JH.basics.bodies)) {
+    const x = p === 'Lagna' ? result.lagna : result.planets[p];
+    const diff = (x.longitude - parseLon(jh.longitude)) * 3600;
+    // JH's lagna is 12.61" lower: it subtracts the ayanamsa without nutation from the true
+    // ascendant (12.61" is the nutation in longitude at the birth), while the planets match
+    const expected = p === 'Lagna' ? 12.61 : 0;
+    assert.ok(Math.abs(diff - expected) <= 0.5, `${p}: ${x.degree_dms} is ${diff.toFixed(2)}" from JH ${jh.longitude}`);
+    assert.equal(jhLabel(`${x.nakshatra} ${x.nakshatra_pada}`), `${jh.nakshatra}${jh.pada}`, `${p} nakshatra`);
+  }
+  // Bhrigu Bindu (used by calculate_gochar): midpoint from Rahu forward to the Moon
+  const rahu = result.planets.Rahu.longitude;
+  const bb = (rahu + ((result.planets.Moon.longitude - rahu + 360) % 360) / 2) % 360;
+  assert.ok(Math.abs(bb - parseLon(JH.basics.special_points['Bhrigu Bindu'].split('"')[0] + '"')) * 3600 <= 0.5);
+});
+
+test('KP lords of every body match Jagannatha Hora; JH\'s KP cusps are equal houses from the lagna', { skip: SKIP }, async () => {
+  const { result } = await ok(srv, 'calculate_vedic_chart', { ...BIRTH, include: [] });
+  const lords = (x) => [AB[x.star_lord], AB[x.sub_lord], AB[x.sub_sub_lord]];
+  assert.deepEqual(lords(result.lagna), JH.kp.bodies.As.slice(0, 3), 'lagna');
+  for (const [name, x] of Object.entries(result.planets)) assert.deepEqual(lords(x), JH.kp.bodies[AB[name]].slice(0, 3), name);
+  // JH's house rows repeat every fourth house: cusp n = lagna + 30° x (n - 1), not Placidus
+  const lagna = parseLon(JH.basics.bodies.Lagna.longitude);
+  for (let h = 1; h <= 12; h++) assert.deepEqual(lords(kpLords(lagna + 30 * (h - 1))), JH.kp.houses[h].slice(0, 3), `house ${h}`);
 });

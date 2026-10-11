@@ -66,7 +66,7 @@ Birth time and place:
 - If the user names a birth place or zone (New York, London, UTC...), use the offset in force there on the birth date.
 - For a named Indian city (Bhavnagar, Botad, Mumbai, Ahmedabad...) use its own coordinates. If only "India" is given, use 21°46'N 72°09'E (21.7667, 72.15) when the context points to Gujarat / Western India.
 - Kalachakra (calculate_kalachakra_dasha) always runs with the Jagannatha Hora settings and does not depend on the birth place.
-- Rahu/Ketu are true nodes by default. Pass node_type "mean" only when the user explicitly asks for mean nodes, and say which nodes were used. The node type moves only Rahu/Ketu and what depends on them (their degrees, nakshatra/sub lords, varga signs, Rahu's Vimshopaka, KP significators, Chara/Narayana strength); Vimshottari, Kalachakra, Shadbala and Ashtakavarga do not change.
+- Rahu/Ketu are true nodes by default. Pass node_type "mean" only when the user explicitly asks for mean nodes, and say which nodes were used. The node type moves only Rahu/Ketu and what depends on them (their degrees, nakshatra/sub lords, varga signs, Rahu's and Ketu's Vimshopaka, KP significators, Chara/Narayana strength); Vimshottari, Kalachakra, Shadbala and Ashtakavarga do not change.
 
 Current location (dual-time reporting):
 - Dasha transitions happen at one physical moment; show them in both the birth timezone and the native's current local time.
@@ -336,7 +336,7 @@ class SwissEphemerisServer {
                   properties: { D2: { type: 'string', enum: ['parashara', 'parivritti', 'pvr'] }, D3: { type: 'string', enum: ['parashara', 'parivritti'] }, D30: { type: 'string', enum: ['parashara', 'parivritti'] } },
                   description: 'Varga method overrides for the charts shown (default Parashara for all: D-2 Sun/Moon horas, D-3 drekkanas 1-5-9, D-30 unequal trimsamsa; D-2 pvr is Jagannatha Hora\'s parivritti hora with even signs reversed). Example: {"D2":"parivritti"}',
                 },
-                vimshopaka_method: { type: 'string', enum: ['jh', 'bphs'], description: 'Vimshopaka bala: jh (default, as Jagannatha Hora: relationships read in each divisional chart, D-2 pvr, JH saptavarga weights D7 1, D9 2.5, D12 4.5, D30 2) or bphs (compound relationships from D-1, BPHS weights, varga_method)' },
+                vimshopaka_method: { type: 'string', enum: ['jh', 'bphs'], description: 'Vimshopaka bala: jh (default, as Jagannatha Hora: relationships read in each divisional chart, D-2 pvr, JH saptavarga weights D7 1, D9 2.5, D12 4.5, D30 2; Rahu and Ketu included) or bphs (compound relationships from D-1, BPHS weights, varga_method; seven planets)' },
                 rahu_exaltation: { type: 'string', enum: ['Ta', 'Ge'], description: 'Rahu exalted in Taurus (default, Ketu in Scorpio) or Gemini (Ketu in Sagittarius)' },
                 moolatrikona: { type: 'object', description: 'Override BPHS moolatrikona ranges: {planet: [sign 0-11, from degree, to degree]}, e.g. {"Moon":[1,4,30]}' },
                 combustion_limits: { type: 'object', description: 'Override combustion orbs in degrees (defaults Moon 12, Mars 17, Mercury 14 / 12 retrograde, Jupiter 11, Venus 10 / 8 retrograde, Saturn 15). Example: {"Mercury":13,"Mercury_retrograde":12}' },
@@ -1430,7 +1430,7 @@ class SwissEphemerisServer {
       out.vargas = options.vargas;
       out.varga_method = { D2: 'parashara', D3: 'parashara', D30: 'parashara', ...options.varga_method };
       out.vimshopaka = (options.vimshopaka_method || 'jh') === 'jh'
-        ? 'jh: own 20, adhimitra 18, mitra 15, sama 10, shatru 7, adhishatru 5; temporary relationships read in each divisional chart; D-2 pvr; saptavarga weights D1 5, D2 2, D3 3, D7 1, D9 2.5, D12 4.5, D30 2'
+        ? 'jh: own 20, adhimitra 18, mitra 15, sama 10, shatru 7, adhishatru 5; temporary relationships read in each divisional chart; D-2 pvr; saptavarga weights D1 5, D2 2, D3 3, D7 1, D9 2.5, D12 4.5, D30 2; Rahu and Ketu: Venus and Saturn friends, Mercury and Jupiter neutral, Sun, Moon and Mars enemies'
         : 'bphs: own 20, adhimitra 18, mitra 15, sama 10, shatru 7, adhishatru 5; compound relationships from D-1; BPHS weights; varga_method';
     }
     if (include.has('dignity')) {

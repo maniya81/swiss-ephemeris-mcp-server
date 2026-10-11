@@ -82,8 +82,9 @@ test('True nodes by default, mean nodes on request: only Rahu/Ketu results chang
   assert.deepEqual(t.ashtakavarga.sarvashtakavarga, m.ashtakavarga.sarvashtakavarga);
   assert.equal(t.vimshottari_dasha.current.chain, m.vimshottari_dasha.current.chain);
   assert.equal(t.kalachakra_dasha.current.chain, m.kalachakra_dasha.current.chain);
-  // Rahu's Vimshopaka does move: 1.4° separates the two nodes in several of the finer vargas
+  // Rahu's and Ketu's Vimshopaka do move: 1.4° separates the two nodes in several finer vargas
   assert.notDeepEqual(t.vimshopaka.Rahu, m.vimshopaka.Rahu);
+  assert.notDeepEqual(t.vimshopaka.Ketu, m.vimshopaka.Ketu);
 });
 
 test('Dignity, aspects and settings echo', { skip: SKIP }, async () => {
