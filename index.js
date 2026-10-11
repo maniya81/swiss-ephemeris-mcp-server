@@ -13,7 +13,8 @@ import { execSync } from 'node:child_process';
 import express from 'express';
 import { ToolError, invalid } from './src/errors.js';
 import { createEphemeris } from './src/ephemeris.js';
-import { PLANET_ABBR, GRAHAS as GRAHA_NAMES, round } from './src/constants.js';
+import { PLANET_ABBR, GRAHAS as GRAHA_NAMES, round, norm360, signOf, houseFrom, shortPosition } from './src/constants.js';
+import { sampleBody, boundaryCrossings, stations, signIntervals, stateEpisodes, episodeAt, taraBala, chandraBala, natalHit, EPISODE_GAP_DAYS } from './src/gochar.js';
 import { computeDignity, compactDignity } from './src/dignity.js';
 import { computeVargas, computeVimshopaka, compactVargas, vargaPosition, ALL_VARGAS, VARGA_METHODS } from './src/vargas.js';
 import { computeAspects, compactAspects } from './src/aspects.js';
@@ -367,6 +368,34 @@ class SwissEphemerisServer {
                 },
               },
               required: ['datetime'],
+            },
+          },
+          {
+            name: 'calculate_gochar',
+            description: 'Gochar (transits) over a natal chart, with finished answers: each transiting graha\'s sidereal position, nakshatra and pada, house from the natal Moon and lagna and KP house; Saturn states from the natal Moon (Sade Sati rising/peak/setting, Ashtama, Kantaka, Ardhashtama) with exact start/end dates including retrograde re-entries (several spans per episode); Jupiter, Rahu and Ketu stays with the same spans; tara bala and chandra bala with the time they change; Jupiter/Saturn/Rahu/Ketu within an orb of natal planets, cusps or the Bhrigu Bindu with the exact dates; and, for a from/to range, sign and nakshatra ingresses and retrograde/direct stations with exact timestamps. Defaults follow Jagannatha Hora (Traditional Lahiri, true positions, true nodes). Example: {"datetime":"1979-08-16T05:25:00+05:30","latitude":22.1667,"longitude":71.6667,"as_of":"2025-06-01T12:00:00+05:30"}',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                datetime: { type: 'string', description: 'Birth datetime, ISO8601 with the birth UTC offset and seconds, e.g. 1979-08-16T05:25:00+05:30 (IST assumed without an offset). All times are returned in this offset' },
+                latitude: { type: 'number', description: 'Birth latitude in decimal degrees (for the natal lagna and KP cusps)' },
+                longitude: { type: 'number', description: 'Birth longitude in decimal degrees, positive east' },
+                as_of: {
+                  oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' }, maxItems: 200 }],
+                  description: 'Transit date (default now), or a list of up to 200 dates: one compact line per date plus one copy of the Saturn episodes covering them. Example: "2025-06-01T12:00:00+05:30"',
+                },
+                from: { type: 'string', description: 'Start of a search range (with to), e.g. "2025-01-01". Adds every Saturn episode and Jupiter/Rahu/Ketu sign stay in the range and the ingress/station list. At most 100 years' },
+                to: { type: 'string', description: 'End of the search range, e.g. "2027-12-31"' },
+                search_planets: { type: 'array', items: { type: 'string', enum: ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn', 'Rahu', 'Ketu'] }, description: 'Grahas for the ingress/station search (default all except the Moon). Example: ["Jupiter","Saturn"]' },
+                search_events: { type: 'array', items: { type: 'string', enum: ['sign', 'nakshatra', 'station'] }, description: 'Events to search for (default all three). Stations are not listed for the Sun, Moon and nodes' },
+                orb: { type: 'number', description: 'Orb in degrees for transit-to-natal hits (default 1)' },
+                kantaka_includes_first: { type: 'boolean', description: 'Count Saturn over the natal Moon (1st) as Kantaka Shani too (default false: the 1st is the Sade Sati peak; Kantaka = 4th, 7th, 10th)' },
+                ayanamsa: { type: 'string', enum: ['traditional_lahiri', 'lahiri', 'kp_new', 'kp_old', 'raman', 'yukteshwar', 'fagan_bradley'], description: 'Ayanamsa (default traditional_lahiri, as in Jagannatha Hora)' },
+                node_type: { type: 'string', enum: ['true', 'mean'], description: 'Rahu/Ketu: true (default) or mean node' },
+                position_type: { type: 'string', enum: ['true', 'apparent'], description: 'true (default, as in Jagannatha Hora) or apparent positions' },
+                output: { type: 'string', enum: ['full', 'chain'], description: 'full (default for one date): structured objects. chain: one string per item (fewer tokens). A list of as_of dates is always compact' },
+                current_timezone: { type: 'string', description: 'IANA timezone where the native lives now, e.g. Australia/Melbourne. Adds *_local times (compact strings show them in brackets)' },
+              },
+              required: ['datetime', 'latitude', 'longitude'],
             },
           },
         ],
@@ -1418,27 +1447,29 @@ class SwissEphemerisServer {
   }
 
   // Adds start_local/end_local (and as_of_local) next to every start/end in a dasha result
-  addLocalTimes(value, formatLocal) {
+  addLocalTimes(value, formatLocal, keys = ['start', 'end', 'as_of']) {
+    const isTime = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v) && !isNaN(Date.parse(v));
     if (Array.isArray(value)) {
-      value.forEach(v => this.addLocalTimes(v, formatLocal));
+      value.forEach(v => this.addLocalTimes(v, formatLocal, keys));
     } else if (value && typeof value === 'object') {
-      for (const key of ['start', 'end', 'as_of']) {
-        if (typeof value[key] === 'string') value[`${key}_local`] = formatLocal(new Date(value[key]).getTime());
+      for (const key of keys) {
+        if (isTime(value[key])) value[`${key}_local`] = formatLocal(new Date(value[key]).getTime());
+        else if (Array.isArray(value[key]) && value[key].length && value[key].every(isTime)) value[`${key}_local`] = value[key].map(v => formatLocal(new Date(v).getTime()));
       }
-      Object.values(value).forEach(v => this.addLocalTimes(v, formatLocal));
+      Object.values(value).forEach(v => this.addLocalTimes(v, formatLocal, keys));
     }
     return value;
   }
 
   // Applies the optional current_timezone to the dasha parts of a result
-  withCurrentTimezone(result, datetime, currentTimezone, dashaKeys) {
+  withCurrentTimezone(result, datetime, currentTimezone, dashaKeys, timeKeys = undefined) {
     result.birth_timezone = /[+-]\d{2}:?\d{2}$/.test(datetime) ? `UTC${datetime.slice(-6)}` : 'UTC';
     if (datetime !== result.datetime_input) result.birth_timezone += ' (assumed IST: no offset given)';
     delete result.datetime_input;
     if (currentTimezone) {
       const formatLocal = this.makeZoneFormatter(currentTimezone);
       result.current_timezone = currentTimezone;
-      dashaKeys.forEach(key => this.addLocalTimes(result[key], formatLocal));
+      dashaKeys.forEach(key => this.addLocalTimes(result[key], formatLocal, timeKeys));
     }
     return result;
   }
@@ -2280,6 +2311,252 @@ class SwissEphemerisServer {
   }
 
   // as_of may be one date or a list of dates; each gets IST when it has no offset
+  // calculate_gochar: transits over the natal chart at one or more dates, with Saturn states,
+  // Jupiter/Rahu/Ketu stays, tara and chandra bala, natal hits and an ingress/station search
+  calculateGochar(datetime, latitude, longitude, options = {}) {
+    const birth = new Date(datetime);
+    if (isNaN(birth.getTime())) throw invalid('datetime', 'Invalid datetime. Use ISO8601 with a UTC offset, e.g. 1979-08-16T05:25:00+05:30');
+    const ayanamsaKey = options.ayanamsa || DEFAULT_AYANAMSA;
+    const ayanamsa = AYANAMSAS[ayanamsaKey];
+    const nodeType = options.node_type || 'true';
+    const positionType = options.position_type || 'true';
+    const settingsFlags = { siderealFlag: ayanamsa.flag, positionFlag: positionType === 'true' ? ' -true' : '', nodeType };
+    const eph = createEphemeris();
+    const formatTime = this.makeTimeFormatter(datetime);
+    const orb = options.orb ?? 1;
+    const kantakaHouses = options.kantaka_includes_first ? [1, 4, 7, 10] : [4, 7, 10];
+    const asOfList = Array.isArray(options.as_of) ? options.as_of : null;
+    const asOfTimes = (asOfList || [options.as_of]).map(a => (a ? new Date(a).getTime() : Date.now()));
+    if (asOfTimes.some(t => isNaN(t))) throw invalid('as_of', 'Invalid as_of datetime. Use ISO8601, e.g. 2025-01-01T12:00:00+05:30');
+    const range = options.from ? { fromMs: new Date(options.from).getTime(), toMs: new Date(options.to).getTime() } : null;
+    const compact = options.output === 'chain' || Boolean(asOfList);
+
+    // Natal chart
+    const natal = eph.grahas(birth, settingsFlags);
+    const houses = eph.houses(birth, latitude, longitude, settingsFlags);
+    const moonSign = signOf(natal.Moon.lon);
+    const lagnaSign = signOf(houses.asc);
+    const kpHouseOf = (lon) => {
+      for (let h = 1; h <= 12; h++) {
+        const start = houses.cusps[h];
+        const span = norm360(houses.cusps[h === 12 ? 1 : h + 1] - start);
+        if (norm360(lon - start) < span) return h;
+      }
+      return null;
+    };
+    const targets = [
+      ...GRAHA_NAMES.map(g => ({ name: `natal ${g}`, lon: natal[g].lon })),
+      ...Array.from({ length: 12 }, (_, i) => ({ name: i === 0 ? 'cusp1 (lagna)' : i === 9 ? 'cusp10 (MC)' : `cusp${i + 1}`, lon: houses.cusps[i + 1] })),
+      // Bhrigu Bindu: the midpoint from Rahu forward to the Moon
+      { name: 'Bhrigu Bindu', lon: norm360(natal.Rahu.lon + norm360(natal.Moon.lon - natal.Rahu.lon) / 2) },
+    ];
+
+    // Slow-planet series: Saturn wide enough to see whole Sade Sati cycles and the next episode
+    const minT = Math.min(...asOfTimes, ...(range ? [range.fromMs] : []));
+    const maxT = Math.max(...asOfTimes, ...(range ? [range.toMs] : []));
+    const year = 365.25 * DAY_MS;
+    const series = {
+      Saturn: sampleBody(eph, 'Saturn', minT - 30 * year, maxT + 30 * year, settingsFlags),
+      Jupiter: sampleBody(eph, 'Jupiter', minT - 2 * year, maxT + 2 * year, settingsFlags),
+      Rahu: sampleBody(eph, 'Rahu', minT - 2 * year, maxT + 2 * year, settingsFlags),
+      Ketu: sampleBody(eph, 'Ketu', minT - 2 * year, maxT + 2 * year, settingsFlags),
+    };
+    const intervals = Object.fromEntries(Object.entries(series).map(([p, s]) => [p, signIntervals(s)]));
+    const gapMs = (p) => EPISODE_GAP_DAYS[p] * DAY_MS;
+    const saturnStates = {
+      sade_sati: stateEpisodes(intervals.Saturn, moonSign, [12, 1, 2], gapMs('Saturn'), true),
+      ashtama: stateEpisodes(intervals.Saturn, moonSign, [8], gapMs('Saturn')),
+      kantaka: stateEpisodes(intervals.Saturn, moonSign, kantakaHouses, gapMs('Saturn')),
+      ardhashtama: stateEpisodes(intervals.Saturn, moonSign, [4], gapMs('Saturn')),
+    };
+    const PHASES = { 12: 'rising', 1: 'peak', 2: 'setting' };
+
+    // Objects carry ISO times (birth offset) and get *_local fields later; compact strings embed
+    // the local time in brackets when current_timezone is given
+    const iso = (ms) => formatTime(ms);
+    const local = options.current_timezone ? this.makeZoneFormatter(options.current_timezone) : null;
+    const ts = compact && local ? (ms) => `${iso(ms)} [${local(Math.round(ms / 1000) * 1000)}]` : iso;
+    const spanOut = (s, state, fmt = ts) => ({
+      ...(state === 'sade_sati' ? { phase: PHASES[s.house] } : { house_from_moon: s.house }),
+      sign: SIGN_ABBR[s.sign],
+      start: s.openStart ? null : fmt(s.startMs),
+      end: s.openEnd ? null : fmt(s.endMs),
+    });
+    const episodeOut = (e, state, fmt = ts) => e && ({
+      start: e.openStart ? null : fmt(e.startMs),
+      end: e.openEnd ? null : fmt(e.endMs),
+      duration: this.formatDuration(e.endMs - e.startMs),
+      spans: e.spans.map(s => spanOut(s, state, fmt)),
+    });
+    const stateAt = (state, t, saturnHouse) => {
+      const found = episodeAt(saturnStates[state], t);
+      const out = { active: found.active };
+      if (state === 'sade_sati') out.phase = found.active ? PHASES[saturnHouse] : null;
+      else if (found.active) out.house_from_moon = saturnHouse;
+      if (found.status === 'current' && !found.active) out.note = 'Saturn has stepped back out of this state by retrograde motion and re-enters it within this episode';
+      out[found.status === 'current' ? 'episode' : 'next_episode'] = episodeOut(found.episode, state);
+      if (found.status !== 'current' && found.previous) out.previous_end = found.previous.openEnd ? null : ts(found.previous.endMs);
+      return out;
+    };
+    const stayOut = (planet, t) => {
+      const sign = signOf(series[planet].lonAt(t));
+      const stays = stateEpisodes(intervals[planet], 0, [sign + 1], gapMs(planet));
+      const found = episodeAt(stays, t);
+      const e = found.episode;
+      return {
+        sign: SIGN_ABBR[sign],
+        house_from_moon: houseFrom(moonSign, sign),
+        house_from_lagna: houseFrom(lagnaSign, sign),
+        stay: e ? { start: e.openStart ? null : ts(e.startMs), end: e.openEnd ? null : ts(e.endMs), spans: e.spans.map(s => ({ start: s.openStart ? null : ts(s.startMs), end: s.openEnd ? null : ts(s.endMs) })) } : null,
+      };
+    };
+
+    const perDate = asOfTimes.map((t) => {
+      const g = eph.grahas(new Date(t), settingsFlags);
+      const positions = Object.fromEntries(GRAHA_NAMES.map(name => {
+        const p = this.describeSiderealPoint(g[name].lon);
+        const isNode = name === 'Rahu' || name === 'Ketu';
+        return [name, {
+          ...p,
+          house_from_moon: houseFrom(moonSign, signOf(g[name].lon)),
+          house_from_lagna: houseFrom(lagnaSign, signOf(g[name].lon)),
+          house_kp: kpHouseOf(g[name].lon),
+          retrograde: isNode ? true : g[name].speed < 0,
+        }];
+      }));
+      const saturnHouse = houseFrom(moonSign, signOf(g.Saturn.lon));
+      const saturn = Object.fromEntries(Object.keys(saturnStates).map(s => [s, stateAt(s, t, saturnHouse)]));
+      // The transit Moon's next nakshatra and sign change bound the tara and chandra bala
+      const moon = sampleBody(eph, 'Moon', t, t + 3 * DAY_MS, settingsFlags);
+      const nextNak = boundaryCrossings(moon, NAKSHATRA_SPAN).find(c => c.ms > t);
+      const nextSign = boundaryCrossings(moon, 30).find(c => c.ms > t);
+      const tara = { ...taraBala(natal.Moon.lon, g.Moon.lon), janma_nakshatra: NAKSHATRAS[Math.floor(natal.Moon.lon / NAKSHATRA_SPAN)], transit_nakshatra: NAKSHATRAS[Math.floor(g.Moon.lon / NAKSHATRA_SPAN)], until: nextNak ? ts(nextNak.ms) : null };
+      const chandra = { ...chandraBala(natal.Moon.lon, g.Moon.lon, g.Sun.lon), until: nextSign ? ts(nextSign.ms) : null };
+      const hits = [];
+      for (const planet of ['Jupiter', 'Saturn', 'Rahu', 'Ketu']) {
+        for (const target of targets) {
+          // Ketu on the natal nodes repeats Rahu's hit on the same axis
+          if (planet === 'Ketu' && (target.name === 'natal Rahu' || target.name === 'natal Ketu')) continue;
+          const hit = natalHit(series[planet], target.lon, t, orb);
+          if (!hit) continue;
+          hits.push({
+            planet,
+            target: target.name,
+            orb_deg: round(hit.orb_deg, 3),
+            applying: hit.applying,
+            in_orb: { start: hit.inOrb.openStart ? null : ts(hit.inOrb.startMs), end: hit.inOrb.openEnd ? null : ts(hit.inOrb.endMs) },
+            exact: hit.exact.map(ms => ts(ms)),
+            closest: { at: ts(hit.closest.ms), orb_deg: round(hit.closest.orb, 4) },
+          });
+        }
+      }
+      hits.sort((a, b) => a.orb_deg - b.orb_deg);
+      return {
+        as_of: ts(t), positions, saturn,
+        jupiter: stayOut('Jupiter', t), rahu: stayOut('Rahu', t), ketu: stayOut('Ketu', t),
+        tara_bala: tara, chandra_bala: chandra, natal_hits: hits,
+      };
+    });
+
+    const settings = {
+      ayanamsa: ayanamsa.name,
+      positions: positionType,
+      nodes: nodeType,
+      houses: 'house_from_moon and house_from_lagna count signs from the natal Moon and lagna; house_kp uses the natal Placidus cusps',
+      sade_sati: 'Saturn in the 12th (rising), 1st (peak) and 2nd (setting) from the natal Moon sign',
+      ashtama: 'Saturn in the 8th from the natal Moon',
+      ardhashtama: 'Saturn in the 4th from the natal Moon',
+      kantaka: `Saturn in the ${kantakaHouses.join(', ')} from the natal Moon${options.kantaka_includes_first ? '' : ' (the 1st is counted as Sade Sati; kantaka_includes_first adds it)'}`,
+      episodes: 'Stays joined across retrograde re-entries (Saturn within 4 years, Jupiter, Rahu and Ketu within 2 years); each span is one continuous stay',
+      tara_bala: 'Nakshatras counted from the janma nakshatra, in groups of nine; Sampat, Kshema, Sadhaka, Mitra and Parama Mitra are favourable',
+      chandra_bala: 'Transit Moon in the 1st, 3rd, 6th, 7th, 10th or 11th from the natal Moon; also the 2nd, 5th and 9th in the bright half',
+      natal_hits: `Jupiter, Saturn, Rahu and Ketu within ${orb}° of natal planets, cusps and the Bhrigu Bindu`,
+      precision: 'Ingress times by cubic interpolation of daily positions (about one second); stations refined to the second',
+    };
+
+    const result = { settings, natal: { lagna: shortPosition(houses.asc), moon: shortPosition(natal.Moon.lon), janma_nakshatra: NAKSHATRAS[Math.floor(natal.Moon.lon / NAKSHATRA_SPAN)] } };
+
+    if (!compact) {
+      Object.assign(result, perDate[0]);
+    } else {
+      const short = (d, withSpans) => {
+        const pos = (n) => { const p = d.positions[n]; return `${SIGN_ABBR[SIGNS.indexOf(p.sign)]} ${p.degree_dms} ${p.nakshatra} ${p.nakshatra_pada} M${p.house_from_moon} L${p.house_from_lagna} KP${p.house_kp}${p.retrograde && n !== 'Rahu' && n !== 'Ketu' ? ' R' : ''}`; };
+        const span = (e) => (e ? `${e.start ?? '…'} -> ${e.end ?? '…'}${e.spans.length > 1 ? ` in ${e.spans.length} spans (${e.spans.map(s => `${s.phase || `H${s.house_from_moon}`} ${s.start ?? '…'} -> ${s.end ?? '…'}`).join('; ')})` : ''}` : 'none');
+        const state = (name, s) => {
+          if (s.active) return `${name}${s.phase ? ` ${s.phase}` : ` H${s.house_from_moon}`}${withSpans ? `: ${span(s.episode)}` : ''}`;
+          if (s.episode) return `${name} paused (retrograde)${withSpans ? `: ${span(s.episode)}` : ''}`;
+          return withSpans ? `${name} next: ${span(s.next_episode)}` : null;
+        };
+        const stay = (n, s) => `${n} ${s.sign} M${s.house_from_moon} L${s.house_from_lagna}${withSpans && s.stay ? ` (${s.stay.start ?? '…'} -> ${s.stay.end ?? '…'}${s.stay.spans.length > 1 ? `, ${s.stay.spans.length} spans` : ''})` : ''}`;
+        const saturnStates = Object.entries(d.saturn).map(([k, v]) => state(k, v)).filter(Boolean);
+        const out = { as_of: d.as_of };
+        if (withSpans) out.positions = Object.fromEntries(GRAHA_NAMES.map(n => [n, pos(n)]));
+        out.saturn = withSpans ? saturnStates : (saturnStates.join('; ') || 'no Saturn state');
+        out.slow = [stay('Jupiter', d.jupiter), stay('Rahu', d.rahu), stay('Ketu', d.ketu)].join('; ');
+        out.tara_bala = `${d.tara_bala.tara} (${d.tara_bala.number}, ${d.tara_bala.favourable ? 'favourable' : 'unfavourable'})${withSpans ? ` until ${d.tara_bala.until}` : ''}`;
+        out.chandra_bala = `H${d.chandra_bala.house_from_moon} ${d.chandra_bala.paksha} (${d.chandra_bala.favourable ? 'favourable' : 'unfavourable'})${withSpans ? ` until ${d.chandra_bala.until}` : ''}`;
+        out.natal_hits = d.natal_hits.map(h => `${h.planet} on ${h.target} ${h.orb_deg}° ${h.applying ? 'applying' : 'separating'}${h.exact.length ? `; exact ${h.exact.join(', ')}` : `; closest ${h.closest.at} (${h.closest.orb_deg}°)`}`);
+        return out;
+      };
+      result.legend = 'positions: sign, degree, nakshatra, pada, M = house from the natal Moon, L = house from the natal lagna, KP = KP house (natal cusps), R = retrograde';
+      if (!asOfList) Object.assign(result, short(perDate[0], true));
+      else {
+        result.dates = perDate.map(d => short(d, false));
+        // One copy of the Saturn episodes covering the dates, instead of repeating them per date
+        const overlap = (e) => e.endMs >= minT && e.startMs <= maxT;
+        result.saturn_episodes = Object.fromEntries(Object.entries(saturnStates).map(([k, eps]) => [k, eps.filter(overlap).map(e => episodeOut(e, k, iso))]));
+      }
+    }
+
+    if (range) {
+      const inRange = (e) => e.endMs >= range.fromMs && e.startMs <= range.toMs;
+      result.range = {
+        from: iso(range.fromMs),
+        to: iso(range.toMs),
+        saturn_episodes: Object.fromEntries(Object.entries(saturnStates).map(([k, eps]) => [k, eps.filter(inRange).map(e => episodeOut(e, k, iso))])),
+        sign_stays: Object.fromEntries(['Jupiter', 'Rahu', 'Ketu'].map(p => [p, intervals[p].filter(iv => iv.endMs >= range.fromMs && iv.startMs <= range.toMs).map(iv => ({
+          sign: SIGN_ABBR[iv.sign], house_from_moon: houseFrom(moonSign, iv.sign), house_from_lagna: houseFrom(lagnaSign, iv.sign),
+          start: iv.openStart ? null : iso(iv.startMs), end: iv.openEnd ? null : iso(iv.endMs),
+        }))])),
+      };
+      const events = [];
+      const kinds = new Set(options.search_events || ['sign', 'nakshatra', 'station']);
+      for (const planet of options.search_planets || GRAHA_NAMES.filter(p => p !== 'Moon')) {
+        const s = sampleBody(eph, planet, range.fromMs, range.toMs, settingsFlags);
+        if (kinds.has('sign')) boundaryCrossings(s, 30).forEach(c => events.push({ ms: c.ms, planet, event: 'sign ingress', from: SIGN_ABBR[c.from], to: SIGN_ABBR[c.to], ...(c.retrograde && planet !== 'Rahu' && planet !== 'Ketu' ? { retrograde: true } : {}) }));
+        if (kinds.has('nakshatra')) boundaryCrossings(s, NAKSHATRA_SPAN).forEach(c => events.push({ ms: c.ms, planet, event: 'nakshatra ingress', from: NAKSHATRAS[c.from], to: NAKSHATRAS[c.to], ...(c.retrograde && planet !== 'Rahu' && planet !== 'Ketu' ? { retrograde: true } : {}) }));
+        if (kinds.has('station')) stations(eph, s, settingsFlags).forEach(st => events.push({ ms: st.ms, planet, event: st.type, position: shortPosition(st.lon) }));
+      }
+      events.sort((a, b) => a.ms - b.ms || a.planet.localeCompare(b.planet));
+      const filtered = events.filter(e => e.ms >= range.fromMs && e.ms <= range.toMs);
+      const list = filtered.map(({ ms, ...e }) => ({ at: iso(ms), ...e }));
+      const budget = MAX_SWEEP_CHARS - JSON.stringify(result).length - 2000;
+      let kept = list.length;
+      let size = JSON.stringify(list).length;
+      while (kept > 0 && size > budget) {
+        kept = Math.floor(kept * 0.8);
+        size = JSON.stringify(list.slice(0, kept)).length;
+      }
+      result.range.events = list.slice(0, kept);
+      result.range.event_count = list.length;
+      if (kept < list.length) {
+        result.range.truncated = true;
+        result.range.narrow_with = `Showing the first ${kept} of ${list.length} events. Narrow from/to, search_planets or search_events.`;
+      }
+    }
+
+    if (asOfList && JSON.stringify(result).length > MAX_SWEEP_CHARS) {
+      let kept = result.dates.length;
+      while (kept > 1 && JSON.stringify({ ...result, dates: result.dates.slice(0, kept) }).length > MAX_SWEEP_CHARS) kept = Math.floor(kept * 0.8);
+      result.truncated = true;
+      result.narrow_with = `Showing ${kept} of ${result.dates.length} dates. Pass fewer as_of dates.`;
+      result.dates = result.dates.slice(0, kept);
+    }
+    result.datetime = datetime;
+    result.coordinates = { latitude, longitude };
+    return result;
+  }
+
   normalizeAsOf(asOf) {
     if (asOf === undefined) return undefined;
     if (Array.isArray(asOf)) {
@@ -2781,6 +3058,67 @@ class SwissEphemerisServer {
         });
         kcResult.datetime_input = kcDatetime;
         return this.withCurrentTimezone(kcResult, kcBirth, args.current_timezone, ['current', 'chains', 'drill_down', 'mahadashas']);
+      }
+
+      case 'calculate_gochar': {
+        const { datetime: gDatetime, latitude: gLatitude, longitude: gLongitude } = args;
+        if (!gDatetime || typeof gDatetime !== 'string') throw invalid('datetime', 'datetime (birth, e.g. 1979-08-16T05:25:00+05:30) is required');
+        if (typeof gLatitude !== 'number' || gLatitude < -90 || gLatitude > 90) throw invalid('latitude', 'latitude must be a number between -90 and 90');
+        if (typeof gLongitude !== 'number' || gLongitude < -180 || gLongitude > 180) throw invalid('longitude', 'longitude must be a number between -180 and 180');
+        if (args.ayanamsa !== undefined && !AYANAMSAS[args.ayanamsa]) throw invalid('ayanamsa', `ayanamsa must be one of: ${Object.keys(AYANAMSAS).join(', ')}`);
+        if (args.position_type !== undefined && !['true', 'apparent'].includes(args.position_type)) throw invalid('position_type', 'position_type must be "true" or "apparent"');
+        if (args.node_type !== undefined && !['true', 'mean'].includes(args.node_type)) throw invalid('node_type', 'node_type must be "true" or "mean"');
+        if (args.output !== undefined && !['full', 'chain'].includes(args.output)) throw invalid('output', 'output must be "full" or "chain"');
+        if (args.orb !== undefined && (typeof args.orb !== 'number' || args.orb <= 0 || args.orb > 10)) throw invalid('orb', 'orb must be a number of degrees above 0 and up to 10');
+        if (args.kantaka_includes_first !== undefined && typeof args.kantaka_includes_first !== 'boolean') throw invalid('kantaka_includes_first', 'kantaka_includes_first must be true or false');
+        this.validateTimezone(args.current_timezone);
+        const gAsOf = this.normalizeAsOf(args.as_of);
+        let gFrom;
+        let gTo;
+        if (args.from !== undefined || args.to !== undefined) {
+          if (typeof args.from !== 'string' || typeof args.to !== 'string') throw invalid(args.from === undefined ? 'from' : 'to', 'from and to must be given together as dates, e.g. "2025-01-01" and "2026-01-01"');
+          gFrom = this.withDefaultOffset(args.from);
+          gTo = this.withDefaultOffset(args.to);
+          const a = Date.parse(gFrom);
+          const b = Date.parse(gTo);
+          if (isNaN(a)) throw invalid('from', 'from is not a valid date');
+          if (isNaN(b)) throw invalid('to', 'to is not a valid date');
+          if (b <= a) throw invalid('to', 'to must be after from');
+          if (b - a > 100 * 365.25 * DAY_MS) throw invalid('to', 'from-to may span at most 100 years');
+        }
+        if (args.search_planets !== undefined && (!Array.isArray(args.search_planets) || !args.search_planets.length || args.search_planets.some(p => !GRAHA_NAMES.includes(p)))) {
+          throw invalid('search_planets', `search_planets must be a list of: ${GRAHA_NAMES.join(', ')}`);
+        }
+        if (args.search_events !== undefined && (!Array.isArray(args.search_events) || !args.search_events.length || args.search_events.some(e => !['sign', 'nakshatra', 'station'].includes(e)))) {
+          throw invalid('search_events', 'search_events must be a list of: sign, nakshatra, station');
+        }
+        const gBirth = this.withDefaultOffset(gDatetime);
+        const gResult = this.calculateGochar(gBirth, gLatitude, gLongitude, {
+          as_of: gAsOf,
+          from: gFrom,
+          to: gTo,
+          ayanamsa: args.ayanamsa,
+          position_type: args.position_type,
+          node_type: args.node_type,
+          orb: args.orb,
+          kantaka_includes_first: args.kantaka_includes_first,
+          search_planets: args.search_planets,
+          search_events: args.search_events,
+          output: args.output,
+          current_timezone: args.current_timezone,
+        });
+        gResult.datetime_input = gDatetime;
+        this.withCurrentTimezone(gResult, gBirth, args.current_timezone, []);
+        if (args.current_timezone) {
+          const formatLocal = this.makeZoneFormatter(args.current_timezone);
+          const timeKeys = ['start', 'end', 'as_of', 'until', 'at', 'exact', 'from', 'to'];
+          for (const [key, value] of Object.entries(gResult)) {
+            if (['settings', 'natal', 'datetime', 'coordinates', 'birth_timezone', 'current_timezone'].includes(key)) continue;
+            if (key === 'as_of' && typeof value === 'string' && !value.includes('[')) gResult.as_of_local = formatLocal(Date.parse(value));
+            else this.addLocalTimes(value, formatLocal, timeKeys);
+          }
+        }
+        return gResult;
       }
 
       default:
