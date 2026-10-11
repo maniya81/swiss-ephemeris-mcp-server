@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Skill `.claude/skills/swiss-ephemeris-mcp`: how to call each tool with the fewest tokens, with example requests and responses (checked against the server) and a parameter cheat sheet.
+- Tool descriptions: the remaining rectification examples use Sagar's chart.
+
 ## 1.1.0
 
 Vedic, KP and rectification features. Defaults follow Jagannatha Hora; every classical choice is selectable and named in each response's `settings`. Errors are JSON with a `reason` and the `parameter` to fix.
