@@ -151,7 +151,7 @@ Calculate a sidereal Vedic/KP birth chart with Vimshottari and Kalachakra dashas
 - `longitude` (number): Birth longitude in decimal degrees, positive east
 - `ayanamsa` (string, optional): `traditional_lahiri` (default), `lahiri`, `kp_new`, `kp_old`, `raman`, `yukteshwar`, `fagan_bradley`
 - `position_type` (string, optional): `true` (default) or `apparent` planet positions
-- `node_type` (string, optional): `true` (default) or `mean` node for Rahu/Ketu
+- `node_type` (string, optional): `true` (default) or `mean` node for Rahu/Ketu. Use `mean` only when asked; it moves Rahu/Ketu by up to about 1.7° and so their sub lords, varga signs, Rahu's Vimshopaka and node-based KP and Chara/Narayana results, but not Vimshottari, Kalachakra, Shadbala or Ashtakavarga
 - `as_of` (string or list, optional): Date for the running dasha chains (default now), or a list of up to 200 dates to get one compact chain per date (`chains`)
 - `output` (string, optional): `full` (default) or `chain`, which leaves out the dasha trees and returns only the running chains
 - `levels` (integer, optional): How deep chains go, from 1 (mahadasha) to 6 (deha, the default)
@@ -243,7 +243,7 @@ Birth-time anchors from transits, e.g. `{"as_of":"2025-12-01","planet":"Jupiter"
 
 ### Reference checks
 
-Every reference value comes from one chart, Sagar (6 June 1999, 15:30:00 IST, Bhavnagar 21°46'N 72°09'E), in Jagannatha Hora with Traditional Lahiri; `test/fixtures/jhora-sagar.json` holds them.
+Every reference value comes from one chart, Sagar (6 June 1999, 15:30:00 IST, Bhavnagar 21°46'N 72°09'E), in Jagannatha Hora with Traditional Lahiri and, so far, mean nodes; `test/fixtures/jhora-sagar.json` holds them. Values that depend on Rahu/Ketu are compared with `node_type: "mean"`; everything else does not depend on the node type.
 
 | Feature | Checked against (JH screen) | Result |
 |---|---|---|
@@ -253,7 +253,7 @@ Every reference value comes from one chart, Sagar (6 June 1999, 15:30:00 IST, Bh
 | Ashtakavarga | SAV and BAV charts | every bindu shown matches (default tables) |
 | Shadbala | bar graphs and Other strengths | sthana, dig, cheshta, drik and naisargika to the displayed precision; totals within 1.3 virupas (JH's day strength is 0.8 higher, Venus's kala bala another 0.5; causes open); rupas within 0.02 |
 | Ishta/Kashta | Other strengths | within 0.1 (Mercury 0.15: its cheshta is 0.24 below JH's) |
-| Vimshopaka | Other strengths, four schemes | all seven planets exact (Rahu not computed) |
+| Vimshopaka | Other strengths, four schemes | all seven planets and Rahu exact (Rahu with `node_type: "mean"`, JH's setting for these screens) |
 | Aspect strength | aspected-body table | within 0.005% |
 | KP ruling planets | KP tab, key info | lagna and Moon sign/star/sub lords and the day lord at the birth moment |
 | Narayana order | JH's progression table | all 12 starting signs |

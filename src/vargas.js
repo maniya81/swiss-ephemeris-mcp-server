@@ -1,6 +1,6 @@
 // Divisional charts (vargas), Parashara / Jagannatha Hora defaults
 import { SIGN_ABBR, SIGN_LORDS, norm360, signOf, houseFrom, round } from './constants.js';
-import { relationToSignLord, compoundRelation, OWN_SIGNS, VIMSHOPAKA_POINTS } from './dignity.js';
+import { relationToSignLord, compoundRelation, temporaryRelation, OWN_SIGNS, VIMSHOPAKA_POINTS } from './dignity.js';
 
 export const ALL_VARGAS = ['D1', 'D2', 'D3', 'D4', 'D7', 'D9', 'D10', 'D12', 'D16', 'D20', 'D24', 'D27', 'D30', 'D40', 'D45', 'D60'];
 export const VARGA_NAMES = {
@@ -35,6 +35,11 @@ export const VIMSHOPAKA_SCHEMES = {
 };
 // Jagannatha Hora weighs the saptavarga differently: D7 1, D9 2.5, D12 4.5, D30 2
 export const JH_VIMSHOPAKA_SCHEMES = { ...VIMSHOPAKA_SCHEMES, saptavarga: { D1: 5, D2: 2, D3: 3, D7: 1, D9: 2.5, D12: 4.5, D30: 2 } };
+// Rahu's natural relationships in JH's Vimshopaka: Venus and Saturn friends, Mercury and Jupiter
+// neutral, the Moon an enemy (all fixed by JH's Rahu row for Sagar, computed there with the mean
+// node); the Sun and Mars, not seen there, are taken as enemies as in Saturn's table
+const JH_RAHU_NATURAL = { Venus: 1, Saturn: 1, Mercury: 0, Jupiter: 0, Moon: -1, Sun: -1, Mars: -1 };
+const POINTS_BY_SUM = { 2: 'adhimitra', 1: 'mitra', 0: 'sama', '-1': 'shatru', '-2': 'adhishatru' };
 
 const isOdd = (sign) => sign % 2 === 0; // Aries (0) is an odd sign
 const modality = (sign) => sign % 3; // 0 movable, 1 fixed, 2 dual
@@ -181,7 +186,8 @@ export function computeVargas(bodies, lagnaLon, vargas, methods = {}) {
 // otherwise the points of its compound relationship with the sign lord.
 // jh (default, Jagannatha Hora): the temporary relationship is read in each divisional chart
 // itself, D-2 is the parivritti hora with even signs reversed and the saptavarga weights are
-// JH's. bphs: compound relationships from D-1, BPHS weights, D-2/D-3/D-30 as in `methods`.
+// JH's; Rahu is scored too. bphs: compound relationships from D-1, BPHS weights, D-2/D-3/D-30 as
+// in `methods`, the seven planets only.
 export function computeVimshopaka(bodies, methods = {}, { method = 'jh' } = {}) {
   const jh = method === 'jh';
   const schemes = jh ? JH_VIMSHOPAKA_SCHEMES : VIMSHOPAKA_SCHEMES;
@@ -189,7 +195,12 @@ export function computeVimshopaka(bodies, methods = {}, { method = 'jh' } = {}) 
   const signsIn = {};
   const signs = (varga) => (signsIn[varga] ??= Object.fromEntries(Object.entries(bodies).map(([n, lon]) => [n, vargaPosition(varga, lon, vargaMethods).sign])));
   const out = {};
-  for (const name of ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn']) {
+  const rahu = (sign, inVarga) => {
+    const lord = SIGN_LORDS[sign];
+    return POINTS_BY_SUM[JH_RAHU_NATURAL[lord] + (temporaryRelation(inVarga.Rahu, inVarga[lord]) === 'friend' ? 1 : -1)];
+  };
+  const names = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn', ...(jh && bodies.Rahu !== undefined ? ['Rahu'] : [])];
+  for (const name of names) {
     out[name] = {};
     for (const [scheme, weights] of Object.entries(schemes)) {
       let total = 0;
@@ -197,7 +208,8 @@ export function computeVimshopaka(bodies, methods = {}, { method = 'jh' } = {}) 
         const sign = signs(varga)[name];
         const relation = !jh
           ? relationToSignLord(name, sign, signs('D1'))
-          : OWN_SIGNS[name].includes(sign) ? 'own' : compoundRelation(name, SIGN_LORDS[sign], signs(varga));
+          : name === 'Rahu' ? rahu(sign, signs(varga))
+            : OWN_SIGNS[name].includes(sign) ? 'own' : compoundRelation(name, SIGN_LORDS[sign], signs(varga));
         total += weight * VIMSHOPAKA_POINTS[relation] / 20;
       }
       out[name][scheme] = round(total, 2);

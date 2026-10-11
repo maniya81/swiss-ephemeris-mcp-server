@@ -9,6 +9,9 @@ import { drishtiVirupas } from '../src/aspects.js';
 
 const JH = JSON.parse(readFileSync(new URL('./fixtures/jhora-sagar.json', import.meta.url)));
 const BIRTH = { datetime: JH.birth.datetime, latitude: JH.birth.latitude, longitude: JH.birth.longitude };
+// JH's screens so far were made with mean nodes (the server's default is true nodes): values that
+// depend on Rahu/Ketu are compared with node_type "mean"
+const JH_NODES = { node_type: 'mean' };
 const SIGNS = ['Ar', 'Ta', 'Ge', 'Cn', 'Le', 'Vi', 'Li', 'Sc', 'Sg', 'Cp', 'Aq', 'Pi'];
 const JH_PADA = ['Aswi', 'Bhar', 'Krit', 'Rohi', 'Mrig', 'Ardr', 'Puna', 'Push', 'Asre', 'Magh', 'PPha', 'UPha', 'Hast', 'Chit', 'Swat', 'Visa', 'Anu', 'Jye', 'Mool', 'PSha', 'USha', 'Srav', 'Dhan', 'Sata', 'PBha', 'UBha', 'Reva'];
 const NAKSHATRAS = ['Ashwini', 'Bharani', 'Krittika', 'Rohini', 'Mrigashira', 'Ardra', 'Punarvasu', 'Pushya', 'Ashlesha', 'Magha', 'Purva Phalguni', 'Uttara Phalguni', 'Hasta', 'Chitra', 'Swati', 'Vishakha', 'Anuradha', 'Jyeshtha', 'Mula', 'Purva Ashadha', 'Uttara Ashadha', 'Shravana', 'Dhanishta', 'Shatabhisha', 'Purva Bhadrapada', 'Uttara Bhadrapada', 'Revati'];
@@ -85,12 +88,11 @@ test('Shadbala totals, Ishta and Kashta match Jagannatha Hora\'s Other strengths
   assert.ok(Math.abs(sb.Sun.cheshta - 54.80) <= 0.01, `Sun cheshta ${sb.Sun.cheshta}`);
 });
 
-test('Vimshopaka bala matches Jagannatha Hora in all four schemes', { skip: SKIP }, async () => {
-  const { result } = await ok(srv, 'calculate_vedic_chart', { ...BIRTH, include: ['vargas'] });
+test('Vimshopaka bala matches Jagannatha Hora in all four schemes, Rahu included', { skip: SKIP }, async () => {
+  const { result } = await ok(srv, 'calculate_vedic_chart', { ...BIRTH, ...JH_NODES, include: ['vargas'] });
   const v = JH.other_strengths.vimshopaka;
   for (const scheme of ['dashavarga', 'shodashavarga', 'saptavarga', 'shadvarga']) {
     v.order.forEach((p, i) => {
-      if (p === 'Rahu') return; // JH also scores Rahu; the server does the seven planets
       // Both sides round to 0.01; JH prints the Moon's 11.925 as 11.92 once and 11.93 once
       assert.ok(Math.abs(result.vimshopaka[p][scheme] - v[scheme][i]) <= 0.0101, `${scheme} ${p}: ${result.vimshopaka[p][scheme]} vs JH ${v[scheme][i]}`);
     });
@@ -124,7 +126,7 @@ test('Aspect strengths on the houses match Jagannatha Hora', { skip: SKIP }, asy
 });
 
 test('D-3, D-9 and KP lords match Jagannatha Hora', { skip: SKIP }, async () => {
-  const { result } = await ok(srv, 'calculate_vedic_chart', { ...BIRTH, include: ['vargas'], vargas: ['D1', 'D3', 'D9'] });
+  const { result } = await ok(srv, 'calculate_vedic_chart', { ...BIRTH, ...JH_NODES, include: ['vargas'], vargas: ['D1', 'D3', 'D9'] });
   for (const [varga, jh] of [['D3', JH.d3], ['D9', JH.d9]]) {
     assert.equal(result.vargas[varga].lagna.sign, jh.lagna, `${varga} lagna`);
     for (const p of ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn', 'Rahu', 'Ketu']) assert.equal(result.vargas[varga].planets[p].sign, jh[p], `${varga} ${p}`);

@@ -63,6 +63,29 @@ test('Shadbala with the Raman method: parts add up and differ from JH\'s where d
   for (let h = 1; h <= 12; h++) assert.ok(Number.isFinite(result.bhavabala[h].total_virupas ?? result.bhavabala[h].total), `bhava ${h}`);
 });
 
+test('True nodes by default, mean nodes on request: only Rahu/Ketu results change', { skip: SKIP }, async () => {
+  const args = { ...SAGAR, include: ['vargas', 'shadbala', 'ashtakavarga'], vargas: 'all', levels: 6, as_of: '2026-10-11T12:00:00+05:30' };
+  const t = (await ok(srv, 'calculate_vedic_chart', args)).result;
+  const m = (await ok(srv, 'calculate_vedic_chart', { ...args, node_type: 'mean' })).result;
+  assert.equal(t.settings.nodes, 'true');
+  assert.equal(m.settings.nodes, 'mean');
+  // The true node oscillates about the mean one by up to about 1.7°; Ketu is opposite Rahu in both
+  const d = t.planets.Rahu.longitude - m.planets.Rahu.longitude;
+  assert.ok(Math.abs(d) > 0.01 && Math.abs(d) < 2, `true - mean ${d}°`);
+  for (const r of [t, m]) assert.ok(Math.abs(((r.planets.Ketu.longitude - r.planets.Rahu.longitude + 360) % 360) - 180) < 1e-6);
+  // Nothing that the seven planets or the Moon alone decide moves
+  for (const p of PLANETS) {
+    assert.equal(t.planets[p].longitude, m.planets[p].longitude, p);
+    assert.deepEqual(t.vimshopaka[p], m.vimshopaka[p], `vimshopaka ${p}`);
+    assert.equal(t.shadbala.planets[p].total_virupas, m.shadbala.planets[p].total_virupas, `shadbala ${p}`);
+  }
+  assert.deepEqual(t.ashtakavarga.sarvashtakavarga, m.ashtakavarga.sarvashtakavarga);
+  assert.equal(t.vimshottari_dasha.current.chain, m.vimshottari_dasha.current.chain);
+  assert.equal(t.kalachakra_dasha.current.chain, m.kalachakra_dasha.current.chain);
+  // Rahu's Vimshopaka does move: 1.4° separates the two nodes in several of the finer vargas
+  assert.notDeepEqual(t.vimshopaka.Rahu, m.vimshopaka.Rahu);
+});
+
 test('Dignity, aspects and settings echo', { skip: SKIP }, async () => {
   const { result } = await ok(srv, 'calculate_vedic_chart', { ...SAGAR, include: ['dignity', 'aspects'], rahu_ketu_aspects: '5_7_9_12' });
   // Mercury in Gemini, 13.57° from the Sun: own sign and combust (limit 14°)

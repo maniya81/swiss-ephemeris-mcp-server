@@ -28,7 +28,16 @@ outside the repo). JH's Kalachakra text export for Sagar: `references/sagar-kala
 ## JH settings to match before comparing anything
 
 - Ayanamsa Traditional Lahiri, no correction (Select Ayanamsa dialog). Our `traditional_lahiri`.
-- True positions (not apparent), true nodes, true sidereal solar years for dashas.
+- Geocentric, true positions (not apparent), true sidereal solar years for dashas.
+- **Nodes** (Planet Calculation Options): every Sagar screen recorded so far was made with **mean
+  nodes**. The server's default is true nodes (the user's choice), with `node_type: "mean"` only on
+  explicit request. So compare node-dependent JH values with `node_type: "mean"` unless the screen
+  was made after JH was switched to True nodes, and record which setting each new screen used.
+  Node-dependent: Rahu/Ketu degrees, nakshatra and KP lords, their varga signs (D-3 and D-9 happen
+  to agree for Sagar; D-7, D-10, D-20, D-24, D-27, D-40, D-45, D-60 differ), Rahu's Vimshopaka,
+  KP significators and ruling planets involving the nodes, Chara/Narayana (node co-lordship),
+  Ashtottari's Rahu rule, transit Rahu/Ketu. Not node-dependent: Kalachakra, Vimshottari,
+  Shadbala, Ishta/Kashta, Ashtakavarga, the seven planets' Vimshopaka, lagna/cusps.
 - Kalachakra: starting point Janma tara (Moon), Rasi D-1, "Full cycle fraction, MDs strictly from
   cycle, ADs from MD like MDs from navamsa (SM Singh)", Rohini 4th pada = Leo navamsa.
 - Times in the birth offset. Our lagna sits about 13" from JH's. Kalachakra times differ from JH by
@@ -100,6 +109,9 @@ house aspect strengths, key info (weekday, hora lord, nakshatra).
   reversed; exaltation earns nothing extra. Saptavarga weights are D1 5, D2 2, D3 3, D7 1, D9 2.5,
   D12 4.5, D30 2 (not BPHS's D7 2.5, D9 4.5, D12 2, D30 1). All 28 values match. JH prints 11.925
   as 11.92 once and 11.93 once, so compare to 0.01.
+  Rahu is scored the same way with these natural relationships: Venus and Saturn friends, Mercury
+  and Jupiter neutral, the Moon an enemy (all four of JH's Rahu values match with the mean node;
+  the Sun and Mars were not tested and are taken as enemies). Ketu's row has not been seen.
 - **D-3** and **D-9** standard Parashara; **KP** star/sub/sub-sub lords of lagna and planets match.
 - **Vimshottari**: true sidereal solar years from the true Sun (a fixed-length year is 5.5 h off at
   the first mahadasha end, the true Sun matches to 3 s).
@@ -131,8 +143,13 @@ house aspect strengths, key info (weekday, hora lord, nakshatra).
   tried fits both.
 - Mercury's cheshta bala: JH 16.04 (from Ishta/Kashta) against our 15.80; Mars/Jupiter/Venus/Saturn
   agree within 0.08.
-- Rahu's (and Ketu's) Vimshopaka: JH shows 11.20/10.63/12.48/11.20 for Rahu; no relationship table
-  tried reproduces them, so the server leaves the nodes out.
+- **After switching JH to True nodes** (Settings > Planet Calculation Options > True nodes), for
+  Sagar: Basics planet table (Rahu/Ketu degrees), the KP tab rows for Rahu and Ketu, Strengths >
+  Other strengths scrolled to the Rahu and Ketu Vimshopaka rows, and D-7/D-10/D-60 (or any varga
+  table) with Rahu/Ketu. The server predicts, with true nodes: Rahu Cn 20°52'02" Ashlesha 2, KP
+  Me/Ve/Sa; Ketu Cp 20°52'02" Shravana 4, KP Mo/Ve/Su; Rahu Vimshopaka Dasa 11.80, Shodasa 11.00,
+  Sapta 12.63, Shad 11.20. With mean nodes it gives Rahu Cn 22°16'02" (KP Me/Mo/Mo) and JH's
+  11.20/10.63/12.48/11.20. Ketu's Vimshopaka needs its JH row before it can be added.
 - KP tab without the ayanamsa dialog, and Basics > Houses: JH's 12th cusp (sub lord Rahu) points to
   Sripati/Porphyry cusps, while the server's KP cusps are Placidus.
 - Basics > aspected body table scrolled to the planet rows (confirms drik bala directly).

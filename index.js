@@ -66,6 +66,7 @@ Birth time and place:
 - If the user names a birth place or zone (New York, London, UTC...), use the offset in force there on the birth date.
 - For a named Indian city (Bhavnagar, Botad, Mumbai, Ahmedabad...) use its own coordinates. If only "India" is given, use 21°46'N 72°09'E (21.7667, 72.15) when the context points to Gujarat / Western India.
 - Kalachakra (calculate_kalachakra_dasha) always runs with the Jagannatha Hora settings and does not depend on the birth place.
+- Rahu/Ketu are true nodes by default. Pass node_type "mean" only when the user explicitly asks for mean nodes, and say which nodes were used. The node type moves only Rahu/Ketu and what depends on them (their degrees, nakshatra/sub lords, varga signs, Rahu's Vimshopaka, KP significators, Chara/Narayana strength); Vimshottari, Kalachakra, Shadbala and Ashtakavarga do not change.
 
 Current location (dual-time reporting):
 - Dasha transitions happen at one physical moment; show them in both the birth timezone and the native's current local time.
@@ -297,7 +298,7 @@ class SwissEphemerisServer {
                 node_type: {
                   type: 'string',
                   enum: ['mean', 'true'],
-                  description: 'True or mean lunar node for Rahu/Ketu (default true, as in Jagannatha Hora)',
+                  description: 'Lunar node for Rahu/Ketu: true (default) or mean. Use mean only when the user explicitly asks for it',
                 },
                 as_of: {
                   oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' }, maxItems: 200 }],

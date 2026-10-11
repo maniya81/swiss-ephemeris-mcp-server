@@ -10,6 +10,8 @@
  },
  "jh_settings": {
   "ayanamsa": "Traditional Lahiri (no correction)",
+  "positions": "geocentric, true positions",
+  "nodes": "mean nodes (Planet Calculation Options) for every value recorded so far; the server defaults to true nodes, so node-dependent values here (Rahu/Ketu vargas, Rahu Vimshopaka) are compared with node_type \"mean\"",
   "dasa_year": "true sidereal solar years",
   "kalachakra": "Janma tara (Moon), Rasi D-1, SM Singh (full cycle fraction, MDs strictly from cycle, ADs from MD like MDs from navamsa), Rohini 4th pada = Leo navamsa"
  },

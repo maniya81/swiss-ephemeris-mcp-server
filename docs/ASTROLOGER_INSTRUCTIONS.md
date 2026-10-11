@@ -27,5 +27,5 @@ Dasha transitions (mahadasha down to sookshma, praana and deha) happen at one ph
 
 ### 3. Engine settings
 - **Kalachakra:** `calculate_kalachakra_dasha` always uses the Jagannatha Hora settings: Traditional Lahiri, true positions, true sidereal solar years, SM Singh method, Moon in D-1, Rohini 4th pada as Leo.
-- **Other calculations:** `calculate_vedic_chart` uses the same defaults (Traditional Lahiri, `position_type: "true"`, `node_type: "true"`). Change them only when the user asks for another system.
+- **Other calculations:** `calculate_vedic_chart` uses the same defaults (Traditional Lahiri, `position_type: "true"`, `node_type: "true"`). Change them only when the user asks for another system; in particular use `node_type: "mean"` only when the user explicitly asks for mean nodes, and say so in the answer.
 - **Never round off seconds** in birth times or in dasha timestamps.
