@@ -11,6 +11,13 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { execSync } from 'node:child_process';
 import express from 'express';
+import { ToolError, invalid } from './src/errors.js';
+import { createEphemeris } from './src/ephemeris.js';
+import { PLANET_ABBR, round } from './src/constants.js';
+import {
+  MAX_SWEEP_CHARS, roundOffset, sampleOffsets, flipsOf, countChanges, passWindows, intersectWindows, bestSubset,
+  fitToBudget, makeLongitudeInterpolator, makeLinearInterpolator,
+} from './src/sweep.js';
 
 // Vedic / KP reference data
 const SIGNS = [
@@ -37,7 +44,8 @@ const DEFAULT_BIRTH_OFFSET = '+05:30';
 // Limits for batch dates and birth-time sweeps
 const MAX_AS_OF_DATES = 200;
 const MAX_SWEEP_CANDIDATES = 3601;
-const MAX_SWEEP_CHAINS = 100000;
+const MAX_SWEEP_CHAINS = 3601 * 200;
+const MAX_EVENT_TESTS = 50;
 const SERVER_INSTRUCTIONS = `Vedic astrology calculations (Swiss Ephemeris). Defaults match Jagannatha Hora: Traditional Lahiri ayanamsa, true positions, true nodes, true sidereal solar years; Kalachakra by the SM Singh method.
 
 Birth time and place:
@@ -360,25 +368,45 @@ class SwissEphemerisServer {
       const { name, arguments: args } = request.params;
 
       try {
-        const result = await this.handleToolCall(name, args);
+        const result = await this.handleToolCall(name, args || {});
         return {
           content: [
             {
               type: 'text',
-              text: JSON.stringify(result, null, 2),
+              // Compact JSON: indentation costs the client tokens without adding information
+              text: JSON.stringify(result),
             },
           ],
         };
       } catch (error) {
-        if (error instanceof McpError) {
+        if (error instanceof McpError && error.code === ErrorCode.MethodNotFound) {
           throw error;
         }
-        throw new McpError(
-          ErrorCode.InternalError,
-          `Tool execution failed: ${error.message}`
-        );
+        // Errors come back as JSON the client can act on: the reason and the parameter to fix
+        return {
+          isError: true,
+          content: [{ type: 'text', text: JSON.stringify({ error: this.describeError(error, args || {}) }) }],
+        };
       }
     });
+  }
+
+  describeError(error, args) {
+    if (error instanceof ToolError) {
+      return { reason: error.reason, parameter: error.parameter };
+    }
+    const reason = (error.message || String(error)).replace(/^MCP error -?\d+: /, '');
+    // Validation messages start with the parameter name ("latitude must be ...")
+    const first = reason.split(/[\s:]/)[0];
+    const known = { 'Invalid datetime': 'datetime', 'Invalid as_of': 'as_of', 'drill_down:': 'drill_down' };
+    const prefix = Object.keys(known).find(k => reason.startsWith(k));
+    const parameter = prefix ? known[prefix]
+      : Object.prototype.hasOwnProperty.call(args, first) || (/^[a-z_]+$/.test(first) && reason.includes(' must ')) ? first
+        : null;
+    return {
+      reason: error instanceof McpError ? reason : `Calculation failed: ${reason}`,
+      parameter,
+    };
   }
 
   formatDateToSwiss(date) {
@@ -845,6 +873,34 @@ class SwissEphemerisServer {
     const positionFlag = positionType === 'true' ? ' -true' : '';
     const base = `SE_EPHE_PATH=${ephePath} swetest ${this.swissTimeArgs(date)} ${ayanamsa.flag}${positionFlag} -g, -head`;
 
+    // Birth-time sweep: Vimshottari chains, lagna and cusp sub-lords per birth time
+    if (options.birth_time_sweep) {
+      const moon = createEphemeris(ephePath).series('Moon', date, 1, 1, { siderealFlag: ayanamsa.flag, positionFlag })[0];
+      const swept = this.runBirthSweep({
+        datetime,
+        date,
+        sweep: options.birth_time_sweep,
+        asOfTimes,
+        levels,
+        main: { system: 'vimshottari', ayanamsaKey, kalachakraAyanamsaKey: ayanamsaKey, yearDays, positionFlag },
+        eventTests: options.event_tests || [],
+        sweepOutput: options.sweep_output || 'auto',
+        place: { latitude, longitude },
+        chartItems: true,
+        varga: options.vargaLagnaKey || null,
+      });
+      return {
+        settings: this.chartSettings({ ayanamsa, positionType, nodeType, yearDays }),
+        birth_time_sensitivity: this.birthTimeSensitivity(moon.speed, this.vimshottariStart(moon.lon), this.kalachakraStart(moon.lon)),
+        ...swept,
+        note: swept.sweep_output === 'ranges'
+          ? 'Each range lists the birth times (inclusive, in step_seconds steps) that give the same Vimshottari chain at every as_of date (chains[k] belongs to as_of[k]), the same lagna and the same cusp sub-lords.'
+          : 'Each flip is a birth-time offset (seconds from datetime) where that value changes; at_start is the value at from_seconds.',
+        datetime,
+        coordinates: { latitude, longitude },
+      };
+    }
+
     // 0-9 = Sun through Pluto, m = mean Node, t = true Node; l = decimal longitude, s = daily speed
     const nodeCode = nodeType === 'true' ? 't' : 'm';
     const planetOutput = execSync(`${base} -p0123456789${nodeCode} -fPls`, { encoding: 'utf8' });
@@ -948,6 +1004,19 @@ class SwissEphemerisServer {
       kalachakra_dasha: this.calculateKalachakra(kalachakra, clock, formatTime, asOf, yearDescription, { ...dashaOptions, ayanamsaName: ayanamsa.name }),
       datetime,
       coordinates: { latitude, longitude },
+    };
+  }
+
+  // The settings a chart was calculated with
+  chartSettings({ ayanamsa, positionType, nodeType, yearDays, extra = {} }) {
+    return {
+      ayanamsa: ayanamsa.name,
+      positions: positionType,
+      nodes: nodeType,
+      house_system: 'Placidus (KP cusps); whole-sign houses from the lagna sign',
+      dasha_year: yearDays ? `${yearDays} days` : 'true sidereal solar year',
+      kalachakra: 'SM Singh method, from the Moon in D-1, Rohini 4th pada as Leo',
+      ...extra,
     };
   }
 
@@ -1249,38 +1318,54 @@ class SwissEphemerisServer {
     };
   }
 
-  vimshottariEngine(start, clock, formatTime) {
+  // Vimshottari periods in years relative to birth (no clock): the mahadashas and a
+  // function giving the sub-periods of any period
+  vimshottariRaw(start) {
     const { firstLord, elapsedYears } = start;
     const firstIndex = DASHA_ORDER.indexOf(firstLord);
-
-    // Periods are built in years relative to birth, then turned into times with the clock
-    const timed = (p) => ({ ...p, startMs: clock(p.start), endMs: clock(p.end) });
-
-    // Sub-periods of a period: each lord takes its share of the parent, starting from the parent lord
-    const subPeriods = (parent) => {
-      const startIndex = DASHA_ORDER.indexOf(parent.lord);
-      const length = parent.end - parent.start;
-      const periods = [];
-      let cursor = parent.start;
-      for (let i = 0; i < 9; i++) {
-        const lord = DASHA_ORDER[(startIndex + i) % 9];
-        const part = length * DASHA_YEARS[lord] / 120;
-        periods.push(timed({ lord, start: cursor, end: cursor + part }));
-        cursor += part;
-      }
-      return periods;
-    };
-
     const mahadashas = [];
     let cursor = -elapsedYears;
     for (let i = 0; i < 9; i++) {
       const lord = DASHA_ORDER[(firstIndex + i) % 9];
-      mahadashas.push(timed({ lord, start: cursor, end: cursor + DASHA_YEARS[lord] }));
+      mahadashas.push({ lord, start: cursor, end: cursor + DASHA_YEARS[lord] });
       cursor += DASHA_YEARS[lord];
     }
+    // Each lord takes its share of the parent, starting from the parent lord
+    const sub = (parent) => {
+      const startIndex = DASHA_ORDER.indexOf(parent.lord);
+      const length = parent.end - parent.start;
+      const periods = [];
+      let c = parent.start;
+      for (let i = 0; i < 9; i++) {
+        const lord = DASHA_ORDER[(startIndex + i) % 9];
+        const part = length * DASHA_YEARS[lord] / 120;
+        periods.push({ lord, start: c, end: c + part });
+        c += part;
+      }
+      return periods;
+    };
+    return { mahadashas, sub, label: (p) => p.lord };
+  }
 
+  vimshottariEngine(start, clock, formatTime) {
+    const raw = this.vimshottariRaw(start);
+    // Periods are built in years relative to birth, then turned into times with the clock
+    const timed = (p) => ({ ...p, startMs: clock(p.start), endMs: clock(p.end) });
     const fmt = (p) => ({ lord: p.lord, start: formatTime(p.startMs), end: formatTime(p.endMs) });
-    return { mahadashas, subPeriods, fmt };
+    return { mahadashas: raw.mahadashas.map(timed), subPeriods: (parent) => raw.sub(parent).map(timed), fmt, raw };
+  }
+
+  // Running chain at `years` after birth using only year arithmetic (fast; for sweeps)
+  chainAtYears(raw, years, levels) {
+    const chain = [];
+    let periods = raw.mahadashas;
+    while (chain.length < levels) {
+      const found = periods.find(p => years >= p.start && years < p.end);
+      if (!found) break;
+      chain.push(found);
+      if (chain.length < levels) periods = raw.sub(found);
+    }
+    return chain;
   }
 
   calculateVimshottari(start, birthMs, clock, formatTime, asOf, yearDescription, { levels = 6, compact = false, asOfList } = {}) {
@@ -1366,47 +1451,52 @@ class SwissEphemerisServer {
     };
   }
 
-  kalachakraEngine(start, clock, formatTime) {
+  // Kalachakra periods in years relative to birth (no clock)
+  kalachakraRaw(start) {
     const { savya, cycle, firstIndex, firstStartYears } = start;
-    const padaName = (q) => `${NAKSHATRAS[Math.floor(q / 4)]} ${(q % 4) + 1}`;
-    const timed = (p) => ({ ...p, startMs: clock(p.start), endMs: clock(p.end) });
-
-    // SM Singh: sub-periods of a period come from the pada it stands for, the way the
-    // mahadashas come from the Moon's pada: the cycle of that pada's Kalachakra navamsa from
-    // its start, each sign taking its share of the parent in proportion to its years. The
-    // cycle runs forward when the pada has the same direction (savya/apasavya) as the Moon's
-    // pada and backward otherwise (checked against Jagannatha Hora down to deha level).
-    const subPeriods = (parent) => {
-      const forward = this.isSavyaPada(parent.position) === savya;
-      const sub = this.kalachakraCycle(forward, this.kalachakraNavamsa(parent.position));
-      const total = sub.signs.reduce((sum, s) => sum + KC_YEARS[s], 0);
-      const length = parent.end - parent.start;
-      const periods = [];
-      let cursor = parent.start;
-      sub.signs.forEach((s, i) => {
-        const part = length * KC_YEARS[s] / total;
-        periods.push(timed({ sign: s, position: sub.positions[i], start: cursor, end: cursor + part }));
-        cursor += part;
-      });
-      return this.markGatis(periods);
-    };
-
     // Mahadashas run strictly through the cycle, returning to its beginning after the last sign
     const mahadashas = [];
     let cursor = firstStartYears;
     for (let i = 0; i < 9; i++) {
       const index = (firstIndex + i) % 9;
       const s = cycle.signs[index];
-      mahadashas.push(timed({
+      mahadashas.push({
         sign: s,
         position: cycle.positions[index],
         start: cursor,
         end: cursor + KC_YEARS[s],
         cycleRestart: i > 0 && index === 0,
-      }));
+      });
       cursor += KC_YEARS[s];
     }
-    this.markGatis(mahadashas);
+    // SM Singh: sub-periods of a period come from the pada it stands for, the way the
+    // mahadashas come from the Moon's pada: the cycle of that pada's Kalachakra navamsa from
+    // its start, each sign taking its share of the parent in proportion to its years. The
+    // cycle runs forward when the pada has the same direction (savya/apasavya) as the Moon's
+    // pada and backward otherwise (checked against Jagannatha Hora down to deha level).
+    const sub = (parent) => {
+      const forward = this.isSavyaPada(parent.position) === savya;
+      const c = this.kalachakraCycle(forward, this.kalachakraNavamsa(parent.position));
+      const total = c.signs.reduce((sum, x) => sum + KC_YEARS[x], 0);
+      const length = parent.end - parent.start;
+      const periods = [];
+      let at = parent.start;
+      c.signs.forEach((x, i) => {
+        const part = length * KC_YEARS[x] / total;
+        periods.push({ sign: x, position: c.positions[i], start: at, end: at + part });
+        at += part;
+      });
+      return periods;
+    };
+    return { mahadashas, sub, label: (p) => SIGN_ABBR[p.sign] };
+  }
+
+  kalachakraEngine(start, clock, formatTime) {
+    const padaName = (q) => `${NAKSHATRAS[Math.floor(q / 4)]} ${(q % 4) + 1}`;
+    const timed = (p) => ({ ...p, startMs: clock(p.start), endMs: clock(p.end) });
+    const raw = this.kalachakraRaw(start);
+    const subPeriods = (parent) => this.markGatis(raw.sub(parent).map(timed));
+    const mahadashas = this.markGatis(raw.mahadashas.map(timed));
 
     const fmt = (p) => ({
       sign: SIGNS[p.sign],
@@ -1417,7 +1507,7 @@ class SwissEphemerisServer {
       start: formatTime(p.startMs),
       end: formatTime(p.endMs),
     });
-    return { mahadashas, subPeriods, fmt, padaName };
+    return { mahadashas, subPeriods, fmt, padaName, raw };
   }
 
   // Kalachakra dasha by the SM Singh method. `levels` is how deep the running chain goes
@@ -1496,115 +1586,455 @@ class SwissEphemerisServer {
     return (iso.endsWith('.000Z') ? iso.replace('.000Z', '') : iso.replace('Z', '')) + suffix;
   }
 
-  // Kalachakra dasha alone, always with Jagannatha Hora's settings: Traditional Lahiri,
-  // true positions, true sidereal solar years and the SM Singh method
+  // Kalachakra dasha alone, with Jagannatha Hora's settings: Traditional Lahiri (unless
+  // ayanamsa_override is given, for research comparisons only), true positions, true sidereal
+  // solar years and the SM Singh method
   calculateKalachakraDasha(datetime, options = {}) {
     const date = new Date(datetime);
     if (isNaN(date.getTime())) {
-      throw new Error('Invalid datetime format. Use ISO8601 format like 1985-04-12T23:20:50Z');
+      throw invalid('datetime', 'Invalid datetime format. Use ISO8601 like 1999-06-06T15:30:00+05:30');
     }
     const asOfInputs = Array.isArray(options.as_of) ? options.as_of : null;
     const asOfTimes = (asOfInputs || [options.as_of]).map(a => (a ? new Date(a) : new Date()));
     if (asOfTimes.some(t => isNaN(t.getTime()))) {
-      throw new Error('Invalid as_of datetime. Use ISO8601 format like 2024-01-01T00:00:00+05:30');
+      throw invalid('as_of', 'Invalid as_of datetime. Use ISO8601 like 2024-01-01T00:00:00+05:30');
     }
     const levels = options.levels || 6;
 
-    const ayanamsa = AYANAMSAS.traditional_lahiri;
+    const ayanamsaKey = options.ayanamsa_override || 'traditional_lahiri';
+    const ayanamsa = AYANAMSAS[ayanamsaKey];
     const positionFlag = ' -true';
     const ephePath = process.env.SE_EPHE_PATH || '/app/vendor/swisseph';
     const sunSettings = { ephePath, siderealFlag: ayanamsa.flag, positionFlag };
     const yearDescription = 'true sidereal solar year (one sidereal revolution of the Sun, as in Jagannatha Hora)';
     const settings = {
       ayanamsa: ayanamsa.name,
+      ...(options.ayanamsa_override ? { ayanamsa_override: options.ayanamsa_override } : {}),
       positions: 'true',
       year: 'true sidereal solar years',
       method: 'SM Singh (full cycle fraction, MDs strictly from cycle, ADs from MD like MDs from navamsa)',
       starting_point: 'Janma tara (Moon), Rasi (D-1)',
       rohini_4th_pada: 'Leo navamsa',
     };
+    const ayanamsaNote = options.ayanamsa_override && ayanamsaKey !== 'traditional_lahiri'
+      ? `WARNING: computed with ${ayanamsa.name} for comparison only. Kalachakra is extremely sensitive to the ayanamsa (a KP ayanamsa moved one test timeline by about 23 months); the Jagannatha Hora standard is Traditional Lahiri.`
+      : 'Kalachakra here uses Traditional Lahiri (the Jagannatha Hora standard); another ayanamsa can move the whole timeline by months or years.';
 
-    // Moon longitude and speed at `count` instants `stepSeconds` apart from `from`
-    const moonAt = (from, count = 1, stepSeconds = 1) => {
-      const output = execSync(
-        `SE_EPHE_PATH=${ephePath} swetest ${this.swissTimeArgs(from)} ${ayanamsa.flag}${positionFlag} ` +
-        `-p1 -fls -g, -head -n${count} -s${stepSeconds / 86400}`,
-        { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 }
-      );
-      const rows = output.trim().split('\n').map(l => l.split(',').map(parseFloat)).filter(r => !isNaN(r[0]));
-      if (rows.length !== count) throw new Error('Failed to compute the Moon position from swetest');
-      return rows.map(([lon, speed]) => ({ lon, speed }));
-    };
+    // Moon longitude and speed at one instant
+    const [moon] = createEphemeris(ephePath).series('Moon', date, 1, 1, { siderealFlag: ayanamsa.flag, positionFlag });
 
-    // Birth-time sweep: compact chains at every as_of date for each candidate birth time
+    // Birth-time sweep: chains per as_of date for each candidate birth time, as ranges or flips,
+    // plus event tests
     const sweep = options.birth_time_sweep;
     if (sweep) {
-      const count = Math.floor((sweep.to_seconds - sweep.from_seconds) / sweep.step_seconds + 1e-9) + 1;
-      const first = new Date(date.getTime() + sweep.from_seconds * 1000);
-      const moons = moonAt(first, count, sweep.step_seconds);
-      const starts = moons.map(m => this.kalachakraStart(m.lon));
-      // One Sun table serves every candidate
-      const fromYears = Math.min(...starts.map(s => s.firstStartYears));
-      const toYears = Math.max(...starts.map(s => s.lastEndYears));
-      const sunTable = this.makeSunTableForYears(date.getTime(), sunSettings, fromYears - 1, toYears + 1);
-      const label = (p) => SIGN_ABBR[p.sign];
-      const formatTime = this.makeTimeFormatter(datetime);
-      const roundOffset = (v) => Math.round(v * 1000) / 1000;
-      // Consecutive birth times with identical chains at every date are merged into one range
-      const ranges = [];
-      moons.forEach((m, i) => {
-        const offset = sweep.from_seconds + i * sweep.step_seconds;
-        const birthMs = date.getTime() + offset * 1000;
-        const engine = this.kalachakraEngine(starts[i], this.makeDashaClock(birthMs, { sunTable }), formatTime);
-        const chains = asOfTimes.map(t => this.dashaChainAt(t.getTime(), engine.mahadashas, engine.subPeriods, levels).map(label).join('-') || null);
-        const last = ranges[ranges.length - 1];
-        if (last && last.chains.every((c, k) => c === chains[k])) {
-          last.to_offset_seconds = roundOffset(offset);
-          last.birth_to = this.formatInstant(birthMs, datetime);
-          last.count++;
-        } else {
-          ranges.push({
-            from_offset_seconds: roundOffset(offset),
-            to_offset_seconds: roundOffset(offset),
-            birth_from: this.formatInstant(birthMs, datetime),
-            birth_to: this.formatInstant(birthMs, datetime),
-            count: 1,
-            chains,
-          });
-        }
+      const swept = this.runBirthSweep({
+        datetime,
+        date,
+        sweep,
+        asOfTimes,
+        levels,
+        main: { system: 'kalachakra', ayanamsaKey, kalachakraAyanamsaKey: ayanamsaKey },
+        eventTests: options.event_tests || [],
+        sweepOutput: options.sweep_output || 'auto',
+        place: options.place,
       });
+      const start = this.kalachakraStart(moon.lon);
       return {
         settings,
-        ayanamsa_note: 'Kalachakra here always uses Traditional Lahiri; another ayanamsa can move the whole timeline by months or years',
-        levels: DASHA_LEVELS.slice(0, levels),
-        as_of: asOfTimes.map(t => formatTime(t.getTime())),
-        birth_time_sensitivity: this.birthTimeSensitivity(moons[0].speed, this.vimshottariStart(moons[0].lon), starts[0]),
-        birth_times_checked: moons.length,
-        note: 'Each range lists the birth times (inclusive, in step_seconds steps) that give the same chain at every as_of date; chains[k] belongs to as_of[k]. Use a lower levels value for wider ranges.',
-        ranges,
+        ayanamsa_note: ayanamsaNote,
+        birth_time_sensitivity: this.birthTimeSensitivity(moon.speed, this.vimshottariStart(moon.lon), start),
+        ...swept,
+        note: swept.sweep_output === 'ranges'
+          ? 'Each range lists the birth times (inclusive, in step_seconds steps) that give the same chain at every as_of date; chains[k] belongs to as_of[k]. Use a lower levels value for wider ranges.'
+          : 'Each flip is a birth-time offset (seconds from datetime) where the chain at that as_of date changes; at_start is the chain at from_seconds.',
         datetime,
       };
     }
 
-    const [moon] = moonAt(date);
     const start = this.kalachakraStart(moon.lon);
-    const sunTable = this.makeSunTableForYears(date.getTime(), sunSettings, start.firstStartYears, start.lastEndYears);
+    const gatiList = options.gati_list;
+    const fromYears = Math.min(start.firstStartYears, gatiList ? -1 : 0);
+    const sunTable = this.makeSunTableForYears(date.getTime(), sunSettings, fromYears, start.lastEndYears);
     const clock = this.makeDashaClock(date.getTime(), { sunTable });
-    const compact = options.output === 'chain' || Boolean(asOfInputs);
+    const compact = options.output === 'chain' || Boolean(asOfInputs) || Boolean(gatiList);
+    const formatTime = this.makeTimeFormatter(datetime);
 
-    return {
+    const result = {
       settings,
       moon: this.describeSiderealPoint(moon.lon),
       birth_time_sensitivity: this.birthTimeSensitivity(moon.speed, this.vimshottariStart(moon.lon), start),
-      ...this.calculateKalachakra(start, clock, this.makeTimeFormatter(datetime), asOfTimes[0], yearDescription, {
+      ...this.calculateKalachakra(start, clock, formatTime, asOfTimes[0], yearDescription, {
         levels,
         drillDown: options.drill_down,
         compact,
         asOfList: asOfInputs ? asOfTimes.map(t => t.getTime()) : null,
         ayanamsaName: ayanamsa.name,
       }),
+      ...(options.ayanamsa_override ? { ayanamsa_warning: ayanamsaNote } : {}),
       datetime,
     };
+
+    if (gatiList) {
+      const engine = this.kalachakraEngine(start, clock, formatTime);
+      const entries = this.kalachakraGatiList(engine, {
+        fromMs: gatiList.fromMs,
+        toMs: gatiList.toMs,
+        levels: gatiList.levels,
+        types: gatiList.types,
+        nearEvents: gatiList.nearEvents,
+        formatTime,
+      });
+      const fitted = fitToBudget(entries, MAX_SWEEP_CHARS / 2);
+      result.gati_list = {
+        from: formatTime(gatiList.fromMs),
+        to: formatTime(gatiList.toMs),
+        levels: DASHA_LEVELS.slice(0, gatiList.levels),
+        types: gatiList.types,
+        count: entries.length,
+        jumps: fitted.kept,
+        ...(fitted.truncated ? { truncated: true, truncated_hint: 'Too many jumps for one response: shorten from/to, lower levels or filter types.' } : {}),
+      };
+      delete result.gati_legend;
+    }
+    return result;
+  }
+
+  // Flat list of Kalachakra jumps (gatis) starting between fromMs and toMs, down to `levels`.
+  // Jumps are found on the time-ordered sequence at each level, so a jump into the first
+  // sub-period of a new parent (from the last sub-period of the previous one) is included.
+  kalachakraGatiList(engine, { fromMs, toMs, levels, types, nearEvents, formatTime }) {
+    const wanted = new Set(types);
+    const entries = [];
+    // Periods overlapping [fromMs, toMs] at each level, plus the one just before the window
+    let current = engine.mahadashas.map(p => ({ p, path: [SIGN_ABBR[p.sign]] }));
+    for (let level = 1; level <= levels; level++) {
+      const ordered = current;
+      const signs = ordered.map(x => x.p.sign);
+      const plain = signs.map((s, i) => (i ? this.kalachakraGati(signs[i - 1], s, false) : null));
+      ordered.forEach((x, i) => {
+        if (x.p.startMs < fromMs || x.p.startMs > toMs) return;
+        const prev = i ? ordered[i - 1] : null;
+        const neighbourIsManduka = plain[i - 1] === 'Manduka' || plain[i + 1] === 'Manduka';
+        const gati = prev ? this.kalachakraGati(prev.p.sign, x.p.sign, neighbourIsManduka) : null;
+        const restart = level === 1 && x.p.cycleRestart;
+        const add = (type) => {
+          if (!wanted.has(type)) return;
+          const entry = {
+            level: DASHA_LEVELS[level - 1],
+            path: x.path.join('/'),
+            from_sign: prev ? SIGN_ABBR[prev.p.sign] : null,
+            to_sign: SIGN_ABBR[x.p.sign],
+            type,
+            start: formatTime(x.p.startMs),
+            end: formatTime(x.p.endMs),
+            ...(prev && prev.path.slice(0, -1).join('/') !== x.path.slice(0, -1).join('/') ? { across_parent_boundary: true } : {}),
+          };
+          if (nearEvents.length) {
+            const nearest = nearEvents.reduce((a, b) => (Math.abs(b - x.p.startMs) < Math.abs(a - x.p.startMs) ? b : a));
+            entry.nearest_event = formatTime(nearest);
+            // Negative: the event comes before the jump
+            entry.event_gap_days = round((nearest - x.p.startMs) / DAY_MS, 3);
+          }
+          entries.push(entry);
+        };
+        if (gati) add(gati);
+        if (restart) add('cycle_restart');
+      });
+      if (level === levels) break;
+      // Descend into the periods that overlap the window, keeping one period of context before it
+      const overlapping = ordered.filter(x => x.p.endMs > fromMs && x.p.startMs <= toMs);
+      const firstIndex = ordered.indexOf(overlapping[0]);
+      const parents = firstIndex > 0 ? [ordered[firstIndex - 1], ...overlapping] : overlapping;
+      const next = [];
+      for (const parent of parents) {
+        for (const child of engine.subPeriods(parent.p)) next.push({ p: child, path: [...parent.path, SIGN_ABBR[child.sign]] });
+      }
+      const firstInside = next.findIndex(x => x.p.endMs > fromMs);
+      current = next.slice(Math.max(0, firstInside - 1)).filter(x => x.p.startMs <= toMs);
+    }
+    entries.sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
+    return entries;
+  }
+
+  // Shared birth-time sweep for calculate_kalachakra_dasha and calculate_vedic_chart.
+  // `main` is the dasha shown per as_of date; `eventTests` are evaluated per birth time;
+  // `place` (latitude/longitude) enables lagna and cusp items and house-based expectations.
+  runBirthSweep({ datetime, date, sweep, asOfTimes, levels, main, eventTests = [], sweepOutput = 'auto', place = null, chartItems = false, varga = null }) {
+    const eph = createEphemeris();
+    const positionFlag = main.positionFlag ?? ' -true';
+    const birthMs = date.getTime();
+    const offsets = sampleOffsets(sweep.from_seconds, sweep.to_seconds, sweep.step_seconds);
+    const first = new Date(birthMs + offsets[0] * 1000);
+    const formatTime = this.makeTimeFormatter(datetime);
+    const birthAt = (offset) => this.formatInstant(birthMs + offset * 1000, datetime);
+    const allDates = [...asOfTimes.map(t => t.getTime()), ...eventTests.map(t => t.asOfMs)];
+    const span = [Math.min(birthMs + offsets[0] * 1000, ...allDates), Math.max(birthMs + offsets[offsets.length - 1] * 1000, ...allDates)];
+
+    // One Moon series and one Sun table per ayanamsa (and year length) in use
+    const models = new Map();
+    const modelFor = (ayanamsaKey, yearDays) => {
+      const key = `${ayanamsaKey}|${yearDays || ''}`;
+      if (models.has(key)) return models.get(key);
+      const settings = { siderealFlag: AYANAMSAS[ayanamsaKey].flag, positionFlag };
+      const moons = eph.series('Moon', first, offsets.length, sweep.step_seconds / 86400, settings);
+      const moonAt = makeLongitudeInterpolator(offsets[0], sweep.step_seconds, moons);
+      const sunTable = yearDays ? null : this.makeSunTable({
+        ephePath: process.env.SE_EPHE_PATH || '/app/vendor/swisseph',
+        ...settings,
+        fromMs: span[0] - 22 * SIDEREAL_YEAR_DAYS * DAY_MS,
+        toMs: span[1] + 22 * SIDEREAL_YEAR_DAYS * DAY_MS,
+      });
+      const sunLon = new Map();
+      const lonAt = (ms) => {
+        if (!sunLon.has(ms)) sunLon.set(ms, sunTable.lonAt(ms));
+        return sunLon.get(ms);
+      };
+      const model = {
+        moonAt,
+        speed: moons[Math.floor(moons.length / 2)].speed,
+        // Dasha years between a birth time and a date
+        yearsBetween: (b, t) => (yearDays ? (t - b) / (yearDays * DAY_MS) : (lonAt(t) - sunTable.lonAt(b)) / 360),
+        clock: (b) => this.makeDashaClock(b, { sunTable, yearDays }),
+      };
+      models.set(key, model);
+      return model;
+    };
+
+    const rawFor = (system, lon) => (system === 'kalachakra'
+      ? this.kalachakraRaw(this.kalachakraStart(lon))
+      : this.vimshottariRaw(this.vimshottariStart(lon)));
+    const chainAt = (system, model, offset, tMs, depth) => {
+      const raw = rawFor(system, model.moonAt(offset));
+      return { raw, chain: this.chainAtYears(raw, model.yearsBetween(birthMs + offset * 1000, tMs), depth) };
+    };
+    const label = (system, model, offset, tMs, depth) => {
+      const { raw, chain } = chainAt(system, model, offset, tMs, depth);
+      return chain.map(raw.label).join('-') || null;
+    };
+
+    // Lagna and cusps (for chart items and house-based expectations)
+    let houseAt = null;
+    if (place) {
+      const settings = { siderealFlag: AYANAMSAS[main.ayanamsaKey].flag, positionFlag };
+      const series = eph.housesSeries(first, offsets.length, sweep.step_seconds, place.latitude, place.longitude, settings);
+      const asc = makeLinearInterpolator(offsets[0], sweep.step_seconds, series.map(h => h.asc));
+      const cusps = Array.from({ length: 12 }, (_, i) => makeLinearInterpolator(offsets[0], sweep.step_seconds, series.map(h => h.cusps[i + 1])));
+      houseAt = (offset) => ({ asc: asc(offset), cusps: cusps.map(c => c(offset)) });
+    }
+
+    const mainModel = modelFor(main.ayanamsaKey, main.yearDays);
+    const series = asOfTimes.map((t) => ({
+      kind: 'as_of',
+      as_of: formatTime(t.getTime()),
+      keyAt: (o) => label(main.system, mainModel, o, t.getTime(), levels),
+    }));
+    if (chartItems && houseAt) {
+      const lagnaKey = (o) => {
+        const p = this.describeSiderealPoint(houseAt(o).asc);
+        return `${SIGN_ABBR[SIGNS.indexOf(p.sign)]} ${p.nakshatra} ${p.nakshatra_pada} sub ${p.sub_lord}`;
+      };
+      series.push({ kind: 'chart', item: 'lagna', keyAt: lagnaKey });
+      series.push({
+        kind: 'chart',
+        item: 'cusp_sub_lords',
+        keyAt: (o) => houseAt(o).cusps.map((c, i) => `${i + 1}:${PLANET_ABBR[this.describeSiderealPoint(c).sub_lord]}`).join(' '),
+      });
+      if (varga) {
+        series.push({ kind: 'chart', item: 'varga_lagnas', keyAt: (o) => varga(houseAt(o).asc) });
+      }
+    }
+    const keys = series.map(s => offsets.map(o => s.keyAt(o)));
+
+    const result = {
+      birth_times_checked: offsets.length,
+      levels: DASHA_LEVELS.slice(0, levels),
+      as_of: asOfTimes.map(t => formatTime(t.getTime())),
+    };
+
+    // Ranges: consecutive birth times with identical values merged
+    const buildRanges = () => {
+      const ranges = [];
+      offsets.forEach((o, i) => {
+        const values = keys.map(k => k[i]);
+        const last = ranges[ranges.length - 1];
+        if (last && last.values.every((v, k) => v === values[k])) {
+          last.to_offset_seconds = roundOffset(o);
+          last.birth_to = birthAt(o);
+          last.count++;
+        } else {
+          ranges.push({ from_offset_seconds: roundOffset(o), to_offset_seconds: roundOffset(o), birth_from: birthAt(o), birth_to: birthAt(o), count: 1, values });
+        }
+      });
+      return ranges.map(({ values, ...r }) => {
+        const out = { ...r, chains: values.slice(0, asOfTimes.length) };
+        series.forEach((s, k) => { if (s.kind === 'chart') out[s.item] = values[k]; });
+        return out;
+      });
+    };
+    // Flips: per series, the refined birth offsets where its value changes. Within the
+    // budget each series gets an equal share; only flips that fit are refined.
+    const buildFlips = (budget) => {
+      const heads = series.map((s, k) => ({ ...(s.kind === 'as_of' ? { as_of: s.as_of } : { item: s.item }), at_start: keys[k][0] }));
+      const overhead = heads.reduce((n, h) => n + JSON.stringify(h).length + 20, 0);
+      const changes = keys.map(countChanges);
+      const sample = (withTime) => {
+        const avgKey = Math.max(8, ...keys.map(k => (k[0] || '').length));
+        return 2 * avgKey + (withTime ? 70 : 40);
+      };
+      const total = changes.reduce((a, b) => a + b, 0);
+      const withTime = overhead + total * sample(true) <= budget;
+      const share = Math.max(1, Math.floor((budget - overhead) / Math.max(1, series.length) / sample(withTime)));
+      let truncated = false;
+      const lists = series.map((s, k) => {
+        const flips = flipsOf(offsets, keys[k], s.keyAt, share);
+        const items = flips.map(f => ({ at_s: roundOffset(f.at), ...(withTime ? { birth_time: birthAt(f.at) } : {}), from: f.from, to: f.to }));
+        const out = { ...heads[k], flips: items };
+        if (flips.total > items.length) {
+          truncated = true;
+          out.flips_total = flips.total;
+        }
+        return out;
+      });
+      return { lists, truncated, withTime };
+    };
+
+    // Event tests first: their size is part of the response budget
+    if (eventTests.length) {
+      result.event_tests = this.evaluateEventTests({ eventTests, offsets, modelFor, chainAt, houseAt, main, birthMs, birthAt, formatTime });
+    }
+    // Leave room for the header (settings, sensitivity, notes) added by the calling tool
+    const budget = MAX_SWEEP_CHARS - JSON.stringify(result).length - 3000;
+
+    let mode = sweepOutput;
+    if (mode === 'auto') {
+      const ranges = buildRanges();
+      if (JSON.stringify(ranges).length <= budget) {
+        result.sweep_output = 'ranges';
+        result.ranges = ranges;
+      } else {
+        mode = 'flips';
+        result.note_output = 'The ranges were too large for one response, so only the flip points are returned (sweep_output "flips").';
+      }
+    } else if (mode === 'ranges') {
+      const fitted = fitToBudget(buildRanges(), budget);
+      result.sweep_output = 'ranges';
+      result.ranges = fitted.kept;
+      if (fitted.truncated) {
+        result.truncated = true;
+        result.truncated_hint = 'Too many ranges for one response. Narrow birth_time_sweep, use fewer as_of dates or a lower levels value, or use sweep_output "flips".';
+      }
+    }
+    if (mode === 'flips') {
+      const { lists, truncated, withTime } = buildFlips(budget);
+      result.sweep_output = 'flips';
+      if (!withTime) result.flip_time_note = 'birth_time was left out of each flip to save space: the birth time is datetime + at_s seconds.';
+      result.flips = lists;
+      if (truncated) {
+        result.truncated = true;
+        result.truncated_hint = 'Some flip lists were cut to fit one response (see flips_total). Narrow birth_time_sweep, or use fewer as_of dates or a lower levels value.';
+      }
+    }
+    return result;
+  }
+
+  // Passing birth-time windows per event test, their intersection, the best subset when
+  // they don't all agree, and how close each event is to a dasha boundary
+  evaluateEventTests({ eventTests, offsets, modelFor, chainAt, houseAt, main, birthMs, birthAt }) {
+    // Refined edges, plus the first and last sampled birth times inside the window
+    const describeWindow = (w) => ({
+      from_s: roundOffset(w.from),
+      to_s: roundOffset(w.to),
+      width_s: roundOffset(w.to - w.from),
+      grid_from_s: roundOffset(offsets.find(o => o >= w.from - 1e-9) ?? w.from),
+      grid_to_s: roundOffset([...offsets].reverse().find(o => o <= w.to + 1e-9) ?? w.to),
+      birth_from: birthAt(w.from),
+      birth_to: birthAt(w.to),
+      ...(w.openStart ? { open_start: true } : {}),
+      ...(w.openEnd ? { open_end: true } : {}),
+    });
+
+    const evaluators = eventTests.map((test) => {
+      const ayanamsaKey = test.ayanamsa || (test.system === 'kalachakra' ? main.kalachakraAyanamsaKey : main.ayanamsaKey);
+      const model = modelFor(ayanamsaKey, test.system === 'vimshottari' ? main.yearDays : null);
+      // Signs or lords that count as a pass at this birth time
+      const expected = (offset) => {
+        if (test.expect.labels) return test.expect.labels;
+        const ref = test.expect.house_from_lagna
+          ? Math.floor(houseAt(offset).asc / 30)
+          : Math.floor(model.moonAt(offset) / 30);
+        const houses = test.expect.house_from_lagna || test.expect.house_from_moon;
+        return houses.map(h => SIGN_ABBR[(ref + h - 1) % 12]);
+      };
+      const passAt = (offset) => {
+        const { raw, chain } = chainAt(test.system, model, offset, test.asOfMs, test.level);
+        return chain.length === test.level && expected(offset).includes(raw.label(chain[test.level - 1]));
+      };
+      return { test, model, ayanamsaKey, passAt };
+    });
+
+    const windows = evaluators.map(e => passWindows(offsets, offsets.map(e.passAt), e.passAt));
+    let intersection = windows[0];
+    for (const w of windows.slice(1)) intersection = intersectWindows(intersection, w);
+
+    const out = {
+      tests: evaluators.map((e, k) => ({
+        id: e.test.id,
+        as_of: e.test.as_of,
+        system: e.test.system,
+        level: DASHA_LEVELS[e.test.level - 1],
+        ayanamsa: AYANAMSAS[e.ayanamsaKey].name,
+        expect: e.test.expectDescription,
+        passes_at_given_birth_time: e.passAt(0),
+        windows: windows[k].map(describeWindow),
+      })),
+      intersection: intersection.map(describeWindow),
+    };
+
+    let basis = { offset: 0, reason: 'the given birth time (no passing window)' };
+    if (intersection.length) {
+      const widest = intersection.reduce((a, b) => (b.to - b.from > a.to - a.from ? b : a));
+      basis = { offset: (widest.from + widest.to) / 2, reason: 'middle of the widest window in the intersection' };
+    } else {
+      const best = bestSubset(windows, offsets[0], offsets[offsets.length - 1]);
+      if (best.count > 0) {
+        out.best_subset = best.sets.map(set => ({
+          passing: set.passing.map(k => eventTests[k].id),
+          failing: eventTests.map((t, k) => (set.passing.includes(k) ? null : t.id)).filter(Boolean),
+          window: describeWindow({ from: set.from, to: set.to }),
+        }));
+        const first = best.sets.reduce((a, b) => (b.to - b.from > a.to - a.from ? b : a));
+        basis = { offset: (first.from + first.to) / 2, reason: `middle of the widest best-subset window (${best.count} of ${eventTests.length} tests pass)` };
+      }
+    }
+
+    // Junction: days from each event to the nearest boundary of its tested period and of the
+    // period one level down (negative = the event is before that boundary)
+    out.junction = {
+      at_offset_s: roundOffset(basis.offset),
+      birth_time: birthAt(basis.offset),
+      basis: basis.reason,
+      tests: evaluators.map((e) => {
+        const b = birthMs + basis.offset * 1000;
+        const clock = e.model.clock(b);
+        const depth = Math.min(6, e.test.level + 1);
+        const { raw, chain } = chainAt(e.test.system, e.model, basis.offset, e.test.asOfMs, depth);
+        const nearest = (p) => {
+          if (!p) return null;
+          const startMs = clock(p.start);
+          const endMs = clock(p.end);
+          const toStart = e.test.asOfMs - startMs;
+          const toEnd = e.test.asOfMs - endMs;
+          const useStart = Math.abs(toStart) <= Math.abs(toEnd);
+          return { days: round(((useStart ? toStart : toEnd) / DAY_MS), 3), boundary: useStart ? 'start' : 'end', period: raw.label(p) };
+        };
+        return {
+          id: e.test.id,
+          tested_level: nearest(chain[e.test.level - 1]),
+          next_level: e.test.level < 6 ? nearest(chain[e.test.level]) : null,
+        };
+      }),
+    };
+    return out;
   }
 
   formatDms(value) {
@@ -1638,6 +2068,106 @@ class SwissEphemerisServer {
     if (output !== undefined && output !== 'full' && output !== 'chain') {
       throw new McpError(ErrorCode.InvalidParams, 'output must be "full" or "chain"');
     }
+  }
+
+  // birth_time_sweep, sweep_output and their size limits
+  validateSweep(args, asOfList) {
+    const sweep = args.birth_time_sweep;
+    if (args.sweep_output !== undefined && !['auto', 'ranges', 'flips'].includes(args.sweep_output)) {
+      throw invalid('sweep_output', 'sweep_output must be "auto", "ranges" or "flips"');
+    }
+    if (sweep === undefined) {
+      if (args.sweep_output !== undefined) throw invalid('sweep_output', 'sweep_output needs birth_time_sweep');
+      return;
+    }
+    const { from_seconds: from, to_seconds: to, step_seconds: step } = sweep || {};
+    if (![from, to, step].every(v => typeof v === 'number' && isFinite(v)) || step <= 0 || to < from) {
+      throw invalid('birth_time_sweep', 'birth_time_sweep needs numbers from_seconds <= to_seconds and step_seconds > 0');
+    }
+    const candidates = Math.floor((to - from) / step + 1e-9) + 1;
+    const dates = Array.isArray(asOfList) ? asOfList.length : 1;
+    if (candidates > MAX_SWEEP_CANDIDATES || candidates * dates > MAX_SWEEP_CHAINS) {
+      throw invalid('birth_time_sweep', `birth_time_sweep is limited to ${MAX_SWEEP_CANDIDATES} birth times and ${MAX_SWEEP_CHAINS} chains (birth times x as_of dates); this request has ${candidates} x ${dates}. Use a larger step_seconds or a narrower range.`);
+    }
+  }
+
+  // Latitude/longitude when both are given (optional for Kalachakra)
+  optionalPlace(args) {
+    const { latitude, longitude } = args;
+    if (latitude === undefined && longitude === undefined) return null;
+    if (typeof latitude !== 'number' || latitude < -90 || latitude > 90) throw invalid('latitude', 'latitude must be a number between -90 and 90');
+    if (typeof longitude !== 'number' || longitude < -180 || longitude > 180) throw invalid('longitude', 'longitude must be a number between -180 and 180');
+    return { latitude, longitude };
+  }
+
+  // event_tests: [{ id, as_of, system, level, expect, ayanamsa }]
+  normalizeEventTests(tests, defaultSystem, hasSweep, place) {
+    if (tests === undefined) return [];
+    if (!hasSweep) throw invalid('event_tests', 'event_tests needs birth_time_sweep (the tests are evaluated for every birth time in the sweep)');
+    if (!Array.isArray(tests) || !tests.length || tests.length > MAX_EVENT_TESTS) {
+      throw invalid('event_tests', `event_tests must be a list of 1 to ${MAX_EVENT_TESTS} tests`);
+    }
+    const lordNames = { su: 'Sun', sun: 'Sun', mo: 'Moon', moon: 'Moon', ma: 'Mars', mars: 'Mars', me: 'Mercury', merc: 'Mercury', mercury: 'Mercury', ju: 'Jupiter', jup: 'Jupiter', jupiter: 'Jupiter', ve: 'Venus', ven: 'Venus', venus: 'Venus', sa: 'Saturn', sat: 'Saturn', saturn: 'Saturn', ra: 'Rahu', rah: 'Rahu', rahu: 'Rahu', ke: 'Ketu', ket: 'Ketu', ketu: 'Ketu' };
+    const ids = new Set();
+    return tests.map((t, i) => {
+      const where = `event_tests[${i}]`;
+      if (!t || typeof t !== 'object') throw invalid('event_tests', `${where} must be an object`);
+      const id = t.id === undefined ? `test${i + 1}` : String(t.id);
+      if (ids.has(id)) throw invalid('event_tests', `${where}: duplicate id "${id}"`);
+      ids.add(id);
+      const system = t.system || defaultSystem;
+      if (!['kalachakra', 'vimshottari'].includes(system)) throw invalid('event_tests', `${where}.system must be "kalachakra" or "vimshottari"`);
+      if (typeof t.as_of !== 'string') throw invalid('event_tests', `${where}.as_of must be a date string`);
+      const asOf = this.withDefaultOffset(t.as_of);
+      const asOfMs = new Date(asOf).getTime();
+      if (isNaN(asOfMs)) throw invalid('event_tests', `${where}.as_of is not a valid date`);
+      if (!Number.isInteger(t.level) || t.level < 1 || t.level > 6) throw invalid('event_tests', `${where}.level must be an integer from 1 (mahadasha) to 6 (deha)`);
+      if (t.ayanamsa !== undefined && !AYANAMSAS[t.ayanamsa]) throw invalid('event_tests', `${where}.ayanamsa must be one of: ${Object.keys(AYANAMSAS).join(', ')}`);
+      let expect;
+      if (Array.isArray(t.expect) && t.expect.length) {
+        const labels = t.expect.map((x) => {
+          const v = String(x).trim().toLowerCase();
+          if (system === 'kalachakra') {
+            const index = SIGN_ABBR.findIndex((a, k) => a.toLowerCase() === v || SIGNS[k].toLowerCase() === v);
+            if (index < 0) throw invalid('event_tests', `${where}.expect: "${x}" is not a sign (use Ar Ta Ge Cn Le Vi Li Sc Sg Cp Aq Pi)`);
+            return SIGN_ABBR[index];
+          }
+          if (!lordNames[v]) throw invalid('event_tests', `${where}.expect: "${x}" is not a Vimshottari lord`);
+          return lordNames[v];
+        });
+        expect = { labels };
+      } else if (t.expect && typeof t.expect === 'object' && (t.expect.house_from_lagna || t.expect.house_from_moon)) {
+        const houses = t.expect.house_from_lagna || t.expect.house_from_moon;
+        if (system !== 'kalachakra') throw invalid('event_tests', `${where}.expect: house_from_lagna/house_from_moon only apply to Kalachakra (signs); give Vimshottari lords as a list`);
+        if (!Array.isArray(houses) || !houses.length || houses.some(h => !Number.isInteger(h) || h < 1 || h > 12)) {
+          throw invalid('event_tests', `${where}.expect houses must be a list of integers 1-12`);
+        }
+        if (t.expect.house_from_lagna && !place) throw invalid('event_tests', `${where}.expect.house_from_lagna needs latitude and longitude`);
+        expect = t.expect.house_from_lagna ? { house_from_lagna: houses } : { house_from_moon: houses };
+      } else {
+        throw invalid('event_tests', `${where}.expect must be a list of signs/lords or {"house_from_lagna": [...]} / {"house_from_moon": [...]}`);
+      }
+      return { id, as_of: asOf, asOfMs, system, level: t.level, ayanamsa: t.ayanamsa, expect, expectDescription: t.expect };
+    });
+  }
+
+  // gati_list: { from, to, levels, types, near_events }
+  normalizeGatiList(g) {
+    if (g === undefined) return undefined;
+    const types = ['Simhavalokana', 'Manduka', 'Markati', 'other jump', 'cycle_restart'];
+    if (!g || typeof g !== 'object') throw invalid('gati_list', 'gati_list must be an object like {"from": "2020-01-01", "to": "2030-01-01"}');
+    const from = new Date(this.withDefaultOffset(g.from)).getTime();
+    const to = new Date(this.withDefaultOffset(g.to)).getTime();
+    if (isNaN(from) || isNaN(to) || to < from) throw invalid('gati_list', 'gati_list.from and gati_list.to must be dates with from <= to');
+    const levels = g.levels === undefined ? 3 : g.levels;
+    if (!Number.isInteger(levels) || levels < 1 || levels > 6) throw invalid('gati_list', 'gati_list.levels must be an integer from 1 to 6');
+    const chosen = g.types === undefined ? types : g.types;
+    if (!Array.isArray(chosen) || chosen.some(t => !types.includes(t))) throw invalid('gati_list', `gati_list.types must list some of: ${types.join(', ')}`);
+    const near = g.near_events === undefined ? [] : g.near_events;
+    if (!Array.isArray(near) || near.length > MAX_AS_OF_DATES) throw invalid('gati_list', `gati_list.near_events must be a list of up to ${MAX_AS_OF_DATES} dates`);
+    const nearEvents = near.map(d => new Date(this.withDefaultOffset(d)).getTime());
+    if (nearEvents.some(isNaN)) throw invalid('gati_list', 'gati_list.near_events must contain valid dates');
+    return { fromMs: from, toMs: to, levels, types: chosen, nearEvents };
   }
 
   validateTimezone(timeZone) {
@@ -1899,12 +2429,18 @@ class SwissEphemerisServer {
 
         this.validateTimezone(args.current_timezone);
         this.validateDashaOutput(args);
+        const vedicAsOf = this.normalizeAsOf(as_of);
+        this.validateSweep(args, vedicAsOf);
+        const vedicEventTests = this.normalizeEventTests(args.event_tests, 'vimshottari', Boolean(args.birth_time_sweep), { latitude: vedicLatitude, longitude: vedicLongitude });
         const vedicBirth = this.withDefaultOffset(vedicDatetime);
         const vedicResult = this.calculateVedicChart(vedicBirth, vedicLatitude, vedicLongitude, {
+          birth_time_sweep: args.birth_time_sweep,
+          sweep_output: args.sweep_output,
+          event_tests: vedicEventTests,
           ayanamsa,
           position_type,
           node_type,
-          as_of: this.normalizeAsOf(as_of),
+          as_of: vedicAsOf,
           dasha_year_days,
           levels: args.levels,
           output: args.output,
@@ -1934,17 +2470,12 @@ class SwissEphemerisServer {
         this.validateDashaOutput(args);
         const kcAsOfList = this.normalizeAsOf(kcAsOf);
         const sweep = args.birth_time_sweep;
-        if (sweep !== undefined) {
-          const { from_seconds: from, to_seconds: to, step_seconds: step } = sweep || {};
-          if (![from, to, step].every(v => typeof v === 'number' && isFinite(v)) || step <= 0 || to < from) {
-            throw new McpError(ErrorCode.InvalidParams, 'birth_time_sweep needs numbers from_seconds <= to_seconds and step_seconds > 0');
-          }
-          const candidates = Math.floor((to - from) / step + 1e-9) + 1;
-          const dates = Array.isArray(kcAsOfList) ? kcAsOfList.length : 1;
-          if (candidates > MAX_SWEEP_CANDIDATES || candidates * dates > MAX_SWEEP_CHAINS) {
-            throw new McpError(ErrorCode.InvalidParams, `birth_time_sweep is limited to ${MAX_SWEEP_CANDIDATES} birth times and ${MAX_SWEEP_CHAINS} chains (birth times x as_of dates); this request has ${candidates} x ${dates}`);
-          }
+        this.validateSweep(args, kcAsOfList);
+        if (args.ayanamsa_override !== undefined && !AYANAMSAS[args.ayanamsa_override]) {
+          throw invalid('ayanamsa_override', `ayanamsa_override must be one of: ${Object.keys(AYANAMSAS).join(', ')}`);
         }
+        const place = this.optionalPlace(args);
+        const eventTests = this.normalizeEventTests(args.event_tests, 'kalachakra', Boolean(sweep), place);
         const kcBirth = this.withDefaultOffset(kcDatetime);
         const kcResult = this.calculateKalachakraDasha(kcBirth, {
           as_of: kcAsOfList,
@@ -1952,6 +2483,11 @@ class SwissEphemerisServer {
           levels: args.levels,
           output: args.output,
           birth_time_sweep: sweep,
+          sweep_output: args.sweep_output,
+          event_tests: eventTests,
+          ayanamsa_override: args.ayanamsa_override,
+          gati_list: this.normalizeGatiList(args.gati_list),
+          place,
         });
         kcResult.datetime_input = kcDatetime;
         return this.withCurrentTimezone(kcResult, kcBirth, args.current_timezone, ['current', 'chains', 'drill_down', 'mahadashas']);

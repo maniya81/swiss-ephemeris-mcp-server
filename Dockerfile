@@ -22,6 +22,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 # Copy application code
 COPY index.js ./
+COPY src/ ./src/
 
 # Copy vendor directory with ephemeris data files
 COPY vendor/ ./vendor/
