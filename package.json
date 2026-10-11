@@ -1,6 +1,6 @@
 {
   "name": "swiss-ephemeris-mcp-server",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "A Model Context Protocol (MCP) server that provides access to Swiss Ephemeris astronomical calculations for planetary positions, houses, chart points, and asteroids. Supports both stdio and HTTP transport modes.",
   "main": "index.js",
   "type": "module",
@@ -12,7 +12,7 @@
     "start:http": "MCP_HTTP_MODE=true node index.js",
     "dev": "node --watch index.js",
     "dev:http": "MCP_HTTP_MODE=true node --watch index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.13.0",
@@ -52,6 +52,7 @@
   },
   "files": [
     "index.js",
+    "src/",
     "README.md",
     "LICENSE",
     "vendor/"
