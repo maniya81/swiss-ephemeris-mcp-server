@@ -11,19 +11,38 @@ export function aspectHouses(planet, rahuKetu = '5_9') {
   return [7, ...(SPECIAL[planet] || [])].sort((a, b) => a - b);
 }
 
-// BPHS drishti strength (virupas, 0-60) of an aspect across `angle` degrees (aspected minus
-// aspecting longitude). Special aspects get extra virupas: Saturn 3rd/10th +45, Jupiter
-// 5th/9th +30, Mars 4th/8th +15. Capped at 60 unless `cap` is false (Shadbala's drik bala
-// uses the uncapped value, as in B.V. Raman's tables).
-export function drishtiVirupas(planet, angle, cap = true) {
+// Base drishti strength (virupas) of an aspect across `angle` degrees (aspected minus aspecting
+// longitude), the same for every planet (BPHS)
+function baseVirupas(d) {
+  if (d >= 30 && d < 60) return (d - 30) / 2;
+  if (d >= 60 && d < 90) return d - 45;
+  if (d >= 90 && d < 120) return (120 - d) / 2 + 30;
+  if (d >= 120 && d < 150) return 150 - d;
+  if (d >= 150 && d < 180) return 2 * (d - 150);
+  if (d >= 180 && d < 300) return (300 - d) / 2;
+  return 0;
+}
+// Exact special aspects: Mars 4th (90°) and 8th (210°), Jupiter 5th (120°) and 9th (240°),
+// Saturn 3rd (60°) and 10th (270°)
+const SPECIAL_PEAKS = { Mars: [90, 210], Jupiter: [120, 240], Saturn: [60, 270] };
+
+// Drishti strength in virupas. Rules:
+//  jh (default, Jagannatha Hora): special aspects rise linearly from the base value 30° before
+//     the exact aspect to a full 60 at it, then fall back to the base value 30° after it
+//  bphs: BPHS/B.V. Raman add-ons on top of the base value: Saturn 3rd/10th +45, Jupiter
+//     5th/9th +30, Mars 4th/8th +15 (capped at 60 unless cap is false)
+export function drishtiVirupas(planet, angle, { rule = 'jh', cap = true } = {}) {
   const d = norm360(angle);
-  let v = 0;
-  if (d >= 30 && d < 60) v = (d - 30) / 2;
-  else if (d >= 60 && d < 90) v = d - 45;
-  else if (d >= 90 && d < 120) v = (120 - d) / 2 + 30;
-  else if (d >= 120 && d < 150) v = 150 - d;
-  else if (d >= 150 && d < 180) v = (d - 150) * 2;
-  else if (d >= 180 && d < 300) v = (300 - d) / 2;
+  if (rule === 'jh') {
+    for (const peak of SPECIAL_PEAKS[planet] || []) {
+      const before = baseVirupas(peak - 30);
+      const after = baseVirupas(peak + 30);
+      if (d >= peak - 30 && d < peak) return before + ((60 - before) * (d - (peak - 30))) / 30;
+      if (d >= peak && d < peak + 30) return 60 + ((after - 60) * (d - peak)) / 30;
+    }
+    return baseVirupas(d);
+  }
+  let v = baseVirupas(d);
   const inRange = (from, to) => d >= from && d < to;
   if (planet === 'Saturn' && (inRange(60, 90) || inRange(270, 300))) v += 45;
   if (planet === 'Jupiter' && (inRange(120, 150) || inRange(240, 270))) v += 30;
@@ -64,7 +83,7 @@ export function computeAspects(longitudes, lagnaLon, options = {}) {
     };
     if (options.aspect_strength) {
       byGraha[g].virupas = Object.fromEntries(grahas.filter(o => o !== g)
-        .map(o => [o, round(drishtiVirupas(g, longitudes[o] - longitudes[g]), 2)])
+        .map(o => [o, round(drishtiVirupas(g, longitudes[o] - longitudes[g], { rule: options.drishti_rule || 'jh' }), 2)])
         .filter(([, v]) => v > 0));
     }
     houses.forEach(h => byHouse[h].push(g));

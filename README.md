@@ -245,13 +245,17 @@ Birth-time anchors from transits, e.g. `{"as_of":"2023-02-27","planet":"Rahu","t
 
 | Feature | Checked against | Result |
 |---|---|---|
-| D-9 | Jagannatha Hora (Sagar) | all nine grahas and the lagna match |
-| Ashtakavarga | AstroSage (Sagar) | every BAV bindu matches; SAV 337 |
-| Shadbala | AstroSage (Sagar) | uchcha, ojayugma, kendradi, dig, kala parts, ayana and drik within 0.15 virupa; cheshta within 0.5 (Mercury 1.2); totals within 1 virupa where the hora/year lords agree. Mercury's saptavargaja is 15 below AstroSage's |
+| Kalachakra | Jagannatha Hora export (Sagar), 88 periods from mahadasha to deha | every sign and pada label matches; times within 52 s |
+| D-9, KP lords | Jagannatha Hora (Sagar) | all nine grahas and the lagna; star, sub and sub-sub lords of the lagna, Sun and Moon |
+| Ashtakavarga | Jagannatha Hora (Sagar, default tables); AstroSage (`ashtakavarga_tables: "bphs"`) | every SAV and BAV bindu shown matches both |
+| Shadbala | Jagannatha Hora bar graphs (Sagar) | sthana, kala, dig, cheshta, drik and naisargika to the displayed precision (Venus kala 1.4 low); rupas and % strength exact |
+| Aspect strength | Jagannatha Hora aspected-body table (Sagar) | within 0.005% |
+| Shadbala (`raman`) | AstroSage (Sagar) | components within 0.15 virupa, cheshta within 0.5 |
 | Ishta/Kashta | Jagannatha Hora (Dhruvit) | within 0.25 |
-| Bhavabala | AstroSage (Sagar) | dig bala exact, drishti bala within 0.2 |
 | Narayana order | Jagannatha Hora's progression table | all 12 starting signs |
 | Sade Sati spans | Saturn ingresses from swetest | span ends straddle the sign boundary at ±1.5 s |
+
+`.claude/skills/jhora-verification` records the JH settings, reference values and the procedure for checking new JH screenshots, with a script that compares a pasted JH Kalachakra export with the server.
 
 Yogini, Ashtottari, Chara and Narayana periods, the KP blocks and the gochar states follow the documented rules (named in `settings`), but have not yet been compared period by period with Jagannatha Hora.
 

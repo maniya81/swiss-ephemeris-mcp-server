@@ -14,6 +14,14 @@ export const BAV_TABLES = {
   Saturn: { Sun: [1, 2, 4, 7, 8, 10, 11], Moon: [3, 6, 11], Mars: [3, 5, 6, 10, 11, 12], Mercury: [6, 8, 9, 10, 11, 12], Jupiter: [5, 6, 11, 12], Venus: [6, 11, 12], Saturn: [3, 5, 6, 11], Lagna: [1, 3, 4, 6, 10, 11] },
   Lagna: { Sun: [3, 4, 6, 10, 11, 12], Moon: [3, 6, 10, 11, 12], Mars: [1, 3, 6, 10, 11], Mercury: [1, 2, 4, 6, 8, 10, 11], Jupiter: [1, 2, 4, 5, 6, 7, 9, 10, 11], Venus: [1, 2, 3, 4, 5, 8, 9], Saturn: [1, 3, 4, 6, 10, 11], Lagna: [3, 6, 10, 11] },
 };
+// Jagannatha Hora's tables differ in four rows (same totals): in the Moon's BAV the Moon gives
+// the 9th, Mars does not, and Jupiter gives 1, 2, 4, 7, 8, 10, 11; in Venus's BAV Mars gives the
+// 4th instead of the 5th
+export const JH_BAV_TABLES = {
+  ...BAV_TABLES,
+  Moon: { ...BAV_TABLES.Moon, Moon: [1, 3, 6, 7, 9, 10, 11], Mars: [2, 3, 5, 6, 10, 11], Jupiter: [1, 2, 4, 7, 8, 10, 11] },
+  Venus: { ...BAV_TABLES.Venus, Mars: [3, 4, 6, 9, 11, 12] },
+};
 const SAV_PLANETS = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn'];
 // Shodhya pinda multipliers
 const RASHI_GUNAKARA = [7, 10, 8, 4, 10, 5, 7, 8, 9, 5, 11, 12];
@@ -22,9 +30,9 @@ const GRAHA_GUNAKARA = { Sun: 5, Moon: 5, Mars: 8, Mercury: 5, Jupiter: 10, Venu
 export const KAKSHYA_LORDS = ['Saturn', 'Jupiter', 'Mars', 'Sun', 'Venus', 'Mercury', 'Moon', 'Lagna'];
 
 // signs: { Sun: 0-11, ..., Saturn, Lagna }
-export function prastharashtakavarga(signs) {
+export function prastharashtakavarga(signs, tables = JH_BAV_TABLES) {
   const out = {};
-  for (const [planet, table] of Object.entries(BAV_TABLES)) {
+  for (const [planet, table] of Object.entries(tables)) {
     out[planet] = {};
     for (const c of CONTRIBUTORS) {
       const row = Array(12).fill(0);
@@ -76,7 +84,7 @@ function ekadhipatyaShodhana(bindus, occupied) {
 export function computeAshtakavarga(longitudes, lagnaLon, options = {}) {
   const signs = Object.fromEntries(SAV_PLANETS.map(p => [p, signOf(longitudes[p])]));
   signs.Lagna = signOf(lagnaLon);
-  const prastara = prastharashtakavarga(signs);
+  const prastara = prastharashtakavarga(signs, options.tables === 'bphs' ? BAV_TABLES : JH_BAV_TABLES);
   const bav = bhinnashtakavarga(prastara);
   const sav = Array.from({ length: 12 }, (_, s) => SAV_PLANETS.reduce((n, p) => n + bav[p][s], 0));
   const total = sav.reduce((a, b) => a + b, 0);

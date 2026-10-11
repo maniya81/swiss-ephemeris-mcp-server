@@ -43,11 +43,13 @@ function ramanMeanLongitudes(jdUt, year) {
 export const moonIsBenefic = (elongation, rule = 'ashtami') => (rule === 'waxing' ? elongation < 180 : elongation >= 84 && elongation < 264);
 
 // Benefics for drik bala: Jupiter, Venus, the Moon by `moonRule`, and Mercury when alone or with
-// more benefics than malefics (a tie goes to the nearest planet), as in P.V.R. Narasimha Rao's rules
-export function drikBenefics(sidereal, moonRule = 'ashtami') {
+// more benefics than malefics (a tie goes to the nearest planet), as in P.V.R. Narasimha Rao's rules.
+// Method 'jh' also makes a combust Mercury (with the Sun) a malefic, as Jagannatha Hora does.
+export function drikBenefics(sidereal, moonRule = 'ashtami', { method = 'jh', mercuryRetrograde = false } = {}) {
   const elongation = norm360(sidereal.Moon - sidereal.Sun);
   const benefics = new Set(['Jupiter', 'Venus']);
   if (moonIsBenefic(elongation, moonRule)) benefics.add('Moon');
+  if (method === 'jh' && angDist(sidereal.Mercury, sidereal.Sun) <= (mercuryRetrograde ? 12 : 14)) return benefics;
   const mercurySign = signOf(sidereal.Mercury);
   const others = SEVEN.filter(p => p !== 'Mercury' && signOf(sidereal[p]) === mercurySign);
   const good = others.filter(p => benefics.has(p)).length;
@@ -73,17 +75,27 @@ const kranti = (sayana) => Math.asin(Math.sin(24 * Math.PI / 180) * Math.sin(say
  *   timezoneHours: offset for the civil day (ahargana)
  *   warWinner: 'latitude' | 'brightness', mags
  *   moonRule: 'ashtami' | 'waxing' (the Moon as a benefic in drik and bhava drishti bala)
+ *   method: 'jh' (default) | 'raman'; speeds: { Mercury: deg/day }
  * }
  */
 export function computeShadbala(chart) {
   const { sidereal, tropical, lagna, mc } = chart;
+  // 'jh' (default): Jagannatha Hora; 'raman': B.V. Raman as used by AstroSage
+  const method = chart.method || 'jh';
+  const jh = method === 'jh';
   const signs = Object.fromEntries(SEVEN.map(p => [p, signOf(sidereal[p])]));
   const lagnaSign = signOf(lagna);
   const elongation = norm360(sidereal.Moon - sidereal.Sun);
   const waxing = elongation < 180;
   const pakshaBenefic = (elongation > 180 ? 360 - elongation : elongation) / 3;
-  // Paksha bala: Jupiter, Venus, Mercury and the waxing Moon count as benefics
-  const benefics = new Set(['Jupiter', 'Venus', 'Mercury', ...(waxing ? ['Moon'] : [])]);
+  const drikBen = drikBenefics(sidereal, chart.moonRule, { method, mercuryRetrograde: (chart.speeds || {}).Mercury < 0 });
+  // Paksha bala benefics. jh: Jupiter, Venus and Mercury as in drik bala; the Moon's paksha bala
+  // is the benefic value doubled. raman: Jupiter, Venus, Mercury and the waxing Moon.
+  const benefics = jh
+    ? new Set(['Jupiter', 'Venus', ...(drikBen.has('Mercury') ? ['Mercury'] : [])])
+    : new Set(['Jupiter', 'Venus', 'Mercury', ...(waxing ? ['Moon'] : [])]);
+  // Saptavargaja hora: jh uses Jagannatha Hora's D-2 (parivritti, even signs reversed)
+  const vargaMethods = jh ? { D2: 'pvr' } : {};
 
   const out = {};
   for (const p of SEVEN) {
@@ -95,7 +107,7 @@ export function computeShadbala(chart) {
     sthana.uchcha = angDist(lon, EXALTATION[p] + 180) / 3;
     // Saptavargaja: dignity in D1, D2, D3, D7, D9, D12, D30
     sthana.saptavargaja = SAPTAVARGAS.reduce((sum, v) => {
-      const vs = vargaPosition(v, lon).sign;
+      const vs = vargaPosition(v, lon, vargaMethods).sign;
       const mt = MOOLATRIKONA[p];
       let key;
       if (v === 'D1' && mt && sign === mt[0] && deg >= mt[1] && deg < mt[2]) key = 'moolatrikona';
@@ -150,7 +162,7 @@ export function computeShadbala(chart) {
   for (const p of SEVEN) {
     const k = out[p].kala;
     k.nathonnatha = p === 'Mercury' ? 60 : ['Sun', 'Jupiter', 'Venus'].includes(p) ? dayStrength : 60 - dayStrength;
-    k.paksha = benefics.has(p) ? pakshaBenefic : 60 - pakshaBenefic;
+    k.paksha = jh && p === 'Moon' ? 2 * pakshaBenefic : benefics.has(p) ? pakshaBenefic : 60 - pakshaBenefic;
     k.tribhaga = p === 'Jupiter' || p === tribhagaLord ? 60 : 0;
     k.abda = p === abdaLord ? 15 : 0;
     k.masa = p === masaLord ? 30 : 0;
@@ -178,14 +190,14 @@ export function computeShadbala(chart) {
     out[p].cheshta = fold(seeghra - (madhya + norm360(sidereal[p])) / 2) / 3;
   }
 
-  // ---- Drik bala: (benefic aspect virupas - malefic aspect virupas) / 4, with uncapped special
-  // aspects
-  const drikBen = drikBenefics(sidereal, chart.moonRule);
+  // ---- Drik bala: (benefic aspect virupas - malefic aspect virupas) / 4. jh: special aspects
+  // rise to full strength at the exact aspect; raman: BPHS add-ons, not capped
+  const drishti = (q, angle) => drishtiVirupas(q, angle, jh ? { rule: 'jh' } : { rule: 'bphs', cap: false });
   for (const p of SEVEN) {
     let sum = 0;
     for (const q of SEVEN) {
       if (q === p) continue;
-      const v = drishtiVirupas(q, sidereal[p] - sidereal[q], false);
+      const v = drishti(q, sidereal[p] - sidereal[q]);
       sum += drikBen.has(q) ? v : -v;
     }
     out[p].drik = sum / 4;
@@ -214,13 +226,17 @@ export function computeShadbala(chart) {
     const o = out[p];
     const sthana = Object.values(o.sthana).reduce((a, b) => a + b, 0);
     const kala = Object.values(o.kala).reduce((a, b) => a + b, 0);
-    const total = sthana + o.dig + kala + o.cheshta + o.naisargika + o.drik;
+    // jh: the Sun's and Moon's cheshta bala is already in their doubled ayana and paksha bala, so
+    // it is shown but not added again
+    const countedCheshta = jh && (p === 'Sun' || p === 'Moon') ? 0 : o.cheshta;
+    const total = sthana + o.dig + kala + countedCheshta + o.naisargika + o.drik;
     const rupas = total / 60;
     result[p] = {
       sthana: { total: round(sthana, 2), ...Object.fromEntries(Object.entries(o.sthana).map(([k, v]) => [k, round(v, 2)])) },
       dig: round(o.dig, 2),
       kala: { total: round(kala, 2), ...Object.fromEntries(Object.entries(o.kala).map(([k, v]) => [k, round(v, 2)])) },
       cheshta: round(o.cheshta, 2),
+      ...(countedCheshta !== o.cheshta ? { cheshta_in_total: false } : {}),
       naisargika: o.naisargika,
       drik: round(o.drik, 2),
       total_virupas: round(total, 2),
@@ -239,14 +255,16 @@ export function computeShadbala(chart) {
     planets: result,
     lords: { abda: abdaLord, masa: masaLord, vara: varaLord, hora: horaLord, tribhaga: tribhagaLord, birth_in: isDay ? 'day' : 'night', ahargana },
     drik_benefics: [...drikBen],
+    method,
     _virupas: Object.fromEntries(SEVEN.map(p => [p, result[p].total_virupas])),
   };
 }
 
 // Bhavabala: bhavadhipati (the lord's shadbala) + bhava dig bala + bhava drishti bala, with
 // equal bhavas whose middles are the lagna degree + 30° per house
-export function computeBhavabala({ sidereal, lagna, moonRule }, shadbalaVirupas) {
-  const benefics = drikBenefics(sidereal, moonRule);
+export function computeBhavabala({ sidereal, lagna, moonRule, method = 'jh', speeds = {} }, shadbalaVirupas) {
+  const benefics = drikBenefics(sidereal, moonRule, { method, mercuryRetrograde: speeds.Mercury < 0 });
+  const rule = method === 'jh' ? { rule: 'jh' } : { rule: 'bphs', cap: false };
   const out = {};
   for (let h = 1; h <= 12; h++) {
     const mid = norm360(lagna + (h - 1) * 30);
@@ -266,7 +284,7 @@ export function computeBhavabala({ sidereal, lagna, moonRule }, shadbalaVirupas)
     // Jupiter's and Mercury's aspects count in full
     let drishti = 0;
     for (const p of SEVEN) {
-      const v = drishtiVirupas(p, mid - sidereal[p], false);
+      const v = drishtiVirupas(p, mid - sidereal[p], rule);
       const weight = p === 'Jupiter' || p === 'Mercury' ? 1 : 0.25;
       drishti += (benefics.has(p) ? 1 : -1) * v * weight;
     }

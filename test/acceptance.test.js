@@ -67,7 +67,10 @@ test('T7 Vimshottari kp_old 05:25:05 on 2023-07-31', { skip: SKIP }, async () =>
   assert.equal(result.vimshottari_dasha.current.chain, 'Jupiter-Moon-Jupiter-Jupiter');
 });
 
-test('T8 Kalachakra sweep event tests intersect to +4.65 s ... +5.60 s', { skip: SKIP }, async () => {
+// T8 was recorded with the sub-period rule used before 1.1.0 (direction compared with the Moon's
+// pada). Jagannatha Hora compares each period with its parent (the default now, see
+// jhora.test.js), which changes Varsha's pratyantardashas inside the savya Sg mahadasha.
+test('T8 Kalachakra sweep event tests intersect to +4.65 s ... +5.60 s (subperiod_direction "natal")', { skip: SKIP }, async () => {
   const D = (d) => `${d}+05:30`;
   const dates = ['1998-02-01T11:00:00', '1999-06-06T15:29:55', '2001-06-09T06:30:45', '2020-07-15T19:18:00', '2022-01-10T09:00:00', '2022-01-16T12:00:00', '2022-03-06T12:00:00', '2022-05-28T12:00:00', '2023-01-07T12:00:00', '2023-02-27T12:00:00', '2023-06-18T12:00:00', '2023-07-31T12:00:00', '2024-10-08T12:00:00', '2025-02-01T12:00:00', '2025-05-26T12:00:00', '2025-08-18T12:00:00', '2025-12-14T19:00:00', '2025-12-20T09:20:00', '2025-12-31T23:45:00', '2026-05-07T12:00:00', '2026-05-28T09:00:00', '2026-05-29T12:00:00', '2026-06-28T23:00:00'].map(D);
   const tests = [
@@ -79,7 +82,7 @@ test('T8 Kalachakra sweep event tests intersect to +4.65 s ... +5.60 s', { skip:
     ['bike_slip', '2026-05-28T09:00:00', 2, ['Li']], ['sagar_wedding', '2025-12-14T19:00:00', 3, ['Sg']],
     ['dhruvit_birth', '2001-06-09T06:30:45', 4, ['Sc']], ['melbourne', '2023-02-27T12:00:00', 1, ['Sg']],
   ].map(([id, d, level, expect]) => ({ id, as_of: D(d), system: 'kalachakra', level, expect }));
-  const { result, size } = await ok(srv, 'calculate_kalachakra_dasha', { datetime: B0, as_of: dates, levels: 4, birth_time_sweep: { from_seconds: -4, to_seconds: 7, step_seconds: 0.05 }, event_tests: tests });
+  const { result, size } = await ok(srv, 'calculate_kalachakra_dasha', { datetime: B0, as_of: dates, levels: 4, birth_time_sweep: { from_seconds: -4, to_seconds: 7, step_seconds: 0.05 }, event_tests: tests, subperiod_direction: 'natal' });
   const [w] = result.event_tests.intersection;
   assert.equal(result.event_tests.intersection.length, 1);
   assert.equal(w.grid_from_s, 4.65);

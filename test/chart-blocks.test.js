@@ -29,8 +29,8 @@ test('D-9 matches Jagannatha Hora (Sagar)', { skip: SKIP }, async () => {
   }
 });
 
-test('Ashtakavarga: SAV 337 self-check and BAV as AstroSage (Sagar)', { skip: SKIP }, async () => {
-  const { result } = await ok(srv, 'calculate_vedic_chart', { ...SAGAR_ASTROSAGE, include: ['ashtakavarga'], shodhana: true });
+test('Ashtakavarga with the BPHS tables: SAV 337 self-check and BAV as AstroSage (Sagar)', { skip: SKIP }, async () => {
+  const { result } = await ok(srv, 'calculate_vedic_chart', { ...SAGAR_ASTROSAGE, include: ['ashtakavarga'], shodhana: true, ashtakavarga_tables: 'bphs' });
   const av = result.ashtakavarga;
   assert.equal(av.sarvashtakavarga.total, 337);
   assert.equal(av.sav_self_check.passed, true);
@@ -45,8 +45,8 @@ test('Ashtakavarga: SAV 337 self-check and BAV as AstroSage (Sagar)', { skip: SK
   assert.ok(av.shodhana.Sun.shodhya_pinda > 0);
 });
 
-test('Shadbala and Bhavabala against AstroSage (Sagar)', { skip: SKIP }, async () => {
-  const { result } = await ok(srv, 'calculate_vedic_chart', { ...SAGAR_ASTROSAGE, include: ['shadbala', 'bhavabala'] });
+test('Shadbala and Bhavabala with the Raman method against AstroSage (Sagar)', { skip: SKIP }, async () => {
+  const { result } = await ok(srv, 'calculate_vedic_chart', { ...SAGAR_ASTROSAGE, include: ['shadbala', 'bhavabala'], shadbala_method: 'raman' });
   const sb = result.shadbala.planets;
   // AstroSage components (virupas), Sun..Saturn
   const A = {

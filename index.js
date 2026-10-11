@@ -345,6 +345,9 @@ class SwissEphemerisServer {
                 jaimini_aspects: { type: 'boolean', description: 'Add Jaimini rashi drishti (default false)' },
                 shodhana: { type: 'boolean', description: 'Ashtakavarga Trikona and Ekadhipatya shodhana with Shodhya Pinda (default false)' },
                 sunrise: { type: 'string', enum: ['standard', 'hindu'], description: 'Sunrise for Shadbala kala bala: upper limb with refraction (default) or disc centre without refraction' },
+                shadbala_method: { type: 'string', enum: ['jh', 'raman'], description: 'Shadbala and Bhavabala method: jh (default, Jagannatha Hora: D-2 parivritti hora in saptavargaja, Moon paksha doubled, special aspects rising to full strength, combust Mercury malefic) or raman (B.V. Raman as used by AstroSage)' },
+                ashtakavarga_tables: { type: 'string', enum: ['jh', 'bphs'], description: 'Ashtakavarga benefic-place tables: jh (default, as Jagannatha Hora) or bphs (as AstroSage). They differ in the Moon\'s and Venus\'s BAV; totals are the same' },
+                drishti_rule: { type: 'string', enum: ['jh', 'bphs'], description: 'Degree-based aspect strength for aspect_strength: jh (default, special aspects rise to 60 at the exact aspect) or bphs (add-ons, capped at 60)' },
                 moon_benefic: { type: 'string', enum: ['ashtami', 'waxing'], description: 'The Moon as a benefic in drik and bhava drishti bala: from the 8th tithi of the bright half to the 8th of the dark half (default, B.V. Raman) or the bright half only' },
                 kp_significators: { type: 'boolean', description: 'Add KP significators: four levels per planet (star lord\'s house, own house, star lord\'s ownership, own ownership; planets in Rahu/Ketu stars noted) and cusp significators ordered by strength. With a single as_of it also gives the hour trigger (transit Moon / rising-degree sub lord vs the running Vimshottari lords)' },
                 chara_method: { type: 'string', enum: ['pvn_rao', 'kn_rao'], description: 'Chara dasha variant: pvn_rao (default, P.V.R. Narasimha Rao as in Jagannatha Hora; two cycles) or kn_rao (K.N. Rao; one cycle, exaltation +1/debilitation -1)' },
@@ -381,6 +384,7 @@ class SwissEphemerisServer {
                   description: 'With birth_time_sweep: the birth-time windows where each event fits, the intersection of all tests, the largest subset that can pass together when they conflict, and a junction list (signed days from each event to the nearest boundary at the tested level and the next level down; minus = before the boundary). Example: [{"id":"vehicle","as_of":"2025-02-01T12:00:00+05:30","system":"kalachakra","level":3,"expect":["Li"]}]',
                 },
                 sweep_dasha: { type: 'string', enum: ['vimshottari', 'yogini', 'ashtottari'], description: 'Dasha system whose chains the sweep reports (default vimshottari)' },
+                subperiod_direction: { type: 'string', enum: ['parent', 'natal'], description: 'Kalachakra sub-period direction: parent (default, as Jagannatha Hora: a period\'s sub-periods run forward when its pada is in the same savya/apasavya group as its parent\'s pada) or natal (compared with the Moon\'s pada, the rule before 1.1.0; differs below periods whose parent is in the other group)' },
               },
               required: ['datetime', 'latitude', 'longitude'],
             },
@@ -435,7 +439,7 @@ class SwissEphemerisServer {
                 drill_down: {
                   type: 'array',
                   items: { type: 'string' },
-                  description: 'Sign abbreviations naming a period to divide, e.g. ["Ta"] lists the antardashas of the Ta mahadasha, ["Ta", "Vi", "Aq"] the sookshmas of Ta MD > Vi AD > Aq PD. Abbreviations: Ar Ta Ge Cn Le Vi Li Sc Sg Cp Aq Pi',
+                  description: 'Sign abbreviations naming a period to divide, e.g. ["Ta"] lists the antardashas of the Ta mahadasha, ["Ta", "Vi", "Aq"] the sookshmas of Ta MD > Vi AD > Aq PD. Abbreviations: Ar Ta Ge Cn Le Vi Li Sc Sg Cp Aq Pi. A sign can occur twice in one period: name it with its Jagannatha Hora pada label, e.g. "Sc Visa1" or "Sc (Visa1)", or as "Sc#2"',
                 },
                 ayanamsa_override: {
                   type: 'string',
@@ -454,6 +458,7 @@ class SwissEphemerisServer {
                   required: ['from', 'to'],
                   description: 'Flat list of every Kalachakra jump (Simhavalokana, Manduka, Markati, other jumps, cycle restarts) between two dates down to the chosen level: level, full path (e.g. Cp/Cp/Pi), from-sign -> to-sign, type, start and end. Example: {"from":"2015-01-01","to":"2030-01-01","levels":2}',
                 },
+                subperiod_direction: { type: 'string', enum: ['parent', 'natal'], description: 'Kalachakra sub-period direction: parent (default, as Jagannatha Hora: a period\'s sub-periods run forward when its pada is in the same savya/apasavya group as its parent\'s pada) or natal (compared with the Moon\'s pada, the rule before 1.1.0; differs below periods whose parent is in the other group)' },
                 sweep_output: {
                   type: 'string',
                   enum: ['auto', 'ranges', 'flips'],
@@ -1085,7 +1090,7 @@ class SwissEphemerisServer {
         sweep: options.birth_time_sweep,
         asOfTimes,
         levels,
-        main: { system: options.sweep_dasha || 'vimshottari', ayanamsaKey, kalachakraAyanamsaKey: ayanamsaKey, yearDays, positionFlag },
+        main: { system: options.sweep_dasha || 'vimshottari', ayanamsaKey, kalachakraAyanamsaKey: ayanamsaKey, yearDays, positionFlag, subperiodDirection: options.subperiod_direction },
         eventTests: options.event_tests || [],
         sweepOutput: options.sweep_output || 'auto',
         place: { latitude, longitude },
@@ -1172,7 +1177,7 @@ class SwissEphemerisServer {
 
     const moonLon = planets.Moon.longitude;
     const vimshottari = this.vimshottariStart(moonLon);
-    const kalachakra = this.kalachakraStart(moonLon);
+    const kalachakra = this.kalachakraStart(moonLon, options.subperiod_direction);
 
     // One clock covers both dasha systems, from the earliest period start to the latest end
     const sunTable = yearDays ? null : this.makeSunTableForYears(
@@ -1211,7 +1216,7 @@ class SwissEphemerisServer {
     const kalachakraDasha = this.calculateKalachakra(kalachakra, clock, formatTime, asOf, yearDescription, { ...dashaOptions, ayanamsaName: ayanamsa.name });
     const settings = compact
       ? this.compactChartSettings({ ayanamsa, positionType, nodeType, yearDays, options })
-      : this.chartSettings({ ayanamsa, positionType, nodeType, yearDays, extra: this.blockSettings(options) });
+      : this.chartSettings({ ayanamsa, positionType, nodeType, yearDays, extra: { ...this.blockSettings(options), ...(options.subperiod_direction === 'natal' ? { subperiod_direction: 'natal' } : {}) } });
     // KP hour trigger at an explicit as_of: transit Moon and rising-degree sub lords (birth place)
     // against the running Vimshottari lords
     if (blocks.kp_significators && ctx.transitDate && vimshottariDasha.current) {
@@ -1327,6 +1332,8 @@ class SwissEphemerisServer {
         timezoneHours,
         warWinner: (options.dignity_options || {}).war_winner || 'latitude',
         moonRule: options.moon_benefic || 'ashtami',
+        method: options.shadbala_method || 'jh',
+        speeds: { Mercury: ctx.grahas.Mercury.speed },
       };
       const shadbala = computeShadbala(chart);
       if (include.has('shadbala')) {
@@ -1348,7 +1355,7 @@ class SwissEphemerisServer {
     }
 
     if (include.has('ashtakavarga')) {
-      const av = computeAshtakavarga(longitudes, ctx.lagnaLon, { prastara: !compact, shodhana: options.shodhana });
+      const av = computeAshtakavarga(longitudes, ctx.lagnaLon, { prastara: !compact, shodhana: options.shodhana, tables: options.ashtakavarga_tables });
       const { _raw, ...shown } = av;
       out.ashtakavarga = compact ? compactAshtakavarga(av) : shown;
       // Transit bindus and kakshyas at an explicit as_of date
@@ -1434,27 +1441,32 @@ class SwissEphemerisServer {
       };
     }
     if (include.has('shadbala') || include.has('bhavabala')) {
+      const jh = (options.shadbala_method || 'jh') === 'jh';
       out.shadbala = {
-        method: 'BPHS with B.V. Raman\'s "Graha and Bhava Balas" procedures',
-        saptavargaja_points: 'moolatrikona 45 (D1), own 30, adhimitra 22.5, mitra 15, sama 7.5, shatru 3.75, adhishatru 1.875; relationships from D1',
+        method: jh ? 'jh: Jagannatha Hora (checked against JH on Sagar\'s chart)' : 'raman: B.V. Raman\'s "Graha and Bhava Balas" as used by AstroSage',
+        saptavargaja: `moolatrikona 45 (D1), own 30, adhimitra 22.5, mitra 15, sama 7.5, shatru 3.75, adhishatru 1.875; relationships from D1; D-2 ${jh ? 'parivritti with even signs reversed (JH default hora)' : 'Parashara Sun/Moon hora'}`,
         ayana: 'declination from the sayana longitude with obliquity 24°; Sun doubled',
+        paksha: jh ? 'Moon: benefic value doubled; Mercury as in drik bala' : 'Jupiter, Venus, Mercury and the waxing Moon as benefics',
         cheshta: 'seeghrochcha - (mean + true)/2 with Raman\'s mean longitudes (1900 Ujjain epoch); Sun: sayana Sun + 90°; Moon: elongation from the Sun',
         abda_masa: 'weekday lords of the first day of the 360-day year and 30-day month of Raman\'s ahargana',
         vara_hora: 'weekday from sunrise; equal-hour horas from sunrise',
         sunrise: options.sunrise === 'hindu' ? 'disc centre without refraction (Hindu)' : 'upper limb with refraction',
         moon_benefic: (options.moon_benefic || 'ashtami') === 'ashtami' ? 'ashtami: benefic from the 8th tithi of the bright half to the 8th tithi of the dark half (drik and bhava drishti)' : 'waxing: benefic in the bright half (drik and bhava drishti)',
-        drik: '(benefic - malefic aspect virupas)/4, special aspects not capped; Mercury benefic alone or with more benefics',
+        drik: jh
+          ? '(benefic - malefic aspect virupas)/4; special aspects rise to 60 at the exact aspect (JH); Mercury malefic when combust or with more malefics'
+          : '(benefic - malefic aspect virupas)/4, BPHS special-aspect add-ons not capped; Mercury benefic alone or with more benefics',
         bhavabala: 'equal bhavas from the lagna degree; dig by sign type; drishti: benefics +1/4, malefics -1/4, Jupiter and Mercury in full',
       };
     }
     if (include.has('ashtakavarga')) {
-      out.ashtakavarga = { tables: 'Parashara (BPHS) benefic places', shodhana: Boolean(options.shodhana), kakshya_lords: 'Saturn, Jupiter, Mars, Sun, Venus, Mercury, Moon, Lagna' };
+      out.ashtakavarga = { tables: (options.ashtakavarga_tables || 'jh') === 'jh' ? 'jh: Jagannatha Hora (Moon BAV from Moon/Mars/Jupiter and Venus BAV from Mars as JH)' : 'bphs: Parashara tables as in AstroSage', shodhana: Boolean(options.shodhana), kakshya_lords: 'Saturn, Jupiter, Mars, Sun, Venus, Mercury, Moon, Lagna' };
     }
     if (include.has('aspects')) {
       const a = options.aspect_options || {};
       const rk = a.rahu_ketu_aspects || '5_9';
       out.aspects = {
         rule: 'sign-based graha drishti: all 7th; Mars 4,8; Jupiter 5,9; Saturn 3,10',
+        virupas: (a.drishti_rule || 'jh') === 'jh' ? 'jh: special aspects rise to 60 at the exact aspect' : 'bphs: special-aspect add-ons, capped at 60',
         rahu_ketu_aspects: `${rk} (${{ none: 'no aspects', '5_9': '5th, 7th and 9th', '5_7_9_12': '5th, 7th, 9th and 12th' }[rk]})`,
         aspect_strength: Boolean(a.aspect_strength),
         jaimini_aspects: Boolean(a.jaimini_aspects),
@@ -1478,7 +1490,8 @@ class SwissEphemerisServer {
     }
     if (include.has('dignity')) out.dignity = `rahu_exaltation ${d.rahu_exaltation || 'Ta'}, war_winner ${d.war_winner || 'latitude'}, moolatrikona ${d.moolatrikona ? 'custom' : 'BPHS'}, combustion ${d.combustion_limits ? 'custom' : 'default'}`;
     if (include.has('aspects')) out.aspects = `rahu_ketu_aspects ${a.rahu_ketu_aspects || '5_9'}`;
-    if (include.has('shadbala') || include.has('bhavabala')) out.shadbala = `B.V. Raman; moon_benefic ${options.moon_benefic || 'ashtami'}; sunrise ${options.sunrise || 'standard'}`;
+    if (include.has('shadbala') || include.has('bhavabala')) out.shadbala = `${options.shadbala_method || 'jh'}; moon_benefic ${options.moon_benefic || 'ashtami'}; sunrise ${options.sunrise || 'standard'}`;
+    if (include.has('ashtakavarga')) out.ashtakavarga = `tables ${options.ashtakavarga_tables || 'jh'}`;
     if (include.has('chara')) out.chara = options.chara_method || 'pvn_rao';
     if (!options.levels_given) out.levels = `running chains: 3 levels${['yogini', 'ashtottari', 'chara', 'narayana'].some(x => include.has(x)) ? ' (other dashas 2)' : ''}; pass levels for more`;
     out.notes = 'output "full": method notes and every sub-part';
@@ -1493,7 +1506,7 @@ class SwissEphemerisServer {
       nodes: nodeType,
       house_system: 'Placidus (KP cusps); whole-sign houses from the lagna sign',
       dasha_year: yearDays ? `${yearDays} days` : 'true sidereal solar year',
-      kalachakra: 'SM Singh method, from the Moon in D-1, Rohini 4th pada as Leo',
+      kalachakra: `SM Singh method, from the Moon in D-1, Rohini 4th pada as Leo; sub-period direction ${extra.subperiod_direction || 'parent'}`,
       ...extra,
     };
   }
@@ -1902,7 +1915,10 @@ class SwissEphemerisServer {
     return this.isSavyaPada(pada) ? pada % 12 : KC_APASAVYA_NAVAMSAS[4 * (nakshatra % 3) + (pada % 4)];
   }
 
-  kalachakraStart(moonLon) {
+  // directionRule: 'parent' (Jagannatha Hora): sub-periods run forward when a period's pada is in
+  // the same savya/apasavya group as its parent's; 'natal': compared with the Moon's pada instead
+  // (the rule used before 1.1.0; it differs only below periods whose parent is in the other group)
+  kalachakraStart(moonLon, directionRule = 'parent') {
     const padaSpan = NAKSHATRA_SPAN / 4;
     const pada = Math.floor(moonLon / padaSpan);
     const savya = this.isSavyaPada(pada);
@@ -1922,6 +1938,7 @@ class SwissEphemerisServer {
     return {
       pada,
       savya,
+      directionRule,
       sign,
       cycle,
       paramayush,
@@ -1943,6 +1960,7 @@ class SwissEphemerisServer {
       mahadashas.push({
         sign: s,
         position: cycle.positions[index],
+        parentSavya: savya,
         start: cursor,
         end: cursor + KC_YEARS[s],
         cycleRestart: i > 0 && index === 0,
@@ -1952,10 +1970,12 @@ class SwissEphemerisServer {
     // SM Singh: sub-periods of a period come from the pada it stands for, the way the
     // mahadashas come from the Moon's pada: the cycle of that pada's Kalachakra navamsa from
     // its start, each sign taking its share of the parent in proportion to its years. The
-    // cycle runs forward when the pada has the same direction (savya/apasavya) as the Moon's
-    // pada and backward otherwise (checked against Jagannatha Hora down to deha level).
+    // cycle runs forward when the period's pada is in the same group (savya/apasavya) as its
+    // parent's pada (the Moon's pada for a mahadasha) and backward otherwise (checked against
+    // Jagannatha Hora down to deha level, including savya periods inside apasavya ones).
     const sub = (parent) => {
-      const forward = this.isSavyaPada(parent.position) === savya;
+      const parentSavya = this.isSavyaPada(parent.position);
+      const forward = parentSavya === (start.directionRule === 'natal' ? savya : parent.parentSavya);
       const c = this.kalachakraCycle(forward, this.kalachakraNavamsa(parent.position));
       const total = c.signs.reduce((sum, x) => sum + KC_YEARS[x], 0);
       const length = parent.end - parent.start;
@@ -1963,7 +1983,7 @@ class SwissEphemerisServer {
       let at = parent.start;
       c.signs.forEach((x, i) => {
         const part = length * KC_YEARS[x] / total;
-        periods.push({ sign: x, position: c.positions[i], start: at, end: at + part });
+        periods.push({ sign: x, position: c.positions[i], parentSavya, start: at, end: at + part });
         at += part;
       });
       return periods;
@@ -1990,6 +2010,32 @@ class SwissEphemerisServer {
     return { mahadashas, subPeriods, fmt, padaName, raw };
   }
 
+  // Jagannatha Hora's short pada labels, e.g. "Visa1" for Vishakha 1
+  jhPadaLabel(position) {
+    const JH = ['Aswi', 'Bhar', 'Krit', 'Rohi', 'Mrig', 'Ardr', 'Puna', 'Push', 'Asre', 'Magh', 'PPha', 'UPha', 'Hast', 'Chit', 'Swat', 'Visa', 'Anu', 'Jye', 'Mool', 'PSha', 'USha', 'Srav', 'Dhan', 'Sata', 'PBha', 'UBha', 'Reva'];
+    return `${JH[Math.floor(position / 4)]}${(position % 4) + 1}`;
+  }
+
+  // A drill_down step: "Sc" (first Sc), "Sc#2" (second Sc) or "Sc Visa1" / "Sc (Visa1)" /
+  // "Sc Vishakha 1" (the Sc period standing for that pada, as Jagannatha Hora labels it)
+  matchKalachakraPeriod(periods, step) {
+    const text = String(step).trim();
+    const sign = text.slice(0, 2).toLowerCase();
+    const same = periods.filter(p => SIGN_ABBR[p.sign].toLowerCase() === sign);
+    const rest = text.slice(2).replace(/[()\s]/g, '').toLowerCase();
+    if (!rest) return same[0] || null;
+    const nth = rest.match(/^#(\d)$/);
+    if (nth) return same[parseInt(nth[1]) - 1] || null;
+    const pada = rest.match(/(\d)$/);
+    const letters = rest.replace(/\d$/, '');
+    return same.find((p) => {
+      if (!pada || (p.position % 4) + 1 !== parseInt(pada[1])) return false;
+      const jh = this.jhPadaLabel(p.position).replace(/\d$/, '').toLowerCase();
+      const name = NAKSHATRAS[Math.floor(p.position / 4)].replace(/\s/g, '').toLowerCase();
+      return jh === letters || name.startsWith(letters) || letters.startsWith(jh);
+    }) || null;
+  }
+
   // Kalachakra dasha by the SM Singh method. `levels` is how deep the running chain goes
   // (3 = to pratyantardasha, 6 = to deha); `drillDown` is an optional path of sign
   // abbreviations (e.g. ['Ta', 'Vi']) whose sub-periods are listed, like dividing a period in JHora.
@@ -2004,10 +2050,9 @@ class SwissEphemerisServer {
       let periods = engine.mahadashas;
       const path = [];
       for (const abbr of drillDown) {
-        // A sign can occur twice in a cycle; take the first occurrence
-        const match = periods.find(p => SIGN_ABBR[p.sign].toLowerCase() === String(abbr).toLowerCase());
+        const match = this.matchKalachakraPeriod(periods, abbr);
         if (!match) {
-          throw new Error(`drill_down: ${abbr} is not one of ${periods.map(p => SIGN_ABBR[p.sign]).join(', ')}`);
+          throw new Error(`drill_down: ${abbr} is not one of ${periods.map(p => `${SIGN_ABBR[p.sign]} ${this.jhPadaLabel(p.position)}`).join(', ')}`);
         }
         path.push(match);
         periods = engine.subPeriods(match);
@@ -2095,6 +2140,9 @@ class SwissEphemerisServer {
       method: 'SM Singh (full cycle fraction, MDs strictly from cycle, ADs from MD like MDs from navamsa)',
       starting_point: 'Janma tara (Moon), Rasi (D-1)',
       rohini_4th_pada: 'Leo navamsa',
+      subperiod_direction: options.subperiod_direction === 'natal'
+        ? 'natal: sub-periods forward when a period\'s pada is in the same group as the Moon\'s pada (the rule before 1.1.0; not Jagannatha Hora)'
+        : 'parent: sub-periods forward when a period\'s pada is in the same savya/apasavya group as its parent\'s pada (Jagannatha Hora)',
     };
     const ayanamsaNote = options.ayanamsa_override && ayanamsaKey !== 'traditional_lahiri'
       ? `WARNING: computed with ${ayanamsa.name} for comparison only. Kalachakra is extremely sensitive to the ayanamsa (a KP ayanamsa moved one test timeline by about 23 months); the Jagannatha Hora standard is Traditional Lahiri.`
@@ -2113,7 +2161,7 @@ class SwissEphemerisServer {
         sweep,
         asOfTimes,
         levels,
-        main: { system: 'kalachakra', ayanamsaKey, kalachakraAyanamsaKey: ayanamsaKey },
+        main: { system: 'kalachakra', ayanamsaKey, kalachakraAyanamsaKey: ayanamsaKey, subperiodDirection: options.subperiod_direction },
         eventTests: options.event_tests || [],
         sweepOutput: options.sweep_output || 'auto',
         place: options.place,
@@ -2131,7 +2179,7 @@ class SwissEphemerisServer {
       };
     }
 
-    const start = this.kalachakraStart(moon.lon);
+    const start = this.kalachakraStart(moon.lon, options.subperiod_direction);
     const gatiList = options.gati_list;
     const fromYears = Math.min(start.firstStartYears, gatiList ? -1 : 0);
     const sunTable = this.makeSunTableForYears(date.getTime(), sunSettings, fromYears, start.lastEndYears);
@@ -2281,7 +2329,7 @@ class SwissEphemerisServer {
     };
 
     const rawFor = (system, lon) => {
-      if (system === 'kalachakra') return this.kalachakraRaw(this.kalachakraStart(lon));
+      if (system === 'kalachakra') return this.kalachakraRaw(this.kalachakraStart(lon, main.subperiodDirection));
       if (system === 'yogini') return yoginiRaw(yoginiStart(lon));
       if (system === 'ashtottari') return ashtottariRaw(ashtottariStart(lon));
       return this.vimshottariRaw(this.vimshottariStart(lon));
@@ -3130,7 +3178,10 @@ class SwissEphemerisServer {
     const sunrise = choice('sunrise', ['standard', 'hindu']);
     const moonBenefic = choice('moon_benefic', ['ashtami', 'waxing']);
     const charaMethod = choice('chara_method', ['pvn_rao', 'kn_rao']);
-    return { include, vargas, varga_method: methods, dignity_options: dignityOptions, aspect_options: aspectOptions, shodhana: Boolean(args.shodhana), sunrise, moon_benefic: moonBenefic, chara_method: charaMethod, levels_given: args.levels !== undefined };
+    const shadbalaMethod = choice('shadbala_method', ['jh', 'raman']);
+    const ashtakavargaTables = choice('ashtakavarga_tables', ['jh', 'bphs']);
+    aspectOptions.drishti_rule = choice('drishti_rule', ['jh', 'bphs']);
+    return { include, vargas, varga_method: methods, dignity_options: dignityOptions, aspect_options: aspectOptions, shodhana: Boolean(args.shodhana), sunrise, moon_benefic: moonBenefic, chara_method: charaMethod, shadbala_method: shadbalaMethod, ashtakavarga_tables: ashtakavargaTables, levels_given: args.levels !== undefined };
   }
 
   // birth_time_sweep, sweep_output and their size limits
@@ -3500,6 +3551,7 @@ class SwissEphemerisServer {
         const vedicAsOf = this.normalizeAsOf(as_of);
         this.validateSweep(args, vedicAsOf);
         if (args.sweep_dasha !== undefined && !['vimshottari', 'yogini', 'ashtottari'].includes(args.sweep_dasha)) throw invalid('sweep_dasha', 'sweep_dasha must be "vimshottari", "yogini" or "ashtottari"');
+        if (args.subperiod_direction !== undefined && !['parent', 'natal'].includes(args.subperiod_direction)) throw invalid('subperiod_direction', 'subperiod_direction must be "parent" (Jagannatha Hora) or "natal"');
         const vedicEventTests = this.normalizeEventTests(args.event_tests, args.sweep_dasha || 'vimshottari', Boolean(args.birth_time_sweep), { latitude: vedicLatitude, longitude: vedicLongitude });
         const chartOptions = this.normalizeChartOptions(args);
         const vedicBirth = this.withDefaultOffset(vedicDatetime);
@@ -3512,6 +3564,7 @@ class SwissEphemerisServer {
           birth_time_sweep: args.birth_time_sweep,
           sweep_output: args.sweep_output,
           sweep_dasha: args.sweep_dasha,
+          subperiod_direction: args.subperiod_direction,
           event_tests: vedicEventTests,
           ayanamsa,
           position_type,
@@ -3538,7 +3591,7 @@ class SwissEphemerisServer {
         if (drill_down !== undefined && (!Array.isArray(drill_down) || drill_down.length > 5 || drill_down.some(d => typeof d !== 'string'))) {
           throw new McpError(
             ErrorCode.InvalidParams,
-            'drill_down must be an array of up to 5 sign abbreviations, e.g. ["Ta", "Vi"]'
+            'drill_down must be an array of up to 5 steps, e.g. ["Ta", "Vi"]; when a sign occurs twice use "Sc Visa1" (sign and Jagannatha Hora pada label) or "Sc#2"'
           );
         }
 
@@ -3547,6 +3600,7 @@ class SwissEphemerisServer {
         const kcAsOfList = this.normalizeAsOf(kcAsOf);
         const sweep = args.birth_time_sweep;
         this.validateSweep(args, kcAsOfList);
+        if (args.subperiod_direction !== undefined && !['parent', 'natal'].includes(args.subperiod_direction)) throw invalid('subperiod_direction', 'subperiod_direction must be "parent" (Jagannatha Hora) or "natal"');
         if (args.ayanamsa_override !== undefined && !AYANAMSAS[args.ayanamsa_override]) {
           throw invalid('ayanamsa_override', `ayanamsa_override must be one of: ${Object.keys(AYANAMSAS).join(', ')}`);
         }
@@ -3562,6 +3616,7 @@ class SwissEphemerisServer {
           sweep_output: args.sweep_output,
           event_tests: eventTests,
           ayanamsa_override: args.ayanamsa_override,
+          subperiod_direction: args.subperiod_direction,
           gati_list: this.normalizeGatiList(args.gati_list),
           place,
         });

@@ -1,0 +1,1316 @@
+{
+ "source": "Jagannatha Hora screenshots and exports supplied by the user (Sagar.jhd), October 2026",
+ "birth": {
+  "name": "Sagar",
+  "datetime": "1999-06-06T15:30:00+05:30",
+  "place": "Bhavnagar, India",
+  "latitude": 21.766666666666666,
+  "longitude": 72.15,
+  "timezone": "+05:30"
+ },
+ "jh_settings": {
+  "ayanamsa": "Traditional Lahiri (no correction)",
+  "dasa_year": "true sidereal solar years",
+  "kalachakra": "Janma tara (Moon), Rasi D-1, SM Singh (full cycle fraction, MDs strictly from cycle, ADs from MD like MDs from navamsa), Rohini 4th pada = Leo navamsa"
+ },
+ "key_info": {
+  "lagna": "Li 0°39'20\"",
+  "tithi": "Krishna Saptami (27.86% left)",
+  "nakshatra": "Satabhishak (59.33% left)",
+  "yoga": "Vishkambha (73.58% left)",
+  "karana": "Bava (55.72% left)",
+  "vedic_weekday": "Sunday",
+  "hora_lord": "Mercury",
+  "lunar_year_month": "Pramathi - Adhika Jyeshtha"
+ },
+ "kp": {
+  "As": [
+   "Ma",
+   "Me",
+   "Ve",
+   "Me",
+   "Ra",
+   "Ju"
+  ],
+  "Su": [
+   "Mo",
+   "Ve",
+   "Ra",
+   "Me",
+   "Sa",
+   "Ra"
+  ],
+  "Mo": [
+   "Ra",
+   "Sa",
+   "Ra",
+   "Sa",
+   "Ra",
+   "Mo"
+  ],
+  "cusp12": [
+   "Su",
+   "Ra",
+   "Ve",
+   "Ra",
+   "Ke",
+   "Ra"
+  ],
+  "columns": "nakshatra lord, sub, prati-sub, sookshma-sub, praana-sub, deha-sub"
+ },
+ "d9": {
+  "lagna": "Li",
+  "Sun": "Cn",
+  "Moon": "Cp",
+  "Mars": "Li",
+  "Mercury": "Sc",
+  "Jupiter": "Ar",
+  "Venus": "Vi",
+  "Saturn": "Vi",
+  "Rahu": "Cp",
+  "Ketu": "Cn"
+ },
+ "sav": {
+  "Ar": 27,
+  "Ta": 24,
+  "Ge": 21,
+  "Cn": 29,
+  "Le": 34,
+  "Vi": 19,
+  "Li": 29,
+  "Sc": 33,
+  "Sg": 31,
+  "Cp": 26,
+  "Aq": 32,
+  "Pi": 32
+ },
+ "bav": {
+  "Lagna": {
+   "Ar": 5,
+   "Ta": 1,
+   "Ge": 2,
+   "Cn": 8,
+   "Le": 5,
+   "Vi": 4,
+   "Li": 4,
+   "Sc": 3,
+   "Sg": 4,
+   "Cp": 4,
+   "Aq": 4,
+   "Pi": 5
+  },
+  "Sun": {
+   "Ar": 4,
+   "Ta": 4,
+   "Ge": 3,
+   "Cn": 4,
+   "Le": 5,
+   "Vi": 2,
+   "Li": 3,
+   "Sc": 5,
+   "Sg": 6,
+   "Cp": 5,
+   "Aq": 4,
+   "Pi": 3
+  },
+  "Moon": {
+   "Ar": 4,
+   "Ta": 2,
+   "Ge": 2,
+   "Cn": 5,
+   "Le": 5,
+   "Vi": 3,
+   "Li": 5,
+   "Sc": 5,
+   "Sg": 5,
+   "Cp": 3,
+   "Aq": 5,
+   "Pi": 5
+  },
+  "Mars": {
+   "Ar": 4,
+   "Ta": 2,
+   "Ge": 1,
+   "Cn": 5,
+   "Le": 3,
+   "Vi": 2,
+   "Li": 5,
+   "Sc": 3,
+   "Sg": 4,
+   "Cp": 3,
+   "Aq": 4,
+   "Pi": 3
+  },
+  "Mercury": {
+   "Ar": 4,
+   "Ta": 6,
+   "Ge": 2,
+   "Cn": 5,
+   "Le": 4,
+   "Vi": 4,
+   "Li": 6,
+   "Sc": 7,
+   "Sg": 2,
+   "Cp": 4,
+   "Aq": 4,
+   "Pi": 6
+  }
+ },
+ "shadbala_bars": {
+  "order": [
+   "Sun",
+   "Moon",
+   "Mars",
+   "Mercury",
+   "Jupiter",
+   "Venus",
+   "Saturn"
+  ],
+  "sthana": [
+   151,
+   157,
+   261,
+   182,
+   187,
+   226,
+   158
+  ],
+  "kala": [
+   281,
+   122,
+   58,
+   207,
+   182,
+   136,
+   111
+  ],
+  "dig": [
+   46.9,
+   46.2,
+   30.0,
+   21.4,
+   0.5,
+   2.0,
+   54.3
+  ],
+  "cheshta": [
+   54.8,
+   33.1,
+   50.1,
+   16.0,
+   42.6,
+   37.6,
+   11.1
+  ],
+  "drik": [
+   0.9,
+   -8.5,
+   13.2,
+   -2.7,
+   -8.5,
+   -4.6,
+   -7.5
+  ],
+  "naisargika": [
+   60.0,
+   51.4,
+   17.1,
+   25.7,
+   34.3,
+   42.9,
+   8.6
+  ],
+  "total": [
+   540,
+   367,
+   430,
+   450,
+   438,
+   439,
+   336
+  ],
+  "rupas": [
+   9.0,
+   6.1,
+   7.2,
+   7.5,
+   7.3,
+   7.3,
+   5.6
+  ],
+  "percent": [
+   180,
+   102,
+   143,
+   107,
+   112,
+   133,
+   112
+  ]
+ },
+ "aspects_on_houses_percent": {
+  "note": "Basics > aspected body table: rows are the lagna degree + 30° x (house - 1), columns the aspecting planet",
+  "Sun": [
+   34.63,
+   30.74,
+   92.31,
+   67.31,
+   42.31,
+   17.31,
+   0,
+   0,
+   0,
+   7.69
+  ],
+  "Moon": [
+   59.53,
+   34.53,
+   9.53,
+   0,
+   0,
+   0,
+   15.47,
+   55.94,
+   59.53,
+   19.06
+  ],
+  "Mars": [
+   0,
+   0.02,
+   25.06,
+   99.96,
+   49.96,
+   0.08,
+   100,
+   99.96,
+   49.98,
+   24.98
+  ],
+  "Mercury": [
+   53.62,
+   7.25,
+   85.51,
+   78.62,
+   53.62,
+   28.62,
+   3.62,
+   0,
+   0,
+   0
+  ],
+  "Jupiter": [
+   94.74,
+   76.32,
+   98.68,
+   28.95,
+   1.32,
+   0,
+   0,
+   0,
+   23.68,
+   72.37
+  ],
+  "Venus": [
+   64.96,
+   55.02,
+   10.04,
+   79.92,
+   80.02,
+   55.02,
+   30.02,
+   5.02,
+   0,
+   0
+  ]
+ },
+ "kalachakra": {
+  "header": "From Moon of D-1, Apasavya, Paramayush 83 yr, Deha Ta, Jiva Ge",
+  "rows": [
+   {
+    "path": [],
+    "sign": "Pi",
+    "pada": "Sata1",
+    "start": "1997-05-23T19:45:46+05:30",
+    "end": "2007-05-24T09:09:32+05:30"
+   },
+   {
+    "path": [],
+    "sign": "Ar",
+    "pada": "Dhan4",
+    "start": "2007-05-24T09:09:32+05:30",
+    "end": "2014-05-24T04:24:08+05:30"
+   },
+   {
+    "path": [],
+    "sign": "Ta",
+    "pada": "Dhan3",
+    "start": "2014-05-24T04:24:08+05:30",
+    "end": "2030-05-24T06:45:04+05:30"
+   },
+   {
+    "path": [],
+    "sign": "Ge",
+    "pada": "PBha3",
+    "start": "2030-05-24T06:45:04+05:30",
+    "end": "2039-05-24T14:06:07+05:30"
+   },
+   {
+    "path": [],
+    "sign": "Ta",
+    "pada": "PBha2",
+    "start": "2039-05-24T14:06:07+05:30",
+    "end": "2055-05-24T16:27:52+05:30"
+   },
+   {
+    "path": [],
+    "sign": "Ar",
+    "pada": "PBha1",
+    "start": "2055-05-24T16:27:52+05:30",
+    "end": "2062-05-24T11:36:10+05:30"
+   },
+   {
+    "path": [],
+    "sign": "Sg",
+    "pada": "Sata4",
+    "start": "2062-05-24T11:36:10+05:30",
+    "end": "2072-05-24T01:05:52+05:30"
+   },
+   {
+    "path": [],
+    "sign": "Cp",
+    "pada": "Sata3",
+    "start": "2072-05-24T01:05:52+05:30",
+    "end": "2076-05-24T01:46:32+05:30"
+   },
+   {
+    "path": [],
+    "sign": "Aq",
+    "pada": "Sata2",
+    "start": "2076-05-24T01:46:32+05:30",
+    "end": "2080-05-24T02:12:22+05:30"
+   },
+   {
+    "path": [
+     "Ta"
+    ],
+    "sign": "Cp",
+    "pada": "Krit2",
+    "start": "2014-05-24T04:24:08+05:30",
+    "end": "2015-02-22T23:33:07+05:30"
+   },
+   {
+    "path": [
+     "Ta"
+    ],
+    "sign": "Aq",
+    "pada": "Krit3",
+    "start": "2015-02-22T23:33:07+05:30",
+    "end": "2015-11-27T16:15:56+05:30"
+   },
+   {
+    "path": [
+     "Ta"
+    ],
+    "sign": "Pi",
+    "pada": "Krit4",
+    "start": "2015-11-27T16:15:56+05:30",
+    "end": "2017-10-15T22:31:16+05:30"
+   },
+   {
+    "path": [
+     "Ta"
+    ],
+    "sign": "Sc",
+    "pada": "Rohi1",
+    "start": "2017-10-15T22:31:16+05:30",
+    "end": "2019-02-06T05:40:18+05:30"
+   },
+   {
+    "path": [
+     "Ta"
+    ],
+    "sign": "Li",
+    "pada": "Rohi2",
+    "start": "2019-02-06T05:40:18+05:30",
+    "end": "2022-02-10T04:37:14+05:30"
+   },
+   {
+    "path": [
+     "Ta"
+    ],
+    "sign": "Vi",
+    "pada": "Rohi3",
+    "start": "2022-02-10T04:37:14+05:30",
+    "end": "2023-10-24T23:59:04+05:30"
+   },
+   {
+    "path": [
+     "Ta"
+    ],
+    "sign": "Cn",
+    "pada": "Rohi4",
+    "start": "2023-10-24T23:59:04+05:30",
+    "end": "2027-10-07T22:25:29+05:30"
+   },
+   {
+    "path": [
+     "Ta"
+    ],
+    "sign": "Le",
+    "pada": "Mrig1",
+    "start": "2027-10-07T22:25:29+05:30",
+    "end": "2028-09-15T14:18:53+05:30"
+   },
+   {
+    "path": [
+     "Ta"
+    ],
+    "sign": "Ge",
+    "pada": "Mrig2",
+    "start": "2028-09-15T14:18:53+05:30",
+    "end": "2030-05-24T06:45:04+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi"
+    ],
+    "sign": "Aq",
+    "pada": "UPha2",
+    "start": "2022-02-10T04:37:14+05:30",
+    "end": "2022-03-10T17:13:03+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi"
+    ],
+    "sign": "Cp",
+    "pada": "UPha3",
+    "start": "2022-03-10T17:13:03+05:30",
+    "end": "2022-04-08T16:06:26+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi"
+    ],
+    "sign": "Sg",
+    "pada": "UPha4",
+    "start": "2022-04-08T16:06:26+05:30",
+    "end": "2022-06-21T23:07:08+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi"
+    ],
+    "sign": "Ar",
+    "pada": "Hast1",
+    "start": "2022-06-21T23:07:08+05:30",
+    "end": "2022-08-13T13:12:28+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi"
+    ],
+    "sign": "Ta",
+    "pada": "Hast2",
+    "start": "2022-08-13T13:12:28+05:30",
+    "end": "2022-12-07T17:57:00+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi"
+    ],
+    "sign": "Ge",
+    "pada": "Hast3",
+    "start": "2022-12-07T17:57:00+05:30",
+    "end": "2023-02-09T05:22:25+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi"
+    ],
+    "sign": "Cn",
+    "pada": "Hast4",
+    "start": "2023-02-09T05:22:25+05:30",
+    "end": "2023-07-13T11:42:22+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi"
+    ],
+    "sign": "Le",
+    "pada": "Chit1",
+    "start": "2023-07-13T11:42:22+05:30",
+    "end": "2023-08-19T23:27:04+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi"
+    ],
+    "sign": "Vi",
+    "pada": "Chit2",
+    "start": "2023-08-19T23:27:04+05:30",
+    "end": "2023-10-24T23:59:04+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi",
+     "Aq"
+    ],
+    "sign": "Ta",
+    "pada": "Dhan3",
+    "start": "2022-02-10T04:37:14+05:30",
+    "end": "2022-02-15T15:57:45+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi",
+     "Aq"
+    ],
+    "sign": "Ar",
+    "pada": "Dhan4",
+    "start": "2022-02-15T15:57:45+05:30",
+    "end": "2022-02-18T01:31:12+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi",
+     "Aq"
+    ],
+    "sign": "Pi",
+    "pada": "Sata1",
+    "start": "2022-02-18T01:31:12+05:30",
+    "end": "2022-02-21T11:50:23+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi",
+     "Aq"
+    ],
+    "sign": "Aq",
+    "pada": "Sata2",
+    "start": "2022-02-21T11:50:23+05:30",
+    "end": "2022-02-22T20:47:49+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi",
+     "Aq"
+    ],
+    "sign": "Cp",
+    "pada": "Sata3",
+    "start": "2022-02-22T20:47:49+05:30",
+    "end": "2022-02-24T05:46:16+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi",
+     "Aq"
+    ],
+    "sign": "Sg",
+    "pada": "Sata4",
+    "start": "2022-02-24T05:46:16+05:30",
+    "end": "2022-02-27T16:16:50+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi",
+     "Aq"
+    ],
+    "sign": "Ar",
+    "pada": "PBha1",
+    "start": "2022-02-27T16:16:50+05:30",
+    "end": "2022-03-02T02:06:23+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi",
+     "Aq"
+    ],
+    "sign": "Ta",
+    "pada": "PBha2",
+    "start": "2022-03-02T02:06:23+05:30",
+    "end": "2022-03-07T14:32:27+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi",
+     "Aq"
+    ],
+    "sign": "Ge",
+    "pada": "PBha3",
+    "start": "2022-03-07T14:32:27+05:30",
+    "end": "2022-03-10T17:13:03+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi",
+     "Aq",
+     "Ta"
+    ],
+    "sign": "Cp",
+    "pada": "Krit2",
+    "start": "2022-02-10T04:37:14+05:30",
+    "end": "2022-02-10T10:47:40+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi",
+     "Aq",
+     "Ta"
+    ],
+    "sign": "Aq",
+    "pada": "Krit3",
+    "start": "2022-02-10T10:47:40+05:30",
+    "end": "2022-02-10T16:58:08+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi",
+     "Aq",
+     "Ta"
+    ],
+    "sign": "Pi",
+    "pada": "Krit4",
+    "start": "2022-02-10T16:58:08+05:30",
+    "end": "2022-02-11T08:24:30+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi",
+     "Aq",
+     "Ta"
+    ],
+    "sign": "Sc",
+    "pada": "Rohi1",
+    "start": "2022-02-11T08:24:30+05:30",
+    "end": "2022-02-11T19:13:07+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi",
+     "Aq",
+     "Ta"
+    ],
+    "sign": "Li",
+    "pada": "Rohi2",
+    "start": "2022-02-11T19:13:07+05:30",
+    "end": "2022-02-12T19:56:07+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi",
+     "Aq",
+     "Ta"
+    ],
+    "sign": "Vi",
+    "pada": "Rohi3",
+    "start": "2022-02-12T19:56:07+05:30",
+    "end": "2022-02-13T09:50:36+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi",
+     "Aq",
+     "Ta"
+    ],
+    "sign": "Cn",
+    "pada": "Rohi4",
+    "start": "2022-02-13T09:50:36+05:30",
+    "end": "2022-02-14T18:18:31+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi",
+     "Aq",
+     "Ta"
+    ],
+    "sign": "Le",
+    "pada": "Mrig1",
+    "start": "2022-02-14T18:18:31+05:30",
+    "end": "2022-02-15T02:02:28+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Vi",
+     "Aq",
+     "Ta"
+    ],
+    "sign": "Ge",
+    "pada": "Mrig2",
+    "start": "2022-02-15T02:02:28+05:30",
+    "end": "2022-02-15T15:57:45+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Cn",
+     "Ta",
+     "Li",
+     "Pi"
+    ],
+    "sign": "Pi",
+    "pada": "Reva4",
+    "start": "2026-09-15T18:35:35+05:30",
+    "end": "2026-09-16T09:22:32+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Cn",
+     "Ta",
+     "Li",
+     "Pi"
+    ],
+    "sign": "Aq",
+    "pada": "Reva3",
+    "start": "2026-09-16T09:22:32+05:30",
+    "end": "2026-09-16T15:17:15+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Cn",
+     "Ta",
+     "Li",
+     "Pi"
+    ],
+    "sign": "Cp",
+    "pada": "Reva2",
+    "start": "2026-09-16T15:17:15+05:30",
+    "end": "2026-09-16T21:11:55+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Cn",
+     "Ta",
+     "Li",
+     "Pi"
+    ],
+    "sign": "Sg",
+    "pada": "Reva1",
+    "start": "2026-09-16T21:11:55+05:30",
+    "end": "2026-09-17T11:58:25+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Cn",
+     "Ta",
+     "Li",
+     "Pi"
+    ],
+    "sign": "Sc",
+    "pada": "UBha4",
+    "start": "2026-09-17T11:58:25+05:30",
+    "end": "2026-09-17T22:18:49+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Cn",
+     "Ta",
+     "Li",
+     "Pi"
+    ],
+    "sign": "Li",
+    "pada": "UBha3",
+    "start": "2026-09-17T22:18:49+05:30",
+    "end": "2026-09-18T21:56:24+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Cn",
+     "Ta",
+     "Li",
+     "Pi"
+    ],
+    "sign": "Vi",
+    "pada": "UBha2",
+    "start": "2026-09-18T21:56:24+05:30",
+    "end": "2026-09-19T11:13:30+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Cn",
+     "Ta",
+     "Li",
+     "Pi"
+    ],
+    "sign": "Le",
+    "pada": "UBha1",
+    "start": "2026-09-19T11:13:30+05:30",
+    "end": "2026-09-19T18:36:15+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Cn",
+     "Ta",
+     "Li",
+     "Pi"
+    ],
+    "sign": "Cn",
+    "pada": "PBha4",
+    "start": "2026-09-19T18:36:15+05:30",
+    "end": "2026-09-21T01:35:05+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Cn",
+     "Ta",
+     "Li",
+     "Aq"
+    ],
+    "sign": "Ge",
+    "pada": "PBha3",
+    "start": "2026-09-13T15:42:28+05:30",
+    "end": "2026-09-13T21:13:41+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Cn",
+     "Ta",
+     "Li",
+     "Aq"
+    ],
+    "sign": "Ta",
+    "pada": "PBha2",
+    "start": "2026-09-13T21:13:41+05:30",
+    "end": "2026-09-14T07:02:25+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Cn",
+     "Ta",
+     "Li",
+     "Aq"
+    ],
+    "sign": "Ar",
+    "pada": "PBha1",
+    "start": "2026-09-14T07:02:25+05:30",
+    "end": "2026-09-14T11:19:57+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Cn",
+     "Ta",
+     "Li",
+     "Aq"
+    ],
+    "sign": "Sg",
+    "pada": "Sata4",
+    "start": "2026-09-14T11:19:57+05:30",
+    "end": "2026-09-14T17:27:48+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Cn",
+     "Ta",
+     "Li",
+     "Aq"
+    ],
+    "sign": "Cp",
+    "pada": "Sata3",
+    "start": "2026-09-14T17:27:48+05:30",
+    "end": "2026-09-14T19:54:56+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Cn",
+     "Ta",
+     "Li",
+     "Aq"
+    ],
+    "sign": "Aq",
+    "pada": "Sata2",
+    "start": "2026-09-14T19:54:56+05:30",
+    "end": "2026-09-14T22:22:04+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Cn",
+     "Ta",
+     "Li",
+     "Aq"
+    ],
+    "sign": "Pi",
+    "pada": "Sata1",
+    "start": "2026-09-14T22:22:04+05:30",
+    "end": "2026-09-15T04:29:51+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Cn",
+     "Ta",
+     "Li",
+     "Aq"
+    ],
+    "sign": "Ar",
+    "pada": "Dhan4",
+    "start": "2026-09-15T04:29:51+05:30",
+    "end": "2026-09-15T08:47:16+05:30"
+   },
+   {
+    "path": [
+     "Ta",
+     "Cn",
+     "Ta",
+     "Li",
+     "Aq"
+    ],
+    "sign": "Ta",
+    "pada": "Dhan3",
+    "start": "2026-09-15T08:47:16+05:30",
+    "end": "2026-09-15T18:35:35+05:30"
+   },
+   {
+    "drill_down": [
+     "Ta Dhan3",
+     "Cn Rohi4"
+    ],
+    "sign": "Ta",
+    "pada": "PPha3",
+    "start": "2026-06-15T21:34:45+05:30",
+    "end": "2027-02-01T14:49:16+05:30"
+   },
+   {
+    "drill_down": [
+     "Ta Dhan3",
+     "Cn Rohi4",
+     "Ta PPha3"
+    ],
+    "sign": "Li",
+    "pada": "Rohi2",
+    "start": "2026-08-24T22:18:21+05:30",
+    "end": "2026-10-07T21:32:58+05:30"
+   },
+   {
+    "drill_down": [
+     "Ta Dhan3",
+     "Cn Rohi4",
+     "Ta PPha3",
+     "Li Rohi2"
+    ],
+    "sign": "Sc",
+    "pada": "Visa1",
+    "start": "2026-09-21T01:35:05+05:30",
+    "end": "2026-09-24T18:17:16+05:30"
+   },
+   {
+    "drill_down": [
+     "Ta Dhan3",
+     "Cn Rohi4",
+     "Ta PPha3",
+     "Li Rohi2",
+     "Sc Visa1"
+    ],
+    "sign": "Cn",
+    "pada": "Visa4",
+    "start": "2026-09-21T01:35:05+05:30",
+    "end": "2026-09-21T23:15:35+05:30"
+   },
+   {
+    "drill_down": [
+     "Ta Dhan3",
+     "Cn Rohi4",
+     "Ta PPha3",
+     "Li Rohi2",
+     "Sc Visa1"
+    ],
+    "sign": "Le",
+    "pada": "Anu1",
+    "start": "2026-09-21T23:15:35+05:30",
+    "end": "2026-09-22T04:25:08+05:30"
+   },
+   {
+    "drill_down": [
+     "Ta Dhan3",
+     "Cn Rohi4",
+     "Ta PPha3",
+     "Li Rohi2",
+     "Sc Visa1"
+    ],
+    "sign": "Ge",
+    "pada": "Anu2",
+    "start": "2026-09-22T04:25:08+05:30",
+    "end": "2026-09-22T13:42:16+05:30"
+   },
+   {
+    "drill_down": [
+     "Ta Dhan3",
+     "Cn Rohi4",
+     "Ta PPha3",
+     "Li Rohi2",
+     "Sc Visa1"
+    ],
+    "sign": "Ta",
+    "pada": "Anu3",
+    "start": "2026-09-22T13:42:16+05:30",
+    "end": "2026-09-23T06:12:26+05:30"
+   },
+   {
+    "drill_down": [
+     "Ta Dhan3",
+     "Cn Rohi4",
+     "Ta PPha3",
+     "Li Rohi2",
+     "Sc Visa1"
+    ],
+    "sign": "Ar",
+    "pada": "Anu4",
+    "start": "2026-09-23T06:12:26+05:30",
+    "end": "2026-09-23T13:25:32+05:30"
+   },
+   {
+    "drill_down": [
+     "Ta Dhan3",
+     "Cn Rohi4",
+     "Ta PPha3",
+     "Li Rohi2",
+     "Sc Visa1"
+    ],
+    "sign": "Pi",
+    "pada": "Jye1",
+    "start": "2026-09-23T13:25:32+05:30",
+    "end": "2026-09-23T23:44:08+05:30"
+   },
+   {
+    "drill_down": [
+     "Ta Dhan3",
+     "Cn Rohi4",
+     "Ta PPha3",
+     "Li Rohi2",
+     "Sc Visa1"
+    ],
+    "sign": "Aq",
+    "pada": "Jye2",
+    "start": "2026-09-23T23:44:08+05:30",
+    "end": "2026-09-24T03:51:32+05:30"
+   },
+   {
+    "drill_down": [
+     "Ta Dhan3",
+     "Cn Rohi4",
+     "Ta PPha3",
+     "Li Rohi2",
+     "Sc Visa1"
+    ],
+    "sign": "Cp",
+    "pada": "Jye3",
+    "start": "2026-09-24T03:51:32+05:30",
+    "end": "2026-09-24T07:58:55+05:30"
+   },
+   {
+    "drill_down": [
+     "Ta Dhan3",
+     "Cn Rohi4",
+     "Ta PPha3",
+     "Li Rohi2",
+     "Sc Visa1"
+    ],
+    "sign": "Sg",
+    "pada": "Jye4",
+    "start": "2026-09-24T07:58:55+05:30",
+    "end": "2026-09-24T18:17:16+05:30"
+   },
+   {
+    "drill_down": [
+     "Sg Sata4"
+    ],
+    "sign": "Sc",
+    "pada": "PSha4",
+    "start": "2070-09-14T04:16:25+05:30",
+    "end": "2071-05-24T18:55:31+05:30"
+   },
+   {
+    "drill_down": [
+     "Sg Sata4",
+     "Sc PSha4"
+    ],
+    "sign": "Le",
+    "pada": "Anu1",
+    "start": "2071-03-08T01:08:04+05:30",
+    "end": "2071-03-22T17:53:08+05:30"
+   },
+   {
+    "drill_down": [
+     "Sg Sata4",
+     "Sc PSha4",
+     "Le Anu1"
+    ],
+    "sign": "Cn",
+    "pada": "Puna4",
+    "start": "2071-03-19T03:29:21+05:30",
+    "end": "2071-03-22T17:53:08+05:30"
+   },
+   {
+    "drill_down": [
+     "Sg Sata4",
+     "Sc PSha4",
+     "Le Anu1",
+     "Cn Puna4"
+    ],
+    "sign": "Pi",
+    "pada": "Asre4",
+    "start": "2071-03-19T03:29:21+05:30",
+    "end": "2071-03-19T13:31:38+05:30"
+   },
+   {
+    "drill_down": [
+     "Sg Sata4",
+     "Sc PSha4",
+     "Le Anu1",
+     "Cn Puna4",
+     "Pi Asre4"
+    ],
+    "sign": "Cn",
+    "pada": "PBha4",
+    "start": "2071-03-19T03:29:21+05:30",
+    "end": "2071-03-19T05:56:25+05:30"
+   },
+   {
+    "drill_down": [
+     "Sg Sata4",
+     "Sc PSha4",
+     "Le Anu1",
+     "Cn Puna4",
+     "Pi Asre4"
+    ],
+    "sign": "Le",
+    "pada": "UBha1",
+    "start": "2071-03-19T05:56:25+05:30",
+    "end": "2071-03-19T06:31:26+05:30"
+   },
+   {
+    "drill_down": [
+     "Sg Sata4",
+     "Sc PSha4",
+     "Le Anu1",
+     "Cn Puna4",
+     "Pi Asre4"
+    ],
+    "sign": "Vi",
+    "pada": "UBha2",
+    "start": "2071-03-19T06:31:26+05:30",
+    "end": "2071-03-19T07:34:27+05:30"
+   },
+   {
+    "drill_down": [
+     "Sg Sata4",
+     "Sc PSha4",
+     "Le Anu1",
+     "Cn Puna4",
+     "Pi Asre4"
+    ],
+    "sign": "Li",
+    "pada": "UBha3",
+    "start": "2071-03-19T07:34:27+05:30",
+    "end": "2071-03-19T09:26:30+05:30"
+   },
+   {
+    "drill_down": [
+     "Sg Sata4",
+     "Sc PSha4",
+     "Le Anu1",
+     "Cn Puna4",
+     "Pi Asre4"
+    ],
+    "sign": "Sc",
+    "pada": "UBha4",
+    "start": "2071-03-19T09:26:30+05:30",
+    "end": "2071-03-19T10:15:32+05:30"
+   },
+   {
+    "drill_down": [
+     "Sg Sata4",
+     "Sc PSha4",
+     "Le Anu1",
+     "Cn Puna4",
+     "Pi Asre4"
+    ],
+    "sign": "Sg",
+    "pada": "Reva1",
+    "start": "2071-03-19T10:15:32+05:30",
+    "end": "2071-03-19T11:25:34+05:30"
+   },
+   {
+    "drill_down": [
+     "Sg Sata4",
+     "Sc PSha4",
+     "Le Anu1",
+     "Cn Puna4",
+     "Pi Asre4"
+    ],
+    "sign": "Cp",
+    "pada": "Reva2",
+    "start": "2071-03-19T11:25:34+05:30",
+    "end": "2071-03-19T11:53:35+05:30"
+   },
+   {
+    "drill_down": [
+     "Sg Sata4",
+     "Sc PSha4",
+     "Le Anu1",
+     "Cn Puna4",
+     "Pi Asre4"
+    ],
+    "sign": "Aq",
+    "pada": "Reva3",
+    "start": "2071-03-19T11:53:35+05:30",
+    "end": "2071-03-19T12:21:36+05:30"
+   },
+   {
+    "drill_down": [
+     "Sg Sata4",
+     "Sc PSha4",
+     "Le Anu1",
+     "Cn Puna4",
+     "Pi Asre4"
+    ],
+    "sign": "Pi",
+    "pada": "Reva4",
+    "start": "2071-03-19T12:21:36+05:30",
+    "end": "2071-03-19T13:31:38+05:30"
+   }
+  ],
+  "note": "path = parent periods by sign (a sign can occur twice; deep rows give drill_down steps with JH pada labels)"
+ }
+}

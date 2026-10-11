@@ -9,7 +9,7 @@ export const VARGA_NAMES = {
   D40: 'Khavedamsa', D45: 'Akshavedamsa', D60: 'Shashtiamsa',
 };
 export const VARGA_METHODS = {
-  D2: ['parashara', 'parivritti'],
+  D2: ['parashara', 'parivritti', 'pvr'],
   D3: ['parashara', 'parivritti'],
   D30: ['parashara', 'parivritti'],
 };
@@ -58,6 +58,14 @@ export function vargaPosition(varga, lon, methods = {}) {
       return { sign, part: 0, fraction: deg / 30, divisions: 1 };
     case 'D2':
       if (methods.D2 === 'parivritti') return equal(2, s => s * 2)(sign, deg);
+      if (methods.D2 === 'pvr') {
+        // Jagannatha Hora's default hora (P.V.R. Narasimha Rao): parivritti, with the two horas
+        // of even signs taken in reverse (Ar: Ar Ta, Ta: Cn Ge, Ge: Le Vi, Cn: Sc Li, ...)
+        const part = deg < 15 ? 0 : 1;
+        const first = (2 * sign) % 12;
+        const fraction = (deg % 15) / 15;
+        return { sign: (first + (isOdd(sign) ? part : 1 - part)) % 12, part, fraction: isOdd(sign) ? fraction : 1 - fraction, divisions: 2 };
+      }
       {
         // Parashara: odd signs Sun's hora (Leo) then Moon's (Cancer); even signs the reverse
         const part = deg < 15 ? 0 : 1;
