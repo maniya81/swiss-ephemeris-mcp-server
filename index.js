@@ -14,6 +14,7 @@ import express from 'express';
 import { ToolError, invalid } from './src/errors.js';
 import { createEphemeris } from './src/ephemeris.js';
 import { PLANET_ABBR, GRAHAS as GRAHA_NAMES, WEEKDAY_LORDS, round, norm360, signOf, houseFrom, shortPosition } from './src/constants.js';
+import { YOGINIS, yoginiStart, yoginiRaw, ASHTOTTARI, ashtottariStart, ashtottariRaw, charaRaw, narayanaRaw, ashtottariApplicability } from './src/dashas.js';
 import { kpLords, kpHouse, kpSignificators, compactSignificators, rulingPlanets } from './src/kp.js';
 import { sampleBody, boundaryCrossings, stations, signIntervals, stateEpisodes, episodeAt, taraBala, chandraBala, natalHit, EPISODE_GAP_DAYS } from './src/gochar.js';
 import { computeDignity, compactDignity } from './src/dignity.js';
@@ -973,7 +974,7 @@ class SwissEphemerisServer {
         sweep: options.birth_time_sweep,
         asOfTimes,
         levels,
-        main: { system: 'vimshottari', ayanamsaKey, kalachakraAyanamsaKey: ayanamsaKey, yearDays, positionFlag },
+        main: { system: options.sweep_dasha || 'vimshottari', ayanamsaKey, kalachakraAyanamsaKey: ayanamsaKey, yearDays, positionFlag },
         eventTests: options.event_tests || [],
         sweepOutput: options.sweep_output || 'auto',
         place: { latitude, longitude },
@@ -985,7 +986,7 @@ class SwissEphemerisServer {
         birth_time_sensitivity: this.birthTimeSensitivity(moon.speed, this.vimshottariStart(moon.lon), this.kalachakraStart(moon.lon)),
         ...swept,
         note: swept.sweep_output === 'ranges'
-          ? 'Each range lists the birth times (inclusive, in step_seconds steps) that give the same Vimshottari chain at every as_of date (chains[k] belongs to as_of[k]), the same lagna and the same cusp sub-lords.'
+          ? `Each range lists the birth times (inclusive, in step_seconds steps) that give the same ${options.sweep_dasha || 'Vimshottari'} chain at every as_of date (chains[k] belongs to as_of[k]), the same lagna and the same cusp sub-lords.`
           : 'Each flip is a birth-time offset (seconds from datetime) where that value changes; at_start is the value at from_seconds.',
         datetime,
         coordinates: { latitude, longitude },
@@ -1066,8 +1067,8 @@ class SwissEphemerisServer {
     const sunTable = yearDays ? null : this.makeSunTableForYears(
       date.getTime(),
       { ephePath, siderealFlag: ayanamsa.flag, positionFlag },
-      Math.min(-vimshottari.elapsedYears, kalachakra.firstStartYears),
-      Math.max(120 - vimshottari.elapsedYears, kalachakra.lastEndYears)
+      Math.min(-vimshottari.elapsedYears, kalachakra.firstStartYears, -21),
+      Math.max(120 - vimshottari.elapsedYears, kalachakra.lastEndYears, 125)
     );
     const clock = this.makeDashaClock(date.getTime(), { sunTable, yearDays });
     const dashaOptions = { levels, compact, asOfList: asOfInputs ? asOfTimes.map(t => t.getTime()) : null };
@@ -1088,6 +1089,8 @@ class SwissEphemerisServer {
       datetimeString: datetime,
       // Transit-dependent blocks use an as_of date only when one was given
       transitDate: options.as_of && !asOfInputs ? asOf : null,
+      // For the other dasha systems
+      dasha: { clock, asOf, asOfList: dashaOptions.asOfList, levels, birthMs: date.getTime(), yearDescription },
     };
     const blocks = this.chartBlocks(ctx, options, compact);
     const vimshottariDasha = this.calculateVimshottari(vimshottari, date.getTime(), clock, formatTime, asOf, yearDescription, dashaOptions);
@@ -1215,6 +1218,10 @@ class SwissEphemerisServer {
       }
     }
 
+    for (const system of ['yogini', 'ashtottari', 'chara', 'narayana']) {
+      if (include.has(system)) out[`${system}_dasha`] = this.otherDasha(system, ctx, options, compact);
+    }
+
     if (include.has('kp_significators')) {
       const sig = kpSignificators(longitudes, ctx.cusps);
       out.kp_significators = compact ? compactSignificators(sig) : sig;
@@ -1278,8 +1285,9 @@ class SwissEphemerisServer {
     if (!current) return null;
     const levels = DASHA_LEVELS.filter(l => current[l]).map((l) => {
       const p = current[l];
-      const name = p.lord || `${p.sign_abbr} ${p.pada}`;
-      const next = p.next ? (p.next.lord || `${p.next.sign_abbr} ${p.next.pada}`) : 'none';
+      const nameOf = (x) => x.yogini || x.lord || (x.sign_abbr ? `${x.sign_abbr} ${x.pada}` : x.sign);
+      const name = nameOf(p);
+      const next = p.next ? nameOf(p.next) : 'none';
       return `${l} ${name}${p.gati ? ` [${p.gati}]` : ''}: ${p.start} -> ${p.end} (ends in ${p.ends_in}; next ${next})`;
     });
     return { as_of: current.as_of, chain: current.chain, levels };
@@ -2130,9 +2138,12 @@ class SwissEphemerisServer {
       return model;
     };
 
-    const rawFor = (system, lon) => (system === 'kalachakra'
-      ? this.kalachakraRaw(this.kalachakraStart(lon))
-      : this.vimshottariRaw(this.vimshottariStart(lon)));
+    const rawFor = (system, lon) => {
+      if (system === 'kalachakra') return this.kalachakraRaw(this.kalachakraStart(lon));
+      if (system === 'yogini') return yoginiRaw(yoginiStart(lon));
+      if (system === 'ashtottari') return ashtottariRaw(ashtottariStart(lon));
+      return this.vimshottariRaw(this.vimshottariStart(lon));
+    };
     const chainAt = (system, model, offset, tMs, depth) => {
       const raw = rawFor(system, model.moonAt(offset));
       return { raw, chain: this.chainAtYears(raw, model.yearsBetween(birthMs + offset * 1000, tMs), depth) };
@@ -2623,6 +2634,77 @@ class SwissEphemerisServer {
     return result;
   }
 
+  // Yogini, Ashtottari, Chara and Narayana dashas for a chart context (see chartBlocks)
+  otherDasha(system, ctx, options, compact) {
+    const { clock, asOf, asOfList, levels, birthMs, yearDescription } = ctx.dasha;
+    const chart = {
+      signs: Object.fromEntries(GRAHA_NAMES.map(g => [g, signOf(ctx.grahas[g].lon)])),
+      degrees: Object.fromEntries(GRAHA_NAMES.map(g => [g, norm360(ctx.grahas[g].lon) % 30])),
+      lagna: signOf(ctx.lagnaLon),
+      rahuExaltation: (options.dignity_options || {}).rahu_exaltation || 'Ta',
+    };
+    const moon = ctx.grahas.Moon.lon;
+    const info = {};
+    let raw;
+    let fmtLabel;
+    if (system === 'yogini') {
+      const start = yoginiStart(moon);
+      raw = yoginiRaw(start);
+      fmtLabel = (p) => ({ yogini: p.name, lord: p.lord });
+      Object.assign(info, {
+        method: 'Yogini: first yogini = (nakshatra number + 3) mod 8 from Mangala; 36-year cycle; sub-periods from the same yogini',
+        balance_at_birth: { yogini: YOGINIS[start.index].name, lord: YOGINIS[start.index].lord, years: round((1 - start.elapsedFraction) * YOGINIS[start.index].years, 4) },
+      });
+    } else if (system === 'ashtottari') {
+      const start = ashtottariStart(moon);
+      raw = ashtottariRaw(start);
+      fmtLabel = (p) => ({ lord: p.lord });
+      const sun = createEphemeris().sunTimes(ctx.date, ctx.place.latitude, ctx.place.longitude);
+      Object.assign(info, {
+        method: 'Ashtottari (108 years) from Ardra; the balance from the Moon\'s place in its lord\'s group of nakshatras',
+        applicability: ashtottariApplicability(chart, { shukla: norm360(moon - ctx.grahas.Sun.lon) < 180, dayBirth: birthMs >= sun.sunrise && birthMs < sun.sunset }),
+        balance_at_birth: { lord: ASHTOTTARI[start.index].lord, years: round((1 - start.elapsedFraction) * ASHTOTTARI[start.index].years, 4) },
+      });
+    } else if (system === 'chara') {
+      const variant = options.chara_method || 'pvn_rao';
+      raw = charaRaw(chart, variant);
+      fmtLabel = (p) => ({ sign: SIGN_ABBR[p.sign], ...(p.cycle ? { cycle: p.cycle } : {}) });
+      Object.assign(info, {
+        method: variant === 'kn_rao'
+          ? 'Chara (K.N. Rao): from the lagna, zodiacal when the 9th is odd-footed; years = count to the lord (forward for odd-footed signs) - 1, +1 exalted, -1 debilitated; one cycle; antardashas from the next sign, the dasha sign last'
+          : 'Chara (P.V.R. Narasimha Rao, Jagannatha Hora): from the lagna, zodiacal when the 9th is odd-footed; years = count to the lord (forward for odd-footed signs) - 1; second cycle 12 - years; antardashas from the stronger of the sign and its 7th by sign type',
+        direction: raw.direction,
+      });
+    } else {
+      raw = narayanaRaw(chart);
+      fmtLabel = (p) => ({ sign: SIGN_ABBR[p.sign], ...(p.cycle ? { cycle: p.cycle } : {}) });
+      Object.assign(info, {
+        method: 'Narayana (P.V.R. Narasimha Rao): from the stronger of the lagna and 7th; years as Chara with +1 exalted / -1 debilitated lord; second cycle 12 - years; antardashas from the stronger of the signs holding the lords of the dasha sign and its 7th',
+        first_sign: SIGN_ABBR[raw.seed],
+        order_rule: raw.rule,
+      });
+    }
+    const timed = (p) => ({ ...p, startMs: clock(p.start), endMs: clock(p.end) });
+    const engine = {
+      mahadashas: raw.mahadashas.map(timed),
+      subPeriods: (parent) => raw.sub(parent).map(timed),
+      fmt: (p) => ({ ...fmtLabel(p), start: ctx.formatTime(Math.max(p.startMs, birthMs)), end: ctx.formatTime(p.endMs) }),
+    };
+    const label = (p) => raw.label(p);
+    if (asOfList) return { ...info, year: yearDescription, chains: this.describeChains(asOfList, engine, levels, ctx.formatTime, label).map(c => ({ as_of: c.as_of, chain: c.chain })) };
+    const current = this.describeCurrentChain(asOf.getTime(), engine, levels, ctx.formatTime, label);
+    if (compact) return { ...info, year: yearDescription, current: this.compactCurrent(current) };
+    return {
+      ...info,
+      year: yearDescription,
+      current,
+      mahadashas: engine.mahadashas.filter(p => p.endMs > birthMs).map(p => ({
+        ...engine.fmt(p),
+        antardashas: engine.subPeriods(p).filter(a => a.endMs > birthMs).map(a => engine.fmt(a)),
+      })),
+    };
+  }
+
   // KP hour trigger: does the transit Moon's or the rising degree's sub lord equal a running
   // Vimshottari lord, and at which levels
   hourTrigger(chainLords, moonSub, lagnaSub, asOf) {
@@ -2888,7 +2970,8 @@ class SwissEphemerisServer {
     };
     const sunrise = choice('sunrise', ['standard', 'hindu']);
     const moonBenefic = choice('moon_benefic', ['ashtami', 'waxing']);
-    return { include, vargas, varga_method: methods, dignity_options: dignityOptions, aspect_options: aspectOptions, shodhana: Boolean(args.shodhana), sunrise, moon_benefic: moonBenefic };
+    const charaMethod = choice('chara_method', ['pvn_rao', 'kn_rao']);
+    return { include, vargas, varga_method: methods, dignity_options: dignityOptions, aspect_options: aspectOptions, shodhana: Boolean(args.shodhana), sunrise, moon_benefic: moonBenefic, chara_method: charaMethod };
   }
 
   // birth_time_sweep, sweep_output and their size limits
@@ -2937,7 +3020,7 @@ class SwissEphemerisServer {
       if (ids.has(id)) throw invalid('event_tests', `${where}: duplicate id "${id}"`);
       ids.add(id);
       const system = t.system || defaultSystem;
-      if (!['kalachakra', 'vimshottari'].includes(system)) throw invalid('event_tests', `${where}.system must be "kalachakra" or "vimshottari"`);
+      if (!['kalachakra', 'vimshottari', 'yogini', 'ashtottari'].includes(system)) throw invalid('event_tests', `${where}.system must be "kalachakra", "vimshottari", "yogini" or "ashtottari"`);
       if (typeof t.as_of !== 'string') throw invalid('event_tests', `${where}.as_of must be a date string`);
       const asOf = this.withDefaultOffset(t.as_of);
       const asOfMs = new Date(asOf).getTime();
@@ -2953,13 +3036,18 @@ class SwissEphemerisServer {
             if (index < 0) throw invalid('event_tests', `${where}.expect: "${x}" is not a sign (use Ar Ta Ge Cn Le Vi Li Sc Sg Cp Aq Pi)`);
             return SIGN_ABBR[index];
           }
-          if (!lordNames[v]) throw invalid('event_tests', `${where}.expect: "${x}" is not a Vimshottari lord`);
+          if (system === 'yogini') {
+            const y = YOGINIS.find(q => q.name.toLowerCase() === v) || YOGINIS.find(q => q.lord === lordNames[v]);
+            if (!y) throw invalid('event_tests', `${where}.expect: "${x}" is not a yogini (${YOGINIS.map(q => q.name).join(', ')}) or a yogini lord`);
+            return y.name;
+          }
+          if (!lordNames[v] || (system === 'ashtottari' && lordNames[v] === 'Ketu')) throw invalid('event_tests', `${where}.expect: "${x}" is not a${system === 'ashtottari' ? 'n Ashtottari' : ' Vimshottari'} lord`);
           return lordNames[v];
         });
         expect = { labels };
       } else if (t.expect && typeof t.expect === 'object' && (t.expect.house_from_lagna || t.expect.house_from_moon)) {
         const houses = t.expect.house_from_lagna || t.expect.house_from_moon;
-        if (system !== 'kalachakra') throw invalid('event_tests', `${where}.expect: house_from_lagna/house_from_moon only apply to Kalachakra (signs); give Vimshottari lords as a list`);
+        if (system !== 'kalachakra') throw invalid('event_tests', `${where}.expect: house_from_lagna/house_from_moon only apply to Kalachakra (signs); give the dasha lords (or yoginis) as a list`);
         if (!Array.isArray(houses) || !houses.length || houses.some(h => !Number.isInteger(h) || h < 1 || h > 12)) {
           throw invalid('event_tests', `${where}.expect houses must be a list of integers 1-12`);
         }
@@ -3252,7 +3340,8 @@ class SwissEphemerisServer {
         this.validateDashaOutput(args);
         const vedicAsOf = this.normalizeAsOf(as_of);
         this.validateSweep(args, vedicAsOf);
-        const vedicEventTests = this.normalizeEventTests(args.event_tests, 'vimshottari', Boolean(args.birth_time_sweep), { latitude: vedicLatitude, longitude: vedicLongitude });
+        if (args.sweep_dasha !== undefined && !['vimshottari', 'yogini', 'ashtottari'].includes(args.sweep_dasha)) throw invalid('sweep_dasha', 'sweep_dasha must be "vimshottari", "yogini" or "ashtottari"');
+        const vedicEventTests = this.normalizeEventTests(args.event_tests, args.sweep_dasha || 'vimshottari', Boolean(args.birth_time_sweep), { latitude: vedicLatitude, longitude: vedicLongitude });
         const chartOptions = this.normalizeChartOptions(args);
         const vedicBirth = this.withDefaultOffset(vedicDatetime);
         const vedicResult = this.calculateVedicChart(vedicBirth, vedicLatitude, vedicLongitude, {
@@ -3263,6 +3352,7 @@ class SwissEphemerisServer {
             : null,
           birth_time_sweep: args.birth_time_sweep,
           sweep_output: args.sweep_output,
+          sweep_dasha: args.sweep_dasha,
           event_tests: vedicEventTests,
           ayanamsa,
           position_type,
@@ -3273,7 +3363,7 @@ class SwissEphemerisServer {
           output: args.output,
         });
         vedicResult.datetime_input = vedicDatetime;
-        return this.withCurrentTimezone(vedicResult, vedicBirth, args.current_timezone, ['vimshottari_dasha', 'kalachakra_dasha']);
+        return this.withCurrentTimezone(vedicResult, vedicBirth, args.current_timezone, ['vimshottari_dasha', 'kalachakra_dasha', 'yogini_dasha', 'ashtottari_dasha', 'chara_dasha', 'narayana_dasha']);
       }
 
       case 'calculate_kalachakra_dasha': {
