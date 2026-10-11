@@ -1,5 +1,6 @@
 // Sagar's chart against Jagannatha Hora (fixtures/jhora-sagar.json): Kalachakra down to deha,
-// ashtakavarga, shadbala, aspect strengths, D-9 and KP lords
+// Vimshottari, ashtakavarga, shadbala, Ishta/Kashta, Vimshopaka, aspect strengths, D-3, D-9 and
+// KP lords
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -65,6 +66,51 @@ test('Shadbala matches Jagannatha Hora to the displayed precision', { skip: SKIP
   bars.order.forEach((p, i) => assert.equal(Math.round(sb[p].ratio * 100), bars.percent[i], `percent ${p}`));
 });
 
+test('Shadbala totals, Ishta and Kashta match Jagannatha Hora\'s Other strengths', { skip: SKIP }, async () => {
+  const { result } = await ok(srv, 'calculate_vedic_chart', { ...BIRTH, include: ['shadbala'] });
+  const sb = result.shadbala.planets;
+  const jh = JH.other_strengths;
+  jh.order.forEach((p, i) => {
+    // Totals: JH's nathonnatha (day strength) is about 0.8 virupas above ours for Sagar and
+    // Venus's kala bala about 0.5 higher still; both causes are open
+    assert.ok(Math.abs(sb[p].total_virupas - jh.shadbala_virupas[i]) <= 1.3, `total ${p}: ${sb[p].total_virupas} vs JH ${jh.shadbala_virupas[i]}`);
+    assert.ok(Math.abs(sb[p].rupas - jh.shadbala_rupas[i]) <= 0.025, `rupas ${p}: ${sb[p].rupas} vs JH ${jh.shadbala_rupas[i]}`);
+    assert.ok(Math.abs(sb[p].ratio * 100 - jh.shadbala_percent[i]) <= 1, `percent ${p}: ${sb[p].ratio} vs JH ${jh.shadbala_percent[i]}%`);
+    // Ishta/Kashta come from uchcha and cheshta bala; Mercury's cheshta is 0.24 below JH's
+    const tol = p === 'Mercury' ? 0.2 : 0.1;
+    assert.ok(Math.abs(sb[p].ishta_phala - jh.ishta_phala[i]) <= tol, `ishta ${p}: ${sb[p].ishta_phala} vs JH ${jh.ishta_phala[i]}`);
+    assert.ok(Math.abs(sb[p].kashta_phala - jh.kashta_phala[i]) <= tol, `kashta ${p}: ${sb[p].kashta_phala} vs JH ${jh.kashta_phala[i]}`);
+  });
+  // The Sun's cheshta is the mean Sun's sayana longitude + 90°, over 3
+  assert.ok(Math.abs(sb.Sun.cheshta - 54.80) <= 0.01, `Sun cheshta ${sb.Sun.cheshta}`);
+});
+
+test('Vimshopaka bala matches Jagannatha Hora in all four schemes', { skip: SKIP }, async () => {
+  const { result } = await ok(srv, 'calculate_vedic_chart', { ...BIRTH, include: ['vargas'] });
+  const v = JH.other_strengths.vimshopaka;
+  for (const scheme of ['dashavarga', 'shodashavarga', 'saptavarga', 'shadvarga']) {
+    v.order.forEach((p, i) => {
+      if (p === 'Rahu') return; // JH also scores Rahu; the server does the seven planets
+      // Both sides round to 0.01; JH prints the Moon's 11.925 as 11.92 once and 11.93 once
+      assert.ok(Math.abs(result.vimshopaka[p][scheme] - v[scheme][i]) <= 0.0101, `${scheme} ${p}: ${result.vimshopaka[p][scheme]} vs JH ${v[scheme][i]}`);
+    });
+  }
+});
+
+test('Vimshottari mahadashas match Jagannatha Hora', { skip: SKIP }, async () => {
+  const { result } = await ok(srv, 'calculate_vedic_chart', { ...BIRTH, include: [], output: 'full', levels: 1 });
+  const md = result.vimshottari_dasha.mahadashas;
+  JH.vimshottari.mahadashas.forEach((row, i) => {
+    assert.equal(md[i].lord, row.lord);
+    // Within 15 s to 2030; later JH's older delta-T extrapolation (larger future delta-T) moves
+    // its dates earlier by up to about 1.5 s a year
+    const year = Number(row.end.slice(0, 4));
+    const allowed = 15 + Math.max(0, year - 2030) * 2;
+    const d = (Date.parse(md[i].end) - Date.parse(row.end)) / 1000;
+    assert.ok(Math.abs(d) <= allowed, `${row.lord} ends ${md[i].end} vs JH ${row.end} (${d} s, allowed ${allowed} s)`);
+  });
+});
+
 test('Aspect strengths on the houses match Jagannatha Hora', { skip: SKIP }, async () => {
   const { result } = await ok(srv, 'calculate_vedic_chart', { ...BIRTH, include: [] });
   const lagna = 180 + 39 / 60 + 20 / 3600; // JH's lagna, Li 0°39'20"
@@ -77,10 +123,12 @@ test('Aspect strengths on the houses match Jagannatha Hora', { skip: SKIP }, asy
   }
 });
 
-test('D-9 and KP lords match Jagannatha Hora', { skip: SKIP }, async () => {
-  const { result } = await ok(srv, 'calculate_vedic_chart', { ...BIRTH, include: ['vargas'] });
-  assert.equal(result.vargas.D9.lagna.sign, JH.d9.lagna);
-  for (const p of ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn', 'Rahu', 'Ketu']) assert.equal(result.vargas.D9.planets[p].sign, JH.d9[p], p);
+test('D-3, D-9 and KP lords match Jagannatha Hora', { skip: SKIP }, async () => {
+  const { result } = await ok(srv, 'calculate_vedic_chart', { ...BIRTH, include: ['vargas'], vargas: ['D1', 'D3', 'D9'] });
+  for (const [varga, jh] of [['D3', JH.d3], ['D9', JH.d9]]) {
+    assert.equal(result.vargas[varga].lagna.sign, jh.lagna, `${varga} lagna`);
+    for (const p of ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn', 'Rahu', 'Ketu']) assert.equal(result.vargas[varga].planets[p].sign, jh[p], `${varga} ${p}`);
+  }
   const ab = { Sun: 'Su', Moon: 'Mo', Mars: 'Ma', Mercury: 'Me', Jupiter: 'Ju', Venus: 'Ve', Saturn: 'Sa', Rahu: 'Ra', Ketu: 'Ke' };
   const lords = (x) => [ab[x.star_lord], ab[x.sub_lord], ab[x.sub_sub_lord]];
   assert.deepEqual(lords(result.lagna), JH.kp.As.slice(0, 3));

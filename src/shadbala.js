@@ -178,11 +178,14 @@ export function computeShadbala(chart) {
 
   // ---- Cheshta bala (B.V. Raman): cheshta kendra = seeghrochcha - (mean + true)/2, taken on
   // 0-360° longitudes as in his worked method, folded to 0-180°, divided by 3. The Sun's kendra
-  // is its sayana longitude + 90°; the Moon's is its elongation from the Sun.
+  // is its sayana longitude + 90° (jh: the mean Sun's, as Jagannatha Hora); the Moon's is its
+  // elongation from the Sun.
   const fold = (x) => { const d = norm360(x); return d > 180 ? 360 - d : d; };
   const mean = ramanMeanLongitudes(chart.jd, chart.year);
+  const T = (chart.jd - 2451545) / 36525;
+  const meanSunSayana = 280.46646 + 36000.76983 * T + 0.0003032 * T * T;
   for (const p of SEVEN) {
-    if (p === 'Sun') { out[p].cheshta = fold(tropical.Sun + 90) / 3; continue; }
+    if (p === 'Sun') { out[p].cheshta = fold((jh ? meanSunSayana : tropical.Sun) + 90) / 3; continue; }
     if (p === 'Moon') { out[p].cheshta = fold(elongation) / 3; continue; }
     const inner = p === 'Mercury' || p === 'Venus';
     const madhya = inner ? mean.Sun : mean[p];

@@ -12,6 +12,7 @@ test('Yogini starts: Ashwini Bhramari, Rohini Siddha, Ardra Mangala', () => {
   assert.equal(at(3), 'Siddha');
   assert.equal(at(4), 'Sankata');
   assert.equal(at(5), 'Mangala');
+  assert.equal(at(23), 'Dhanya'); // Shatabhisha, Sagar's Moon
 });
 
 test('Ashtottari groups: Ardra Sun, Krittika Venus, Revati Rahu', () => {
@@ -20,6 +21,7 @@ test('Ashtottari groups: Ardra Sun, Krittika Venus, Revati Rahu', () => {
   assert.equal(lord(2), 'Venus');
   assert.equal(lord(26), 'Rahu');
   assert.equal(lord(21), 'Saturn');
+  assert.equal(lord(23), 'Jupiter'); // Shatabhisha, Sagar's Moon
 });
 
 test('Narayana mahadasha order matches the Jagannatha Hora table', () => {
@@ -39,10 +41,10 @@ test('Narayana mahadasha order matches the Jagannatha Hora table', () => {
 
 test('Saturn state episodes join retrograde re-entries', () => {
   const day = 86400000;
-  // Moon in Taurus (1); Saturn: Pi, Ar, Pi (retro), Ar, Ta, Ar (retro), Ta, Ge, Cn
-  const seq = [[11, 0], [0, 100], [11, 250], [0, 400], [1, 900], [0, 960], [1, 1100], [2, 1800], [3, 2600]];
+  // Moon in Aquarius (10), as Sagar's; Saturn: Sg, Cp, Sg (retro), Cp, Aq, Cp (retro), Aq, Pi, Ar
+  const seq = [[8, 0], [9, 100], [8, 250], [9, 400], [10, 900], [9, 960], [10, 1100], [11, 1800], [0, 2600]];
   const intervals = seq.map(([sign, start], i) => ({ sign, startMs: start * day, endMs: (seq[i + 1] ? seq[i + 1][1] : 3000) * day, openStart: i === 0, openEnd: i === seq.length - 1 }));
-  const sade = stateEpisodes(intervals, 1, [12, 1, 2], 4 * 365 * day, true);
+  const sade = stateEpisodes(intervals, 10, [12, 1, 2], 4 * 365 * day, true);
   assert.equal(sade.length, 1);
   assert.equal(sade[0].startMs, 100 * day);
   assert.equal(sade[0].endMs, 2600 * day);
@@ -53,15 +55,17 @@ test('Saturn state episodes join retrograde re-entries', () => {
 });
 
 test('Tara and chandra bala', () => {
-  // Natal Moon in Rohini (3), transit Moon in Ashlesha (8): 6th tara Sadhaka
-  assert.deepEqual(taraBala(3 * NAKSHATRA_SPAN + 1, 8 * NAKSHATRA_SPAN + 1), { tara: 'Sadhaka', number: 6, nakshatra_count: 6, favourable: true });
-  assert.equal(chandraBala(45, 105, 50).house_from_moon, 3);
-  assert.equal(chandraBala(45, 105, 50).favourable, true);
+  // Natal Moon in Shatabhisha (23, Sagar), transit Moon in Bharani (1): 6th tara Sadhaka
+  assert.deepEqual(taraBala(23 * NAKSHATRA_SPAN + 1, 1 * NAKSHATRA_SPAN + 1), { tara: 'Sadhaka', number: 6, nakshatra_count: 6, favourable: true });
+  // Aquarius Moon, transit Moon in Aries: 3rd house
+  assert.equal(chandraBala(312, 15, 50).house_from_moon, 3);
+  assert.equal(chandraBala(312, 15, 50).favourable, true);
 });
 
-test('KP lords: Cancer 15°46\' is Pushya, sub lord Jupiter', () => {
-  const l = kpLords(90 + 15 + 46 / 60);
-  assert.equal(l.sign_lord, 'Moon');
-  assert.equal(l.star_lord, 'Saturn');
-  assert.equal(l.sub_lord, 'Jupiter');
+test('KP lords of Sagar\'s lagna, Li 0°39\'20", are Jagannatha Hora\'s: Mars, Mercury, Venus', () => {
+  const l = kpLords(180 + 39 / 60 + 20 / 3600);
+  assert.equal(l.sign_lord, 'Venus');
+  assert.equal(l.star_lord, 'Mars');
+  assert.equal(l.sub_lord, 'Mercury');
+  assert.equal(l.sub_sub_lord, 'Venus');
 });

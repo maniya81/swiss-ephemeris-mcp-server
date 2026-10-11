@@ -70,6 +70,18 @@
   "Rahu": "Cp",
   "Ketu": "Cn"
  },
+ "d3": {
+  "lagna": "Li",
+  "Sun": "Cp",
+  "Moon": "Ge",
+  "Mars": "Li",
+  "Mercury": "Ge",
+  "Jupiter": "Ar",
+  "Venus": "Cn",
+  "Saturn": "Le",
+  "Rahu": "Pi",
+  "Ketu": "Vi"
+ },
  "sav": {
   "Ar": 27,
   "Ta": 24,
@@ -187,17 +199,17 @@
   "dig": [
    46.9,
    46.2,
-   30.0,
+   30,
    21.4,
    0.5,
-   2.0,
+   2,
    54.3
   ],
   "cheshta": [
    54.8,
    33.1,
    50.1,
-   16.0,
+   16,
    42.6,
    37.6,
    11.1
@@ -212,7 +224,7 @@
    -7.5
   ],
   "naisargika": [
-   60.0,
+   60,
    51.4,
    17.1,
    25.7,
@@ -230,7 +242,7 @@
    336
   ],
   "rupas": [
-   9.0,
+   9,
    6.1,
    7.2,
    7.5,
@@ -247,6 +259,115 @@
    133,
    112
   ]
+ },
+ "other_strengths": {
+  "screen": "Strengths > Other strengths",
+  "order": [
+   "Sun",
+   "Moon",
+   "Mars",
+   "Mercury",
+   "Jupiter",
+   "Venus",
+   "Saturn"
+  ],
+  "shadbala_virupas": [
+   540.41,
+   367.47,
+   429.65,
+   449.5,
+   437.87,
+   439.32,
+   335.5
+  ],
+  "shadbala_rupas": [
+   9.01,
+   6.12,
+   7.16,
+   7.49,
+   7.3,
+   7.32,
+   5.59
+  ],
+  "shadbala_percent": [
+   180.14,
+   102.07,
+   143.22,
+   107.02,
+   112.27,
+   133.13,
+   111.83
+  ],
+  "ishta_phala": [
+   50.32,
+   33.07,
+   32.33,
+   20.68,
+   35.19,
+   31.74,
+   2.83
+  ],
+  "kashta_phala": [
+   8.47,
+   26.93,
+   19.71,
+   38.28,
+   23.21,
+   27.26,
+   53.85
+  ],
+  "vimshopaka": {
+   "order": [
+    "Sun",
+    "Moon",
+    "Mars",
+    "Mercury",
+    "Jupiter",
+    "Venus",
+    "Saturn",
+    "Rahu"
+   ],
+   "dashavarga": [
+    10.75,
+    12.68,
+    16.18,
+    13.23,
+    12,
+    10.6,
+    9.48,
+    11.2
+   ],
+   "shodashavarga": [
+    10.53,
+    11.93,
+    16.85,
+    13.65,
+    11.35,
+    10.13,
+    11.13,
+    10.63
+   ],
+   "saptavarga": [
+    9.75,
+    11.92,
+    15.6,
+    15.93,
+    10,
+    11.25,
+    8.45,
+    12.48
+   ],
+   "shadvarga": [
+    9.5,
+    11.1,
+    15.75,
+    17.3,
+    10,
+    11,
+    9.35,
+    11.2
+   ]
+  }
  },
  "aspects_on_houses_percent": {
   "note": "Basics > aspected body table: rows are the lagna degree + 30° x (house - 1), columns the aspecting planet",
@@ -1312,5 +1433,47 @@
    }
   ],
   "note": "path = parent periods by sign (a sign can occur twice; deep rows give drill_down steps with JH pada labels)"
+ },
+ "vimshottari": {
+  "screen": "Dasas > Vimsottari, maha dasas (birth zone)",
+  "mahadashas": [
+   {
+    "lord": "Rahu",
+    "start": "1992-02-09T06:58:02+05:30",
+    "end": "2010-02-08T21:56:03+05:30"
+   },
+   {
+    "lord": "Jupiter",
+    "end": "2026-02-09T00:25:27+05:30"
+   },
+   {
+    "lord": "Saturn",
+    "end": "2045-02-08T21:16:17+05:30"
+   },
+   {
+    "lord": "Mercury",
+    "end": "2062-02-09T05:56:45+05:30"
+   },
+   {
+    "lord": "Ketu",
+    "end": "2069-02-09T00:59:56+05:30"
+   },
+   {
+    "lord": "Venus",
+    "end": "2089-02-09T04:03:54+05:30"
+   },
+   {
+    "lord": "Sun",
+    "end": "2095-02-09T17:04:28+05:30"
+   },
+   {
+    "lord": "Moon",
+    "end": "2105-02-10T06:38:46+05:30"
+   },
+   {
+    "lord": "Mars",
+    "end": "2112-02-11T01:33:15+05:30"
+   }
+  ]
  }
 }

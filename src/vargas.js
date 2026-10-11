@@ -1,6 +1,6 @@
 // Divisional charts (vargas), Parashara / Jagannatha Hora defaults
 import { SIGN_ABBR, SIGN_LORDS, norm360, signOf, houseFrom, round } from './constants.js';
-import { relationToSignLord, VIMSHOPAKA_POINTS } from './dignity.js';
+import { relationToSignLord, compoundRelation, OWN_SIGNS, VIMSHOPAKA_POINTS } from './dignity.js';
 
 export const ALL_VARGAS = ['D1', 'D2', 'D3', 'D4', 'D7', 'D9', 'D10', 'D12', 'D16', 'D20', 'D24', 'D27', 'D30', 'D40', 'D45', 'D60'];
 export const VARGA_NAMES = {
@@ -26,13 +26,15 @@ export const SHASHTIAMSA = [
 // 1-based positions of the malefic (krura) shashtiamsas; the rest are benefic (saumya)
 const MALEFIC_SHASHTIAMSAS = new Set([1, 2, 7, 8, 9, 10, 11, 12, 15, 16, 30, 31, 32, 33, 34, 35, 36, 40, 41, 42, 43, 44, 48, 51, 52, 55, 59]);
 
-// Vimshopaka weights per scheme (each sums to 20)
+// Vimshopaka weights per scheme (each sums to 20), BPHS
 export const VIMSHOPAKA_SCHEMES = {
   shadvarga: { D1: 6, D2: 2, D3: 4, D9: 5, D12: 2, D30: 1 },
   saptavarga: { D1: 5, D2: 2, D3: 3, D7: 2.5, D9: 4.5, D12: 2, D30: 1 },
   dashavarga: { D1: 3, D2: 1.5, D3: 1.5, D7: 1.5, D9: 1.5, D10: 1.5, D12: 1.5, D16: 1.5, D30: 1.5, D60: 5 },
   shodashavarga: { D1: 3.5, D2: 1, D3: 1, D4: 0.5, D7: 0.5, D9: 3, D10: 0.5, D12: 0.5, D16: 2, D20: 0.5, D24: 0.5, D27: 0.5, D30: 1, D40: 0.5, D45: 0.5, D60: 4 },
 };
+// Jagannatha Hora weighs the saptavarga differently: D7 1, D9 2.5, D12 4.5, D30 2
+export const JH_VIMSHOPAKA_SCHEMES = { ...VIMSHOPAKA_SCHEMES, saptavarga: { D1: 5, D2: 2, D3: 3, D7: 1, D9: 2.5, D12: 4.5, D30: 2 } };
 
 const isOdd = (sign) => sign % 2 === 0; // Aries (0) is an odd sign
 const modality = (sign) => sign % 3; // 0 movable, 1 fixed, 2 dual
@@ -175,18 +177,27 @@ export function computeVargas(bodies, lagnaLon, vargas, methods = {}) {
   return out;
 }
 
-// Vimshopaka bala (out of 20) per planet in each scheme. `signsD1` gives D1 signs for the
-// compound relationships; a planet in its own (or exaltation/moolatrikona-free) sign scores 20.
-export function computeVimshopaka(bodies, methods = {}) {
-  const signsD1 = Object.fromEntries(Object.entries(bodies).map(([n, lon]) => [n, signOf(lon)]));
+// Vimshopaka bala (out of 20) per planet in each scheme. A planet in its own sign scores 20,
+// otherwise the points of its compound relationship with the sign lord.
+// jh (default, Jagannatha Hora): the temporary relationship is read in each divisional chart
+// itself, D-2 is the parivritti hora with even signs reversed and the saptavarga weights are
+// JH's. bphs: compound relationships from D-1, BPHS weights, D-2/D-3/D-30 as in `methods`.
+export function computeVimshopaka(bodies, methods = {}, { method = 'jh' } = {}) {
+  const jh = method === 'jh';
+  const schemes = jh ? JH_VIMSHOPAKA_SCHEMES : VIMSHOPAKA_SCHEMES;
+  const vargaMethods = jh ? { D2: 'pvr' } : methods;
+  const signsIn = {};
+  const signs = (varga) => (signsIn[varga] ??= Object.fromEntries(Object.entries(bodies).map(([n, lon]) => [n, vargaPosition(varga, lon, vargaMethods).sign])));
   const out = {};
   for (const name of ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn']) {
     out[name] = {};
-    for (const [scheme, weights] of Object.entries(VIMSHOPAKA_SCHEMES)) {
+    for (const [scheme, weights] of Object.entries(schemes)) {
       let total = 0;
       for (const [varga, weight] of Object.entries(weights)) {
-        const sign = vargaPosition(varga, bodies[name], methods).sign;
-        const relation = relationToSignLord(name, sign, signsD1);
+        const sign = signs(varga)[name];
+        const relation = !jh
+          ? relationToSignLord(name, sign, signs('D1'))
+          : OWN_SIGNS[name].includes(sign) ? 'own' : compoundRelation(name, SIGN_LORDS[sign], signs(varga));
         total += weight * VIMSHOPAKA_POINTS[relation] / 20;
       }
       out[name][scheme] = round(total, 2);

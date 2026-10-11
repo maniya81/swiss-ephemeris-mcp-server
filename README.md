@@ -159,13 +159,13 @@ Calculate a sidereal Vedic/KP birth chart with Vimshottari and Kalachakra dashas
 - `dasha_year_days` (number, optional): Fixed days per dasha year, e.g. 365.25. Omit it to use true sidereal solar years.
 - `include` (list or `"all"`, optional): extra blocks, default `["dignity","vargas","aspects"]`:
   - `dignity`: exaltation/debilitation with the distance from the deep point, moolatrikona, own sign, natural/temporary/compound relation to the sign lord, combustion (orb and limit), planetary war, retrograde/stationary/speed ratio, Baladi, Jagradadi and Deeptadi avasthas, lordships from the lagna and the Moon
-  - `vargas`: the signs in `vargas` (default `["D1","D9"]`, `"all"` = D1 to D60) for the lagna and every graha, the D-60 deity and nature, `vargottama`, Vimshopaka bala (Shad/Sapta/Dasha/Shodasha varga) and `lagna_sign_change` (seconds until each varga lagna changes sign, earlier and later)
+  - `vargas`: the signs in `vargas` (default `["D1","D9"]`, `"all"` = D1 to D60) for the lagna and every graha, the D-60 deity and nature, `vargottama`, Vimshopaka bala (Shad/Sapta/Dasha/Shodasha varga, as Jagannatha Hora by default) and `lagna_sign_change` (seconds until each varga lagna changes sign, earlier and later)
   - `aspects`: sign-based graha drishti per graha and per house; `aspect_strength` adds BPHS virupas, `jaimini_aspects` adds rashi drishti
   - `ashtakavarga`: BAV for the seven planets and the lagna, SAV with the 337 self-check, prastharashtakavarga, `shodhana` (Trikona/Ekadhipatya and Shodhya Pinda); with a single `as_of`, transit bindus and kakshyas
   - `shadbala`, `bhavabala`: the six balas with sub-parts in virupas, rupas, required minimum, ratio and rank, Ishta/Kashta phala, and the strength of the 12 houses
   - `kp_significators` (or `kp_significators: true`): four-level significations per planet and cusp significators by strength; with a single `as_of`, the hour trigger
   - `yogini`, `ashtottari` (with its applicability check), `chara` (`chara_method`), `narayana`: running chain with countdowns, date lists and full trees
-- Classical choices: `varga_method`, `rahu_exaltation`, `moolatrikona`, `combustion_limits`, `war_winner`, `stationary_ratio`, `rahu_ketu_aspects`, `sunrise`, `moon_benefic`, `chara_method`. Every response names the ones it used in `settings`.
+- Classical choices: `varga_method`, `rahu_exaltation`, `moolatrikona`, `combustion_limits`, `war_winner`, `stationary_ratio`, `rahu_ketu_aspects`, `sunrise`, `moon_benefic`, `chara_method`, and the method switches `shadbala_method`, `ashtakavarga_tables`, `vimshopaka_method`, `drishti_rule` (each `jh` by default, as Jagannatha Hora). Every response names the ones it used in `settings`.
 - Rectification: `birth_time_sweep` (chains, lagna, cusp sub lords and varga lagnas per birth time), `sweep_output` (`ranges` or `flips`), `event_tests` and `sweep_dasha` (`vimshottari`, `yogini`, `ashtottari`); see the Kalachakra tool below
 
 With `output: "chain"` the whole chart, every block included, stays under 3,000 tokens: one line per planet, cusp and block, and 3 levels of running chain unless `levels` is given. `output: "chain_v1"` returns the previous chain format for this release only.
@@ -208,7 +208,7 @@ Kalachakra dasha only, always with the JHora settings above. Nothing can be over
 - `current_timezone` (string, optional): IANA timezone where the native lives now; adds `start_local`/`end_local` to every period, as above
 - `drill_down` (array, optional): Up to 5 sign abbreviations naming a period to divide, like left-clicking a period in JHora. `["Ta"]` lists the antardashas of the Ta mahadasha; `["Ta", "Vi", "Aq"]` lists the sookshmas of Ta MD › Vi AD › Aq PD; five signs list the deha periods. If a sign appears twice in a list, the first one is used.
 - `sweep_output` (string, optional): `ranges`, `flips` (per date, only the birth offsets where the chain changes, with the chain before and after), or `auto` (default: flips when ranges would exceed about 25,000 tokens)
-- `event_tests` (array, optional): with a sweep, e.g. `[{"id":"vehicle","as_of":"2025-02-01T12:00:00+05:30","level":3,"expect":["Li"]}]` (or `{"house_from_lagna":[4,11]}` with `latitude`/`longitude`). Returns each test's birth-time windows, their intersection, the best subset when they conflict, and the junction (signed days to the nearest boundary at the tested and the next level)
+- `event_tests` (array, optional): with a sweep, e.g. `[{"id":"move","as_of":"2026-09-22T12:00:00+05:30","level":5,"expect":["Sc"]}]` (or `{"house_from_lagna":[4,11]}` with `latitude`/`longitude`). Returns each test's birth-time windows, their intersection, the best subset when they conflict, and the junction (signed days to the nearest boundary at the tested and the next level)
 - `gati_list` (object, optional): `{"from":"2015-01-01","to":"2030-01-01","levels":2}` lists every Simhavalokana, Manduka, Markati and other jump with its path, signs and dates; `near_events` adds the nearest event and the gap in days
 - `ayanamsa_override` (string, optional): research only; the response warns that Kalachakra is extremely sensitive to the ayanamsa
 
@@ -218,8 +218,8 @@ Example: rectifying against life events in one call
 
 ```json
 {
-  "datetime": "1979-08-16T05:25:00+05:30",
-  "as_of": ["2001-06-09T06:30:45+05:30", "2023-07-31T12:00:00+05:30"],
+  "datetime": "1999-06-06T15:30:00+05:30",
+  "as_of": ["2017-06-01T12:00:00+05:30", "2026-09-22T12:00:00+05:30"],
   "levels": 3,
   "birth_time_sweep": { "from_seconds": -600, "to_seconds": 600, "step_seconds": 1 }
 }
@@ -239,21 +239,27 @@ KP ruling planets for a moment and place (default now, IST): the day lord (weekd
 
 ### `rectify_by_transit`
 
-Birth-time anchors from transits, e.g. `{"as_of":"2023-02-27","planet":"Rahu","target":"cusp10"}` (targets `cusp1`-`cusp12`, `lagna`, `mc` or a natal planet). For each anchor, the birth time within `window_seconds` (default 600) that puts the natal target exactly on the transiting planet, with the residuals at the window edges; then the least-squares best birth time over the anchors that can be solved, its RMS residual and the spread of the single-anchor solutions.
+Birth-time anchors from transits, e.g. `{"as_of":"2025-12-01","planet":"Jupiter","target":"cusp10"}` (targets `cusp1`-`cusp12`, `lagna`, `mc` or a natal planet). For each anchor, the birth time within `window_seconds` (default 600) that puts the natal target exactly on the transiting planet, with the residuals at the window edges; then the least-squares best birth time over the anchors that can be solved, its RMS residual and the spread of the single-anchor solutions.
 
 ### Reference checks
 
-| Feature | Checked against | Result |
+Every reference value comes from one chart, Sagar (6 June 1999, 15:30:00 IST, Bhavnagar 21°46'N 72°09'E), in Jagannatha Hora with Traditional Lahiri; `test/fixtures/jhora-sagar.json` holds them.
+
+| Feature | Checked against (JH screen) | Result |
 |---|---|---|
-| Kalachakra | Jagannatha Hora export (Sagar), 88 periods from mahadasha to deha | every sign and pada label matches; times within 52 s |
-| D-9, KP lords | Jagannatha Hora (Sagar) | all nine grahas and the lagna; star, sub and sub-sub lords of the lagna, Sun and Moon |
-| Ashtakavarga | Jagannatha Hora (Sagar, default tables); AstroSage (`ashtakavarga_tables: "bphs"`) | every SAV and BAV bindu shown matches both |
-| Shadbala | Jagannatha Hora bar graphs (Sagar) | sthana, kala, dig, cheshta, drik and naisargika to the displayed precision (Venus kala 1.4 low); rupas and % strength exact |
-| Aspect strength | Jagannatha Hora aspected-body table (Sagar) | within 0.005% |
-| Shadbala (`raman`) | AstroSage (Sagar) | components within 0.15 virupa, cheshta within 0.5 |
-| Ishta/Kashta | Jagannatha Hora (Dhruvit) | within 0.25 |
-| Narayana order | Jagannatha Hora's progression table | all 12 starting signs |
+| Kalachakra | text export, 88 periods from mahadasha to deha; summary line | every sign and pada label matches; times within 52 s; Apasavya, Paramayush 83, Deha Ta, Jiva Ge |
+| Vimshottari | maha dasas | lords match; ends within 15 s to 2030, then JH's larger future delta-T moves its dates earlier by about 1.5 s a year (141 s by 2112) |
+| D-3, D-9, KP lords | charts, KP tab | all nine grahas and the lagna; star, sub and sub-sub lords of the lagna, Sun and Moon |
+| Ashtakavarga | SAV and BAV charts | every bindu shown matches (default tables) |
+| Shadbala | bar graphs and Other strengths | sthana, dig, cheshta, drik and naisargika to the displayed precision; totals within 1.3 virupas (JH's day strength is 0.8 higher, Venus's kala bala another 0.5; causes open); rupas within 0.02 |
+| Ishta/Kashta | Other strengths | within 0.1 (Mercury 0.15: its cheshta is 0.24 below JH's) |
+| Vimshopaka | Other strengths, four schemes | all seven planets exact (Rahu not computed) |
+| Aspect strength | aspected-body table | within 0.005% |
+| KP ruling planets | KP tab, key info | lagna and Moon sign/star/sub lords and the day lord at the birth moment |
+| Narayana order | JH's progression table | all 12 starting signs |
 | Sade Sati spans | Saturn ingresses from swetest | span ends straddle the sign boundary at ±1.5 s |
+
+The alternative methods (`shadbala_method: "raman"`, `ashtakavarga_tables: "bphs"`, `vimshopaka_method: "bphs"`, `drishti_rule: "bphs"`) follow B.V. Raman and BPHS as AstroSage does; the tests check them for consistency only.
 
 `.claude/skills/jhora-verification` records the JH settings, reference values and the procedure for checking new JH screenshots, with a script that compares a pasted JH Kalachakra export with the server.
 
@@ -267,7 +273,7 @@ KP New uses the Swiss Ephemeris "Krishnamurti VP291" ayanamsa (`-sid45`), which 
 npm test
 ```
 
-The suites run the acceptance tests (T1-T8) and the reference checks above through the MCP interface. They need `swetest` on `PATH` and `SE_EPHE_PATH` pointing at the ephemeris files (e.g. `vendor/swisseph`); without `swetest` those tests are skipped.
+The suites run the reference checks above, and the rest of the features on the same chart, through the MCP interface. They need `swetest` on `PATH` and `SE_EPHE_PATH` pointing at the ephemeris files (e.g. `vendor/swisseph`); without `swetest` those tests are skipped.
 
 ## Docker
 

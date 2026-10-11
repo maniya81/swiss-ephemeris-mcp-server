@@ -332,9 +332,10 @@ class SwissEphemerisServer {
                 },
                 varga_method: {
                   type: 'object',
-                  properties: { D2: { type: 'string', enum: ['parashara', 'parivritti'] }, D3: { type: 'string', enum: ['parashara', 'parivritti'] }, D30: { type: 'string', enum: ['parashara', 'parivritti'] } },
-                  description: 'Varga method overrides (default Parashara for all: D-2 Sun/Moon horas, D-3 drekkanas 1-5-9, D-30 unequal trimsamsa). Example: {"D2":"parivritti"}',
+                  properties: { D2: { type: 'string', enum: ['parashara', 'parivritti', 'pvr'] }, D3: { type: 'string', enum: ['parashara', 'parivritti'] }, D30: { type: 'string', enum: ['parashara', 'parivritti'] } },
+                  description: 'Varga method overrides for the charts shown (default Parashara for all: D-2 Sun/Moon horas, D-3 drekkanas 1-5-9, D-30 unequal trimsamsa; D-2 pvr is Jagannatha Hora\'s parivritti hora with even signs reversed). Example: {"D2":"parivritti"}',
                 },
+                vimshopaka_method: { type: 'string', enum: ['jh', 'bphs'], description: 'Vimshopaka bala: jh (default, as Jagannatha Hora: relationships read in each divisional chart, D-2 pvr, JH saptavarga weights D7 1, D9 2.5, D12 4.5, D30 2) or bphs (compound relationships from D-1, BPHS weights, varga_method)' },
                 rahu_exaltation: { type: 'string', enum: ['Ta', 'Ge'], description: 'Rahu exalted in Taurus (default, Ketu in Scorpio) or Gemini (Ketu in Sagittarius)' },
                 moolatrikona: { type: 'object', description: 'Override BPHS moolatrikona ranges: {planet: [sign 0-11, from degree, to degree]}, e.g. {"Moon":[1,4,30]}' },
                 combustion_limits: { type: 'object', description: 'Override combustion orbs in degrees (defaults Moon 12, Mars 17, Mercury 14 / 12 retrograde, Jupiter 11, Venus 10 / 8 retrograde, Saturn 15). Example: {"Mercury":13,"Mercury_retrograde":12}' },
@@ -381,7 +382,7 @@ class SwissEphemerisServer {
                     },
                     required: ['as_of', 'level', 'expect'],
                   },
-                  description: 'With birth_time_sweep: the birth-time windows where each event fits, the intersection of all tests, the largest subset that can pass together when they conflict, and a junction list (signed days from each event to the nearest boundary at the tested level and the next level down; minus = before the boundary). Example: [{"id":"vehicle","as_of":"2025-02-01T12:00:00+05:30","system":"kalachakra","level":3,"expect":["Li"]}]',
+                  description: 'With birth_time_sweep: the birth-time windows where each event fits, the intersection of all tests, the largest subset that can pass together when they conflict, and a junction list (signed days from each event to the nearest boundary at the tested level and the next level down; minus = before the boundary). Example: [{"id":"move","as_of":"2026-09-22T12:00:00+05:30","system":"kalachakra","level":5,"expect":["Sc"]}]',
                 },
                 sweep_dasha: { type: 'string', enum: ['vimshottari', 'yogini', 'ashtottari'], description: 'Dasha system whose chains the sweep reports (default vimshottari)' },
                 subperiod_direction: { type: 'string', enum: ['parent', 'natal'], description: 'Kalachakra sub-period direction: parent (default, as Jagannatha Hora: a period\'s sub-periods run forward when its pada is in the same savya/apasavya group as its parent\'s pada) or natal (compared with the Moon\'s pada, the rule before 1.1.0; differs below periods whose parent is in the other group)' },
@@ -479,7 +480,7 @@ class SwissEphemerisServer {
                     },
                     required: ['as_of', 'level', 'expect'],
                   },
-                  description: 'With birth_time_sweep: the birth-time windows where each event fits, the intersection of all tests, the largest subset that can pass together when they conflict, and a junction list (signed days from each event to the nearest boundary at the tested level and the next level down; minus = before the boundary). Example: [{"id":"vehicle","as_of":"2025-02-01T12:00:00+05:30","system":"kalachakra","level":3,"expect":["Li"]}]',
+                  description: 'With birth_time_sweep: the birth-time windows where each event fits, the intersection of all tests, the largest subset that can pass together when they conflict, and a junction list (signed days from each event to the nearest boundary at the tested level and the next level down; minus = before the boundary). Example: [{"id":"move","as_of":"2026-09-22T12:00:00+05:30","system":"kalachakra","level":5,"expect":["Sc"]}]',
                 },
               },
               required: ['datetime'],
@@ -487,11 +488,11 @@ class SwissEphemerisServer {
           },
           {
             name: 'calculate_gochar',
-            description: 'Gochar (transits) over a natal chart, with finished answers: each transiting graha\'s sidereal position, nakshatra and pada, house from the natal Moon and lagna and KP house; Saturn states from the natal Moon (Sade Sati rising/peak/setting, Ashtama, Kantaka, Ardhashtama) with exact start/end dates including retrograde re-entries (several spans per episode); Jupiter, Rahu and Ketu stays with the same spans; tara bala and chandra bala with the time they change; Jupiter/Saturn/Rahu/Ketu within an orb of natal planets, cusps or the Bhrigu Bindu with the exact dates; and, for a from/to range, sign and nakshatra ingresses and retrograde/direct stations with exact timestamps. Defaults follow Jagannatha Hora (Traditional Lahiri, true positions, true nodes). Example: {"datetime":"1979-08-16T05:25:00+05:30","latitude":22.1667,"longitude":71.6667,"as_of":"2025-06-01T12:00:00+05:30"}',
+            description: 'Gochar (transits) over a natal chart, with finished answers: each transiting graha\'s sidereal position, nakshatra and pada, house from the natal Moon and lagna and KP house; Saturn states from the natal Moon (Sade Sati rising/peak/setting, Ashtama, Kantaka, Ardhashtama) with exact start/end dates including retrograde re-entries (several spans per episode); Jupiter, Rahu and Ketu stays with the same spans; tara bala and chandra bala with the time they change; Jupiter/Saturn/Rahu/Ketu within an orb of natal planets, cusps or the Bhrigu Bindu with the exact dates; and, for a from/to range, sign and nakshatra ingresses and retrograde/direct stations with exact timestamps. Defaults follow Jagannatha Hora (Traditional Lahiri, true positions, true nodes). Example: {"datetime":"1999-06-06T15:30:00+05:30","latitude":21.7667,"longitude":72.15,"as_of":"2025-06-01T12:00:00+05:30"}',
             inputSchema: {
               type: 'object',
               properties: {
-                datetime: { type: 'string', description: 'Birth datetime, ISO8601 with the birth UTC offset and seconds, e.g. 1979-08-16T05:25:00+05:30 (IST assumed without an offset). All times are returned in this offset' },
+                datetime: { type: 'string', description: 'Birth datetime, ISO8601 with the birth UTC offset and seconds, e.g. 1999-06-06T15:30:00+05:30 (IST assumed without an offset). All times are returned in this offset' },
                 latitude: { type: 'number', description: 'Birth latitude in decimal degrees (for the natal lagna and KP cusps)' },
                 longitude: { type: 'number', description: 'Birth longitude in decimal degrees, positive east' },
                 as_of: {
@@ -515,7 +516,7 @@ class SwissEphemerisServer {
           },
           {
             name: 'calculate_ruling_planets',
-            description: 'KP ruling planets for a moment and place (default now, IST): day lord (weekday from the last sunrise), the Moon\'s and the lagna\'s sign, star and sub lords, the ordered ruling-planet set with Rahu/Ketu added when they occupy the sign of, or conjoin, a ruling planet, and the cleaned set without retrograde planets. With birth_datetime it adds the hour trigger: whether the transit Moon\'s or the rising degree\'s sub lord equals a running Vimshottari lord, and at which level. Example: {"datetime":"2025-06-01T10:15:30+05:30","latitude":22.1667,"longitude":71.6667,"birth_datetime":"1979-08-16T05:25:00+05:30"}',
+            description: 'KP ruling planets for a moment and place (default now, IST): day lord (weekday from the last sunrise), the Moon\'s and the lagna\'s sign, star and sub lords, the ordered ruling-planet set with Rahu/Ketu added when they occupy the sign of, or conjoin, a ruling planet, and the cleaned set without retrograde planets. With birth_datetime it adds the hour trigger: whether the transit Moon\'s or the rising degree\'s sub lord equals a running Vimshottari lord, and at which level. Example: {"datetime":"2025-06-01T10:15:30+05:30","latitude":21.7667,"longitude":72.15,"birth_datetime":"1999-06-06T15:30:00+05:30"}',
             inputSchema: {
               type: 'object',
               properties: {
@@ -535,7 +536,7 @@ class SwissEphemerisServer {
           },
           {
             name: 'rectify_by_transit',
-            description: 'Birth-time rectification from transit anchors. For each anchor {as_of, planet, target}, finds the birth time in the window that puts the natal target (cusp1-cusp12, lagna, mc or a natal planet) exactly on the transiting planet\'s longitude at as_of, with the residual orb at the window edges; then the least-squares best birth time over all anchors, its RMS residual and the spread of the single-anchor solutions. Example: {"datetime":"1979-08-16T05:25:00+05:30","latitude":22.1667,"longitude":71.6667,"window_seconds":600,"anchors":[{"as_of":"2023-02-27T12:00:00+05:30","planet":"Rahu","target":"cusp10"}]}',
+            description: 'Birth-time rectification from transit anchors. For each anchor {as_of, planet, target}, finds the birth time in the window that puts the natal target (cusp1-cusp12, lagna, mc or a natal planet) exactly on the transiting planet\'s longitude at as_of, with the residual orb at the window edges; then the least-squares best birth time over all anchors, its RMS residual and the spread of the single-anchor solutions. Example: {"datetime":"1999-06-06T15:30:00+05:30","latitude":21.7667,"longitude":72.15,"window_seconds":1800,"anchors":[{"as_of":"2025-12-01T12:00:00+05:30","planet":"Jupiter","target":"cusp10"}]}',
             inputSchema: {
               type: 'object',
               properties: {
@@ -1295,7 +1296,7 @@ class SwissEphemerisServer {
       const d1 = Object.fromEntries(GRAHA_NAMES.map(g => [g, vargaPosition('D1', longitudes[g]).sign]));
       out.vargottama = GRAHA_NAMES.filter(g => vargaPosition('D9', longitudes[g], options.varga_method).sign === d1[g]);
       if (vargaPosition('D9', ctx.lagnaLon).sign === vargaPosition('D1', ctx.lagnaLon).sign) out.vargottama.unshift('Lagna');
-      const vimshopaka = computeVimshopaka(longitudes, options.varga_method);
+      const vimshopaka = computeVimshopaka(longitudes, options.varga_method, { method: options.vimshopaka_method || 'jh' });
       const changes = this.lagnaSignChanges(ctx, options.vargas, options.varga_method);
       if (compact) {
         out.vargas = compactVargas(vargas);
@@ -1427,7 +1428,9 @@ class SwissEphemerisServer {
     if (include.has('vargas')) {
       out.vargas = options.vargas;
       out.varga_method = { D2: 'parashara', D3: 'parashara', D30: 'parashara', ...options.varga_method };
-      out.vimshopaka_points = 'BPHS: own 20, adhimitra 18, mitra 15, sama 10, shatru 7, adhishatru 5 (compound relationships)';
+      out.vimshopaka = (options.vimshopaka_method || 'jh') === 'jh'
+        ? 'jh: own 20, adhimitra 18, mitra 15, sama 10, shatru 7, adhishatru 5; temporary relationships read in each divisional chart; D-2 pvr; saptavarga weights D1 5, D2 2, D3 3, D7 1, D9 2.5, D12 4.5, D30 2'
+        : 'bphs: own 20, adhimitra 18, mitra 15, sama 10, shatru 7, adhishatru 5; compound relationships from D-1; BPHS weights; varga_method';
     }
     if (include.has('dignity')) {
       const d = options.dignity_options || {};
@@ -1447,7 +1450,7 @@ class SwissEphemerisServer {
         saptavargaja: `moolatrikona 45 (D1), own 30, adhimitra 22.5, mitra 15, sama 7.5, shatru 3.75, adhishatru 1.875; relationships from D1; D-2 ${jh ? 'parivritti with even signs reversed (JH default hora)' : 'Parashara Sun/Moon hora'}`,
         ayana: 'declination from the sayana longitude with obliquity 24°; Sun doubled',
         paksha: jh ? 'Moon: benefic value doubled; Mercury as in drik bala' : 'Jupiter, Venus, Mercury and the waxing Moon as benefics',
-        cheshta: 'seeghrochcha - (mean + true)/2 with Raman\'s mean longitudes (1900 Ujjain epoch); Sun: sayana Sun + 90°; Moon: elongation from the Sun',
+        cheshta: `seeghrochcha - (mean + true)/2 with Raman's mean longitudes (1900 Ujjain epoch); Sun: ${jh ? 'sayana mean Sun' : 'sayana Sun'} + 90°${jh ? ' (Sun and Moon shown, not added: already in their doubled ayana and paksha bala)' : ''}; Moon: elongation from the Sun`,
         abda_masa: 'weekday lords of the first day of the 360-day year and 30-day month of Raman\'s ahargana',
         vara_hora: 'weekday from sunrise; equal-hour horas from sunrise',
         sunrise: options.sunrise === 'hindu' ? 'disc centre without refraction (Hindu)' : 'upper limb with refraction',
@@ -1486,7 +1489,7 @@ class SwissEphemerisServer {
     };
     if (include.has('vargas')) {
       const methods = ['D2', 'D3', 'D30'].map(v => (options.varga_method || {})[v]).filter(Boolean);
-      out.vargas = `${options.vargas.join(' ')}; methods ${methods.length ? JSON.stringify(options.varga_method) : 'parashara'}`;
+      out.vargas = `${options.vargas.join(' ')}; methods ${methods.length ? JSON.stringify(options.varga_method) : 'parashara'}; vimshopaka ${options.vimshopaka_method || 'jh'}`;
     }
     if (include.has('dignity')) out.dignity = `rahu_exaltation ${d.rahu_exaltation || 'Ta'}, war_winner ${d.war_winner || 'latitude'}, moolatrikona ${d.moolatrikona ? 'custom' : 'BPHS'}, combustion ${d.combustion_limits ? 'custom' : 'default'}`;
     if (include.has('aspects')) out.aspects = `rahu_ketu_aspects ${a.rahu_ketu_aspects || '5_9'}`;
@@ -2582,7 +2585,7 @@ class SwissEphemerisServer {
   // Jupiter/Rahu/Ketu stays, tara and chandra bala, natal hits and an ingress/station search
   calculateGochar(datetime, latitude, longitude, options = {}) {
     const birth = new Date(datetime);
-    if (isNaN(birth.getTime())) throw invalid('datetime', 'Invalid datetime. Use ISO8601 with a UTC offset, e.g. 1979-08-16T05:25:00+05:30');
+    if (isNaN(birth.getTime())) throw invalid('datetime', 'Invalid datetime. Use ISO8601 with a UTC offset, e.g. 1999-06-06T15:30:00+05:30');
     const ayanamsaKey = options.ayanamsa || DEFAULT_AYANAMSA;
     const ayanamsa = AYANAMSAS[ayanamsaKey];
     const nodeType = options.node_type || 'true';
@@ -2994,7 +2997,7 @@ class SwissEphemerisServer {
   // then the least-squares birth time over all anchors
   rectifyByTransit(datetime, latitude, longitude, options) {
     const birth = new Date(datetime);
-    if (isNaN(birth.getTime())) throw invalid('datetime', 'Invalid datetime. Use ISO8601 with a UTC offset, e.g. 1979-08-16T05:25:00+05:30');
+    if (isNaN(birth.getTime())) throw invalid('datetime', 'Invalid datetime. Use ISO8601 with a UTC offset, e.g. 1999-06-06T15:30:00+05:30');
     const ayanamsa = AYANAMSAS[options.ayanamsa || DEFAULT_AYANAMSA];
     const positionType = options.position_type || 'true';
     const nodeType = options.node_type || 'true';
@@ -3180,8 +3183,9 @@ class SwissEphemerisServer {
     const charaMethod = choice('chara_method', ['pvn_rao', 'kn_rao']);
     const shadbalaMethod = choice('shadbala_method', ['jh', 'raman']);
     const ashtakavargaTables = choice('ashtakavarga_tables', ['jh', 'bphs']);
+    const vimshopakaMethod = choice('vimshopaka_method', ['jh', 'bphs']);
     aspectOptions.drishti_rule = choice('drishti_rule', ['jh', 'bphs']);
-    return { include, vargas, varga_method: methods, dignity_options: dignityOptions, aspect_options: aspectOptions, shodhana: Boolean(args.shodhana), sunrise, moon_benefic: moonBenefic, chara_method: charaMethod, shadbala_method: shadbalaMethod, ashtakavarga_tables: ashtakavargaTables, levels_given: args.levels !== undefined };
+    return { include, vargas, varga_method: methods, dignity_options: dignityOptions, aspect_options: aspectOptions, shodhana: Boolean(args.shodhana), sunrise, moon_benefic: moonBenefic, chara_method: charaMethod, shadbala_method: shadbalaMethod, ashtakavarga_tables: ashtakavargaTables, vimshopaka_method: vimshopakaMethod, levels_given: args.levels !== undefined };
   }
 
   // birth_time_sweep, sweep_output and their size limits
@@ -3626,7 +3630,7 @@ class SwissEphemerisServer {
 
       case 'calculate_gochar': {
         const { datetime: gDatetime, latitude: gLatitude, longitude: gLongitude } = args;
-        if (!gDatetime || typeof gDatetime !== 'string') throw invalid('datetime', 'datetime (birth, e.g. 1979-08-16T05:25:00+05:30) is required');
+        if (!gDatetime || typeof gDatetime !== 'string') throw invalid('datetime', 'datetime (birth, e.g. 1999-06-06T15:30:00+05:30) is required');
         if (typeof gLatitude !== 'number' || gLatitude < -90 || gLatitude > 90) throw invalid('latitude', 'latitude must be a number between -90 and 90');
         if (typeof gLongitude !== 'number' || gLongitude < -180 || gLongitude > 180) throw invalid('longitude', 'longitude must be a number between -180 and 180');
         if (args.ayanamsa !== undefined && !AYANAMSAS[args.ayanamsa]) throw invalid('ayanamsa', `ayanamsa must be one of: ${Object.keys(AYANAMSAS).join(', ')}`);
@@ -3691,7 +3695,7 @@ class SwissEphemerisServer {
         if (typeof rLatitude !== 'number' || rLatitude < -90 || rLatitude > 90) throw invalid('latitude', 'latitude must be a number between -90 and 90');
         if (typeof rLongitude !== 'number' || rLongitude < -180 || rLongitude > 180) throw invalid('longitude', 'longitude must be a number between -180 and 180');
         if (args.ayanamsa !== undefined && !AYANAMSAS[args.ayanamsa]) throw invalid('ayanamsa', `ayanamsa must be one of: ${Object.keys(AYANAMSAS).join(', ')}`);
-        if (args.birth_datetime !== undefined && (typeof args.birth_datetime !== 'string' || isNaN(Date.parse(this.withDefaultOffset(args.birth_datetime))))) throw invalid('birth_datetime', 'birth_datetime must be an ISO8601 date, e.g. 1979-08-16T05:25:00+05:30');
+        if (args.birth_datetime !== undefined && (typeof args.birth_datetime !== 'string' || isNaN(Date.parse(this.withDefaultOffset(args.birth_datetime))))) throw invalid('birth_datetime', 'birth_datetime must be an ISO8601 date, e.g. 1999-06-06T15:30:00+05:30');
         if (args.dasha_year_days !== undefined && (typeof args.dasha_year_days !== 'number' || args.dasha_year_days < 300 || args.dasha_year_days > 400)) throw invalid('dasha_year_days', 'dasha_year_days must be a number between 300 and 400');
         this.validateTimezone(args.current_timezone);
         // Without a datetime: now, in IST
@@ -3714,7 +3718,7 @@ class SwissEphemerisServer {
 
       case 'rectify_by_transit': {
         const { datetime: tDatetime, latitude: tLatitude, longitude: tLongitude, anchors } = args;
-        if (!tDatetime || typeof tDatetime !== 'string') throw invalid('datetime', 'datetime (birth, e.g. 1979-08-16T05:25:00+05:30) is required');
+        if (!tDatetime || typeof tDatetime !== 'string') throw invalid('datetime', 'datetime (birth, e.g. 1999-06-06T15:30:00+05:30) is required');
         if (typeof tLatitude !== 'number' || tLatitude < -90 || tLatitude > 90) throw invalid('latitude', 'latitude must be a number between -90 and 90');
         if (typeof tLongitude !== 'number' || tLongitude < -180 || tLongitude > 180) throw invalid('longitude', 'longitude must be a number between -180 and 180');
         if (args.ayanamsa !== undefined && !AYANAMSAS[args.ayanamsa]) throw invalid('ayanamsa', `ayanamsa must be one of: ${Object.keys(AYANAMSAS).join(', ')}`);

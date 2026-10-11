@@ -189,7 +189,7 @@ A connector added on claude.ai is also available in the Claude desktop and mobil
 2. Open the tools menu (the **+** or sliders icon) and make sure **Swiss Ephemeris** is turned on.
 3. Ask, for example:
 
-   > Use calculate_vedic_chart for 1999-06-06T15:30:03+05:30, latitude 22.1667, longitude 71.6667. Show the Lagna, each planet's nakshatra and sub lord, and the current Vimshottari and Kalachakra dasha chains.
+   > Use calculate_vedic_chart for 1999-06-06T15:30:00+05:30, latitude 21.7667, longitude 72.15. Show the Lagna, each planet's nakshatra and sub lord, and the current Vimshottari and Kalachakra dasha chains.
 
 4. Approve the tool call when Claude asks.
 
