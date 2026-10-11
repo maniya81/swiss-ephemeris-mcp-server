@@ -77,7 +77,17 @@ Keeping calls small:
 - When you only need the running period, pass output: "chain" (no full dasha tree); levels (1-6) limits the depth.
 - For several dates (e.g. life events), pass as_of as a list: one call returns a compact chain per date.
 - For birth-time rectification, use calculate_kalachakra_dasha with birth_time_sweep and the event dates as as_of; birth times giving the same chains are merged into ranges. birth_time_sensitivity gives the days of shift per second of birth time.
-- Each current level includes ends_in and next (the following period at that level). Kalachakra periods carry gati (Simhavalokana, Manduka, Markati jumps).`;
+- Each current level includes ends_in and next (the following period at that level). Kalachakra periods carry gati (Simhavalokana, Manduka, Markati jumps).
+- calculate_vedic_chart blocks come with include (dignity, vargas, aspects by default; "all" for every block). With output "chain" a chart with every block stays under 3,000 tokens.
+
+Rectification:
+- Put the known life events in event_tests (with birth_time_sweep) instead of comparing chains yourself: the server returns each event's birth-time windows, their intersection, the best subset when they conflict and the junction distances. Use sweep_output "flips" for very long sweeps.
+- Use gati_list for Kalachakra jumps between two dates, rectify_by_transit for transit-to-cusp anchors, and lagna_sign_change (vargas block) to see whether a few seconds can change D-9/D-10/D-60.
+
+Other tools:
+- calculate_gochar: transits over the natal chart (Sade Sati and other Saturn states with exact spans including retrograde re-entries, Jupiter/Rahu/Ketu stays, tara and chandra bala, natal hits, ingress and station search in a from/to range).
+- calculate_ruling_planets: KP ruling planets for a moment and place; with birth_datetime also the hour trigger.
+- Every response has a settings block; report the classical choices it names when they matter. Errors come back as JSON with the reason and the parameter to fix.`;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SIDEREAL_YEAR_DAYS = 365.256363;
 // Kalachakra dasha (BPHS). Years of each sign, Aries to Pisces
@@ -126,7 +136,7 @@ class SwissEphemerisServer {
     const server = new Server(
       {
         name: 'swiss-ephemeris-mcp-server',
-        version: '1.0.0',
+        version: '1.1.0',
       },
       {
         capabilities: {
@@ -258,7 +268,7 @@ class SwissEphemerisServer {
           },
           {
             name: 'calculate_vedic_chart',
-            description: 'Calculate a sidereal Vedic/KP birth chart with Jagannatha Hora default settings (Traditional Lahiri ayanamsa, true positions, true nodes, true sidereal solar years): planets and Placidus cusps with sign lord, nakshatra, pada, star lord, KP sub lord and sub-sub lord, retrograde status, whole-sign and KP house placement; the Vimshottari dasha timeline with the running chain down to deha (6 levels); and Kalachakra dasha (SM Singh method) with mahadashas, antardashas and the running chain down to deha.',
+            description: 'Calculate a sidereal Vedic/KP birth chart with Jagannatha Hora default settings (Traditional Lahiri ayanamsa, true positions, true nodes, true sidereal solar years): planets and Placidus cusps with sign lord, nakshatra, pada, star lord, KP sub lord and sub-sub lord, retrograde status, whole-sign and KP house placement; Vimshottari and Kalachakra (SM Singh) dashas with the running chain and countdowns. Optional blocks (include): dignity and avasthas, divisional charts with Vimshopaka, Vedic aspects, Ashtakavarga, Shadbala and Bhavabala, KP significators, Yogini, Ashtottari, Chara and Narayana dashas. Rectification: birth_time_sweep with event_tests. Every response has a settings block naming the classical choices used.',
             inputSchema: {
               type: 'object',
               properties: {
@@ -295,14 +305,14 @@ class SwissEphemerisServer {
                 },
                 output: {
                   type: 'string',
-                  enum: ['full', 'chain'],
-                  description: 'full (default): dasha trees plus running chains. chain: running chains only (far fewer tokens). A list of as_of dates is always compact',
+                  enum: ['full', 'chain', 'chain_v1'],
+                  description: 'full (default): dasha trees, running chains and every block in detail. chain: compact (one line per item; under 3,000 tokens with every block). A list of as_of dates is always compact. chain_v1: deprecated, the previous chain format (full chart objects, running chains as objects, no dasha trees); removed in the next release',
                 },
                 levels: {
                   type: 'integer',
                   minimum: 1,
                   maximum: 6,
-                  description: 'How deep the dasha chains go: 1 mahadasha ... 6 deha (default 6)',
+                  description: 'How deep the dasha chains go: 1 mahadasha ... 6 deha (default 6; in output "chain" the running chains default to 3 and the other dashas to 2)',
                 },
                 current_timezone: {
                   type: 'string',
@@ -312,6 +322,65 @@ class SwissEphemerisServer {
                   type: 'number',
                   description: 'Fixed days per dasha year (e.g. 365.25 or 360). Omit to use true sidereal solar years, as in Jagannatha Hora',
                 },
+                include: {
+                  oneOf: [{ type: 'string', enum: ['all'] }, { type: 'array', items: { type: 'string', enum: CHART_BLOCKS } }],
+                  description: 'Blocks to add (default ["dignity","vargas","aspects"]; "all" for every block): dignity (exaltation, moolatrikona, panchadha relation, combustion, planetary war, motion, Baladi/Jagradadi/Deeptadi, lordships), vargas, aspects, ashtakavarga, shadbala, bhavabala, kp_significators, yogini, ashtottari, chara, narayana. Example: ["shadbala","ashtakavarga"]',
+                },
+                vargas: {
+                  oneOf: [{ type: 'string', enum: ['all'] }, { type: 'array', items: { type: 'string', enum: ALL_VARGAS } }],
+                  description: 'Divisional charts (default ["D1","D9"]; "all" = D1 D2 D3 D4 D7 D9 D10 D12 D16 D20 D24 D27 D30 D40 D45 D60): sign, degree, lord and house from the varga lagna for the lagna and each graha, D-60 deity and nature, vargottama, Vimshopaka bala (Shad/Sapta/Dasha/Shodasha varga) and lagna_sign_change (seconds until the varga lagna changes sign, earlier and later)',
+                },
+                varga_method: {
+                  type: 'object',
+                  properties: { D2: { type: 'string', enum: ['parashara', 'parivritti'] }, D3: { type: 'string', enum: ['parashara', 'parivritti'] }, D30: { type: 'string', enum: ['parashara', 'parivritti'] } },
+                  description: 'Varga method overrides (default Parashara for all: D-2 Sun/Moon horas, D-3 drekkanas 1-5-9, D-30 unequal trimsamsa). Example: {"D2":"parivritti"}',
+                },
+                rahu_exaltation: { type: 'string', enum: ['Ta', 'Ge'], description: 'Rahu exalted in Taurus (default, Ketu in Scorpio) or Gemini (Ketu in Sagittarius)' },
+                moolatrikona: { type: 'object', description: 'Override BPHS moolatrikona ranges: {planet: [sign 0-11, from degree, to degree]}, e.g. {"Moon":[1,4,30]}' },
+                combustion_limits: { type: 'object', description: 'Override combustion orbs in degrees (defaults Moon 12, Mars 17, Mercury 14 / 12 retrograde, Jupiter 11, Venus 10 / 8 retrograde, Saturn 15). Example: {"Mercury":13,"Mercury_retrograde":12}' },
+                war_winner: { type: 'string', enum: ['latitude', 'brightness'], description: 'Planetary war winner: the planet further north (default) or the brighter one' },
+                stationary_ratio: { type: 'number', description: 'A planet is stationary when |speed| / mean speed is below this (default 0.1)' },
+                rahu_ketu_aspects: { type: 'string', enum: ['none', '5_9', '5_7_9_12'], description: 'Rahu/Ketu graha drishti: none, 5th/7th/9th (default) or 5th/7th/9th/12th' },
+                aspect_strength: { type: 'boolean', description: 'Add BPHS degree-based drishti strength in virupas (default false)' },
+                jaimini_aspects: { type: 'boolean', description: 'Add Jaimini rashi drishti (default false)' },
+                shodhana: { type: 'boolean', description: 'Ashtakavarga Trikona and Ekadhipatya shodhana with Shodhya Pinda (default false)' },
+                sunrise: { type: 'string', enum: ['standard', 'hindu'], description: 'Sunrise for Shadbala kala bala: upper limb with refraction (default) or disc centre without refraction' },
+                moon_benefic: { type: 'string', enum: ['ashtami', 'waxing'], description: 'The Moon as a benefic in drik and bhava drishti bala: from the 8th tithi of the bright half to the 8th of the dark half (default, B.V. Raman) or the bright half only' },
+                kp_significators: { type: 'boolean', description: 'Add KP significators: four levels per planet (star lord\'s house, own house, star lord\'s ownership, own ownership; planets in Rahu/Ketu stars noted) and cusp significators ordered by strength. With a single as_of it also gives the hour trigger (transit Moon / rising-degree sub lord vs the running Vimshottari lords)' },
+                chara_method: { type: 'string', enum: ['pvn_rao', 'kn_rao'], description: 'Chara dasha variant: pvn_rao (default, P.V.R. Narasimha Rao as in Jagannatha Hora; two cycles) or kn_rao (K.N. Rao; one cycle, exaltation +1/debilitation -1)' },
+                birth_time_sweep: {
+                  type: 'object',
+                  properties: {
+                    from_seconds: { type: 'number', description: 'First birth time, in seconds relative to datetime (e.g. -300)' },
+                    to_seconds: { type: 'number', description: 'Last birth time, in seconds relative to datetime (e.g. 300)' },
+                    step_seconds: { type: 'number', description: 'Step between birth times in seconds (fractions allowed)' },
+                  },
+                  required: ['from_seconds', 'to_seconds', 'step_seconds'],
+                  description: 'Rectification: recompute for each birth time in this range (up to 3601 times). Returns the dasha chain at every as_of date, the lagna (sign, nakshatra, pada, sub lord), the KP sub lords of the cusps and, when vargas is given, the varga lagnas; identical birth times are merged into ranges. Example: {"from_seconds":-60,"to_seconds":60,"step_seconds":1}',
+                },
+                sweep_output: {
+                  type: 'string',
+                  enum: ['auto', 'ranges', 'flips'],
+                  description: 'Sweep format. ranges: merged birth-time ranges. flips: for each as_of date only the birth offsets where its chain changes, with the chain before and after, e.g. {"at_s":4.43,"from":"Cp-Cp-Cp","to":"Sg-Sg-Sg"}. auto (default): ranges unless they would exceed about 25,000 tokens',
+                },
+                event_tests: {
+                  type: 'array',
+                  maxItems: 50,
+                  items: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string' },
+                      as_of: { type: 'string', description: 'Event date' },
+                      system: { type: 'string', enum: ['kalachakra', 'vimshottari', 'yogini', 'ashtottari'] },
+                      ayanamsa: { type: 'string', description: 'Optional ayanamsa for this test (Vimshottari, Yogini, Ashtottari)' },
+                      level: { type: 'integer', minimum: 1, maximum: 6, description: '1 mahadasha ... 6 deha' },
+                      expect: { description: 'Acceptable signs (Kalachakra, e.g. ["Li"]), lords (Vimshottari/Ashtottari, e.g. ["Mercury"]) or yoginis (e.g. ["Pingala"]); or {"house_from_lagna":[4,11]} / {"house_from_moon":[7]} for Kalachakra' },
+                    },
+                    required: ['as_of', 'level', 'expect'],
+                  },
+                  description: 'With birth_time_sweep: the birth-time windows where each event fits, the intersection of all tests, the largest subset that can pass together when they conflict, and a junction list (signed days from each event to the nearest boundary at the tested level and the next level down; minus = before the boundary). Example: [{"id":"vehicle","as_of":"2025-02-01T12:00:00+05:30","system":"kalachakra","level":3,"expect":["Li"]}]',
+                },
+                sweep_dasha: { type: 'string', enum: ['vimshottari', 'yogini', 'ashtottari'], description: 'Dasha system whose chains the sweep reports (default vimshottari)' },
               },
               required: ['datetime', 'latitude', 'longitude'],
             },
@@ -328,7 +397,7 @@ class SwissEphemerisServer {
                 },
                 latitude: {
                   type: 'number',
-                  description: 'Birth latitude (optional; Kalachakra uses the geocentric Moon, so the place does not change the result)',
+                  description: 'Birth latitude (optional; Kalachakra uses the geocentric Moon, so the place does not change it. Needed for event_tests with house_from_lagna)',
                 },
                 longitude: {
                   type: 'number',
@@ -357,7 +426,7 @@ class SwissEphemerisServer {
                     step_seconds: { type: 'number', description: 'Step between birth times in seconds (fractions allowed)' },
                   },
                   required: ['from_seconds', 'to_seconds', 'step_seconds'],
-                  description: 'Rectification: recompute the Kalachakra for each birth time in this range and return the chain at every as_of date for each (compact). Birth times giving identical chains are merged into ranges. Up to 3601 birth times and 100000 chains (birth times x dates)',
+                  description: 'Rectification: recompute the Kalachakra for each birth time in this range and return the chain at every as_of date for each (compact). Birth times giving identical chains are merged into ranges (or flips, see sweep_output). Up to 3601 birth times and 200 dates; add event_tests to get the passing windows directly',
                 },
                 current_timezone: {
                   type: 'string',
@@ -367,6 +436,45 @@ class SwissEphemerisServer {
                   type: 'array',
                   items: { type: 'string' },
                   description: 'Sign abbreviations naming a period to divide, e.g. ["Ta"] lists the antardashas of the Ta mahadasha, ["Ta", "Vi", "Aq"] the sookshmas of Ta MD > Vi AD > Aq PD. Abbreviations: Ar Ta Ge Cn Le Vi Li Sc Sg Cp Aq Pi',
+                },
+                ayanamsa_override: {
+                  type: 'string',
+                  enum: Object.keys(AYANAMSAS),
+                  description: 'Research only: compute Kalachakra in another ayanamsa. Kalachakra is extremely sensitive to the ayanamsa (a kp_new comparison moved the timeline by about 23 months); the response carries this warning. Default: Traditional Lahiri',
+                },
+                gati_list: {
+                  type: 'object',
+                  properties: {
+                    from: { type: 'string', description: 'Start date' },
+                    to: { type: 'string', description: 'End date' },
+                    levels: { type: 'integer', minimum: 1, maximum: 6, description: 'Deepest level to list (default 3)' },
+                    types: { type: 'array', items: { type: 'string', enum: ['Simhavalokana', 'Manduka', 'Markati', 'other jump', 'cycle_restart'] }, description: 'Jump types to list (default all)' },
+                    near_events: { type: 'array', items: { type: 'string' }, description: 'Event dates: each jump gets the nearest event and the signed gap in days' },
+                  },
+                  required: ['from', 'to'],
+                  description: 'Flat list of every Kalachakra jump (Simhavalokana, Manduka, Markati, other jumps, cycle restarts) between two dates down to the chosen level: level, full path (e.g. Cp/Cp/Pi), from-sign -> to-sign, type, start and end. Example: {"from":"2015-01-01","to":"2030-01-01","levels":2}',
+                },
+                sweep_output: {
+                  type: 'string',
+                  enum: ['auto', 'ranges', 'flips'],
+                  description: 'Sweep format. ranges: merged birth-time ranges. flips: for each as_of date only the birth offsets where its chain changes, with the chain before and after, e.g. {"at_s":4.43,"from":"Cp-Cp-Cp","to":"Sg-Sg-Sg"}. auto (default): ranges unless they would exceed about 25,000 tokens',
+                },
+                event_tests: {
+                  type: 'array',
+                  maxItems: 50,
+                  items: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string' },
+                      as_of: { type: 'string', description: 'Event date' },
+                      system: { type: 'string', enum: ['kalachakra', 'vimshottari', 'yogini', 'ashtottari'] },
+                      ayanamsa: { type: 'string', description: 'Optional ayanamsa for this test (Vimshottari, Yogini, Ashtottari)' },
+                      level: { type: 'integer', minimum: 1, maximum: 6, description: '1 mahadasha ... 6 deha' },
+                      expect: { description: 'Acceptable signs (Kalachakra, e.g. ["Li"]), lords (Vimshottari/Ashtottari, e.g. ["Mercury"]) or yoginis (e.g. ["Pingala"]); or {"house_from_lagna":[4,11]} / {"house_from_moon":[7]} for Kalachakra' },
+                    },
+                    required: ['as_of', 'level', 'expect'],
+                  },
+                  description: 'With birth_time_sweep: the birth-time windows where each event fits, the intersection of all tests, the largest subset that can pass together when they conflict, and a junction list (signed days from each event to the nearest boundary at the tested level and the next level down; minus = before the boundary). Example: [{"id":"vehicle","as_of":"2025-02-01T12:00:00+05:30","system":"kalachakra","level":3,"expect":["Li"]}]',
                 },
               },
               required: ['datetime'],
@@ -959,7 +1067,10 @@ class SwissEphemerisServer {
     }
     const asOf = asOfTimes[0];
     const levels = options.levels || 6;
-    const compact = options.output === 'chain' || Boolean(asOfInputs);
+    // chain_v1 (deprecated, kept for one release): the previous "chain" shape, i.e. the full
+    // chart objects with running chains but no dasha trees
+    const legacyChain = options.output === 'chain_v1';
+    const compact = !legacyChain && (options.output === 'chain' || Boolean(asOfInputs));
 
     const ephePath = process.env.SE_EPHE_PATH || '/app/vendor/swisseph';
     const positionFlag = positionType === 'true' ? ' -true' : '';
@@ -1074,7 +1185,7 @@ class SwissEphemerisServer {
     // Compact output shows three levels of the running chain unless levels is given (date
     // lists keep the full depth: they are one short string per date)
     const currentLevels = compact && !asOfInputs && !options.levels ? 3 : levels;
-    const dashaOptions = { levels: asOfInputs ? levels : currentLevels, compact, asOfList: asOfInputs ? asOfTimes.map(t => t.getTime()) : null };
+    const dashaOptions = { levels: asOfInputs ? levels : currentLevels, compact: compact || legacyChain, asOfList: asOfInputs ? asOfTimes.map(t => t.getTime()) : null };
     const formatTime = this.makeTimeFormatter(datetime);
     const yearDescription = yearDays
       ? `${yearDays} days`
@@ -1137,6 +1248,7 @@ class SwissEphemerisServer {
 
     return {
       settings,
+      ...(legacyChain ? { deprecated: 'output "chain_v1" is the previous chain format and will be removed in the next release; use "chain" (compact) or "full"' } : {}),
       zodiac: 'sidereal',
       ayanamsa: {
         name: ayanamsa.name,
@@ -3384,7 +3496,7 @@ class SwissEphemerisServer {
         }
 
         this.validateTimezone(args.current_timezone);
-        this.validateDashaOutput(args);
+        this.validateDashaOutput({ ...args, output: args.output === 'chain_v1' ? 'chain' : args.output });
         const vedicAsOf = this.normalizeAsOf(as_of);
         this.validateSweep(args, vedicAsOf);
         if (args.sweep_dasha !== undefined && !['vimshottari', 'yogini', 'ashtottari'].includes(args.sweep_dasha)) throw invalid('sweep_dasha', 'sweep_dasha must be "vimshottari", "yogini" or "ashtottari"');
@@ -3719,7 +3831,7 @@ class SwissEphemerisServer {
         res.json({ 
           status: 'ok', 
           server: 'swiss-ephemeris-mcp-server',
-          version: '1.0.0',
+          version: '1.1.0',
           transport: 'StreamableHTTP',
           protocol: 'http',
           port: port,
@@ -3732,7 +3844,7 @@ class SwissEphemerisServer {
       app.get('/', (req, res) => {
         res.json({
           name: 'Swiss Ephemeris MCP Server',
-          version: '1.0.0',
+          version: '1.1.0',
           description: 'MCP server for Swiss Ephemeris calculations with HTTP transport for ngrok tunneling',
           protocol: 'http',
           port: port,

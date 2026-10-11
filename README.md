@@ -24,6 +24,12 @@ The server is deployed live on Google Cloud Run and available for public MCP and
 - **Chart Points**: Ascendant, Midheaven, IC, Descendant
 - **Additional Points**: South Node, Part of Fortune
 - **Vedic / KP**: Sidereal chart (Lahiri, KP New, KP Old and more) with nakshatra, pada, star lord, KP sub lord and sub-sub lord, plus Vimshottari dasha down to sookshma
+- **Chart blocks**: divisional charts D1-D60 with Vimshopaka, dignity and avasthas, Vedic aspects, Ashtakavarga, Shadbala and Bhavabala, KP significators
+- **More dashas**: Kalachakra (SM Singh), Yogini, Ashtottari, Chara and Narayana
+- **Gochar**: Sade Sati and other Saturn states with exact spans, tara/chandra bala, natal hits, ingress and station search
+- **Rectification**: birth-time sweeps with event tests, Kalachakra jump lists, transit-to-cusp anchors, KP ruling planets and the hour trigger
+
+See [CHANGELOG.md](CHANGELOG.md) for what changed in 1.1.0.
 
 ## Installation
 
@@ -151,6 +157,18 @@ Calculate a sidereal Vedic/KP birth chart with Vimshottari and Kalachakra dashas
 - `levels` (integer, optional): How deep chains go, from 1 (mahadasha) to 6 (deha, the default)
 - `current_timezone` (string, optional): IANA timezone where the native lives now, e.g. `Australia/Melbourne`. Every dasha `start`/`end` also gets `start_local`/`end_local`, e.g. `2026-10-08 03:02:21 AEDT (UTC+11:00)`, using that zone's daylight-saving rules for each date.
 - `dasha_year_days` (number, optional): Fixed days per dasha year, e.g. 365.25. Omit it to use true sidereal solar years.
+- `include` (list or `"all"`, optional): extra blocks, default `["dignity","vargas","aspects"]`:
+  - `dignity`: exaltation/debilitation with the distance from the deep point, moolatrikona, own sign, natural/temporary/compound relation to the sign lord, combustion (orb and limit), planetary war, retrograde/stationary/speed ratio, Baladi, Jagradadi and Deeptadi avasthas, lordships from the lagna and the Moon
+  - `vargas`: the signs in `vargas` (default `["D1","D9"]`, `"all"` = D1 to D60) for the lagna and every graha, the D-60 deity and nature, `vargottama`, Vimshopaka bala (Shad/Sapta/Dasha/Shodasha varga) and `lagna_sign_change` (seconds until each varga lagna changes sign, earlier and later)
+  - `aspects`: sign-based graha drishti per graha and per house; `aspect_strength` adds BPHS virupas, `jaimini_aspects` adds rashi drishti
+  - `ashtakavarga`: BAV for the seven planets and the lagna, SAV with the 337 self-check, prastharashtakavarga, `shodhana` (Trikona/Ekadhipatya and Shodhya Pinda); with a single `as_of`, transit bindus and kakshyas
+  - `shadbala`, `bhavabala`: the six balas with sub-parts in virupas, rupas, required minimum, ratio and rank, Ishta/Kashta phala, and the strength of the 12 houses
+  - `kp_significators` (or `kp_significators: true`): four-level significations per planet and cusp significators by strength; with a single `as_of`, the hour trigger
+  - `yogini`, `ashtottari` (with its applicability check), `chara` (`chara_method`), `narayana`: running chain with countdowns, date lists and full trees
+- Classical choices: `varga_method`, `rahu_exaltation`, `moolatrikona`, `combustion_limits`, `war_winner`, `stationary_ratio`, `rahu_ketu_aspects`, `sunrise`, `moon_benefic`, `chara_method`. Every response names the ones it used in `settings`.
+- Rectification: `birth_time_sweep` (chains, lagna, cusp sub lords and varga lagnas per birth time), `sweep_output` (`ranges` or `flips`), `event_tests` and `sweep_dasha` (`vimshottari`, `yogini`, `ashtottari`); see the Kalachakra tool below
+
+With `output: "chain"` the whole chart, every block included, stays under 3,000 tokens: one line per planet, cusp and block, and 3 levels of running chain unless `levels` is given. `output: "chain_v1"` returns the previous chain format for this release only.
 
 **Returns:**
 - `ayanamsa`: Name and value used
@@ -186,9 +204,13 @@ Kalachakra dasha only, always with the JHora settings above. Nothing can be over
 - `as_of` (string or list, optional): Date for the running chain (default now), or a list of up to 200 dates (e.g. life events) for one compact chain per date
 - `output` (string, optional): `full` (default) or `chain`. `chain` returns only the running chain with countdowns and next periods; it is about a fifth of the size of `full`
 - `levels` (integer, optional): How deep chains go, from 1 (mahadasha) to 6 (deha, the default)
-- `birth_time_sweep` (object, optional): `{ "from_seconds": -600, "to_seconds": 600, "step_seconds": 1 }` recomputes the Kalachakra for each birth time in that range (relative to `datetime`, fractions allowed) and returns the chain at every `as_of` date. Consecutive birth times with identical chains are merged into ranges, so the output shows only where the chains change. Up to 3,601 birth times and 100,000 chains per call.
+- `birth_time_sweep` (object, optional): `{ "from_seconds": -600, "to_seconds": 600, "step_seconds": 1 }` recomputes the Kalachakra for each birth time in that range (relative to `datetime`, fractions allowed) and returns the chain at every `as_of` date. Consecutive birth times with identical chains are merged into ranges, so the output shows only where the chains change. Up to 3,601 birth times and 200 dates per call.
 - `current_timezone` (string, optional): IANA timezone where the native lives now; adds `start_local`/`end_local` to every period, as above
 - `drill_down` (array, optional): Up to 5 sign abbreviations naming a period to divide, like left-clicking a period in JHora. `["Ta"]` lists the antardashas of the Ta mahadasha; `["Ta", "Vi", "Aq"]` lists the sookshmas of Ta MD › Vi AD › Aq PD; five signs list the deha periods. If a sign appears twice in a list, the first one is used.
+- `sweep_output` (string, optional): `ranges`, `flips` (per date, only the birth offsets where the chain changes, with the chain before and after), or `auto` (default: flips when ranges would exceed about 25,000 tokens)
+- `event_tests` (array, optional): with a sweep, e.g. `[{"id":"vehicle","as_of":"2025-02-01T12:00:00+05:30","level":3,"expect":["Li"]}]` (or `{"house_from_lagna":[4,11]}` with `latitude`/`longitude`). Returns each test's birth-time windows, their intersection, the best subset when they conflict, and the junction (signed days to the nearest boundary at the tested and the next level)
+- `gati_list` (object, optional): `{"from":"2015-01-01","to":"2030-01-01","levels":2}` lists every Simhavalokana, Manduka, Markati and other jump with its path, signs and dates; `near_events` adds the nearest event and the gap in days
+- `ayanamsa_override` (string, optional): research only; the response warns that Kalachakra is extremely sensitive to the ayanamsa
 
 **Returns:** `settings`, the Moon's position, `birth_time_sensitivity`, the ayanamsa used, direction (Savya/Apasavya), Paramayush, Deha, Jiva, the running chain down to deha (`current`, with `ends_in` and `next` per level), the requested sub-period list (`drill_down`), and with `output: "full"` every mahadasha with its antardashas. Each period carries `gati` when the dasha jumps into it (Simhavalokana, Manduka or Markati) and `cycle_restart` where the SM Singh cycle begins again. With a list of `as_of` dates you get `chains`; with `birth_time_sweep` you get `ranges`.
 
@@ -203,7 +225,45 @@ Example: rectifying against life events in one call
 }
 ```
 
+### `calculate_gochar`
+
+Transits over a natal chart, with finished answers.
+
+**Parameters:** `datetime`, `latitude`, `longitude` (birth); `as_of` (date or list of up to 200, default now); `from`/`to` (search range); `search_planets`, `search_events` (`sign`, `nakshatra`, `station`); `orb` (default 1°); `kantaka_includes_first` (default false); `ayanamsa`, `node_type`, `position_type`, `output`, `current_timezone`.
+
+**Returns:** each graha's position, nakshatra and pada, house from the natal Moon and lagna and KP house; Saturn's Sade Sati (rising/peak/setting), Ashtama, Kantaka and Ardhashtama, each with the episode's start, end and spans (retrograde re-entries give several spans); Jupiter, Rahu and Ketu stays; tara bala and chandra bala with the time they change; Jupiter/Saturn/Rahu/Ketu within the orb of natal planets, cusps or the Bhrigu Bindu with the exact dates; and for a range, every Saturn episode, Jupiter/Rahu/Ketu sign stay, ingress and station. Ingress times are within about a second; stations are refined to the second.
+
+### `calculate_ruling_planets`
+
+KP ruling planets for a moment and place (default now, IST): the day lord (weekday from sunrise), the Moon's and the lagna's sign, star and sub lords, the ordered set with Rahu/Ketu added when they represent a ruling planet, and the cleaned set without retrograde planets (`keep_retrograde` keeps them). With `birth_datetime`, the hour trigger says whether the transit Moon's or the rising degree's sub lord equals a running Vimshottari lord, and at which level.
+
+### `rectify_by_transit`
+
+Birth-time anchors from transits, e.g. `{"as_of":"2023-02-27","planet":"Rahu","target":"cusp10"}` (targets `cusp1`-`cusp12`, `lagna`, `mc` or a natal planet). For each anchor, the birth time within `window_seconds` (default 600) that puts the natal target exactly on the transiting planet, with the residuals at the window edges; then the least-squares best birth time over the anchors that can be solved, its RMS residual and the spread of the single-anchor solutions.
+
+### Reference checks
+
+| Feature | Checked against | Result |
+|---|---|---|
+| D-9 | Jagannatha Hora (Sagar) | all nine grahas and the lagna match |
+| Ashtakavarga | AstroSage (Sagar) | every BAV bindu matches; SAV 337 |
+| Shadbala | AstroSage (Sagar) | uchcha, ojayugma, kendradi, dig, kala parts, ayana and drik within 0.15 virupa; cheshta within 0.5 (Mercury 1.2); totals within 1 virupa where the hora/year lords agree. Mercury's saptavargaja is 15 below AstroSage's |
+| Ishta/Kashta | Jagannatha Hora (Dhruvit) | within 0.25 |
+| Bhavabala | AstroSage (Sagar) | dig bala exact, drishti bala within 0.2 |
+| Narayana order | Jagannatha Hora's progression table | all 12 starting signs |
+| Sade Sati spans | Saturn ingresses from swetest | span ends straddle the sign boundary at ±1.5 s |
+
+Yogini, Ashtottari, Chara and Narayana periods, the KP blocks and the gochar states follow the documented rules (named in `settings`), but have not yet been compared period by period with Jagannatha Hora.
+
 KP New uses the Swiss Ephemeris "Krishnamurti VP291" ayanamsa (`-sid45`), which needs a recent `swetest` build (the Dockerfile builds the latest).
+
+## Tests
+
+```bash
+npm test
+```
+
+The suites run the acceptance tests (T1-T8) and the reference checks above through the MCP interface. They need `swetest` on `PATH` and `SE_EPHE_PATH` pointing at the ephemeris files (e.g. `vendor/swisseph`); without `swetest` those tests are skipped.
 
 ## Docker
 
