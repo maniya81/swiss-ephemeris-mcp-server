@@ -263,6 +263,8 @@ Every reference value comes from one chart, Sagar (6 June 1999, 15:30:00 IST, Bh
 
 The alternative methods (`shadbala_method: "raman"`, `ashtakavarga_tables: "bphs"`, `vimshopaka_method: "bphs"`, `drishti_rule: "bphs"`) follow B.V. Raman and BPHS as AstroSage does; the tests check them for consistency only.
 
+`.claude/skills/swiss-ephemeris-mcp` teaches an assistant to use these tools with the fewest tokens: which tool answers which question, the compact arguments (`output: "chain"`, `levels`, `as_of` lists, `drill_down`) and real example requests and responses.
+
 `.claude/skills/jhora-verification` records the JH settings, reference values and the procedure for checking new JH screenshots, with a script that compares a pasted JH Kalachakra export with the server.
 
 Yogini, Ashtottari, Chara and Narayana periods, the KP blocks and the gochar states follow the documented rules (named in `settings`), but have not yet been compared period by period with Jagannatha Hora.

@@ -551,14 +551,14 @@ class SwissEphemerisServer {
                   items: {
                     type: 'object',
                     properties: {
-                      as_of: { type: 'string', description: 'Event date, e.g. "2023-02-27" or "2023-02-27T12:00:00+05:30"' },
+                      as_of: { type: 'string', description: 'Event date, e.g. "2025-12-01" or "2025-12-01T12:00:00+05:30"' },
                       planet: { type: 'string', enum: ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn', 'Rahu', 'Ketu'], description: 'Transiting planet' },
                       target: { type: 'string', description: 'Natal point: cusp1-cusp12, lagna, mc, or a natal planet name (e.g. "Moon")' },
                       weight: { type: 'number', description: 'Weight in the combined fit (default 1)' },
                     },
                     required: ['as_of', 'planet', 'target'],
                   },
-                  description: 'Transit anchors, e.g. [{"as_of":"2023-02-27","planet":"Rahu","target":"cusp10"}]',
+                  description: 'Transit anchors, e.g. [{"as_of":"2025-12-01","planet":"Jupiter","target":"cusp10"}]',
                 },
                 ayanamsa: { type: 'string', enum: ['traditional_lahiri', 'lahiri', 'kp_new', 'kp_old', 'raman', 'yukteshwar', 'fagan_bradley'], description: 'Ayanamsa (default traditional_lahiri)' },
                 node_type: { type: 'string', enum: ['true', 'mean'], description: 'true (default) or mean nodes' },
@@ -3724,12 +3724,12 @@ class SwissEphemerisServer {
         if (typeof tLongitude !== 'number' || tLongitude < -180 || tLongitude > 180) throw invalid('longitude', 'longitude must be a number between -180 and 180');
         if (args.ayanamsa !== undefined && !AYANAMSAS[args.ayanamsa]) throw invalid('ayanamsa', `ayanamsa must be one of: ${Object.keys(AYANAMSAS).join(', ')}`);
         if (args.window_seconds !== undefined && (typeof args.window_seconds !== 'number' || args.window_seconds < 10 || args.window_seconds > 7200)) throw invalid('window_seconds', 'window_seconds must be a number from 10 to 7200');
-        if (!Array.isArray(anchors) || !anchors.length || anchors.length > 20) throw invalid('anchors', 'anchors must be a list of 1 to 20 objects like {"as_of":"2023-02-27","planet":"Rahu","target":"cusp10"}');
+        if (!Array.isArray(anchors) || !anchors.length || anchors.length > 20) throw invalid('anchors', 'anchors must be a list of 1 to 20 objects like {"as_of":"2025-12-01","planet":"Jupiter","target":"cusp10"}');
         const targetOk = (t) => /^cusp([1-9]|1[0-2])$/.test(t) || t === 'lagna' || t === 'mc' || GRAHA_NAMES.includes(t);
         const normalized = anchors.map((a, i) => {
           if (!a || typeof a !== 'object') throw invalid('anchors', `anchor ${i + 1} must be an object`);
           const asOf = typeof a.as_of === 'string' ? this.withDefaultOffset(a.as_of) : null;
-          if (!asOf || isNaN(Date.parse(asOf))) throw invalid('anchors', `anchor ${i + 1}: as_of must be a date, e.g. "2023-02-27" or "2023-02-27T12:00:00+05:30"`);
+          if (!asOf || isNaN(Date.parse(asOf))) throw invalid('anchors', `anchor ${i + 1}: as_of must be a date, e.g. "2025-12-01" or "2025-12-01T12:00:00+05:30"`);
           if (!GRAHA_NAMES.includes(a.planet)) throw invalid('anchors', `anchor ${i + 1}: planet must be one of ${GRAHA_NAMES.join(', ')}`);
           if (typeof a.target !== 'string' || !targetOk(a.target)) throw invalid('anchors', `anchor ${i + 1}: target must be cusp1-cusp12, lagna, mc or a natal planet (${GRAHA_NAMES.join(', ')})`);
           if (a.weight !== undefined && (typeof a.weight !== 'number' || a.weight <= 0)) throw invalid('anchors', `anchor ${i + 1}: weight must be a positive number`);
