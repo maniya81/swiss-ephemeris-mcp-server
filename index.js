@@ -18,6 +18,7 @@ import { computeDignity, compactDignity } from './src/dignity.js';
 import { computeVargas, computeVimshopaka, compactVargas, vargaPosition, ALL_VARGAS, VARGA_METHODS } from './src/vargas.js';
 import { computeAspects, compactAspects } from './src/aspects.js';
 import { computeAshtakavarga, compactAshtakavarga, transitBindus } from './src/ashtakavarga.js';
+import { computeShadbala, computeBhavabala, compactShadbala, compactBhavabala } from './src/shadbala.js';
 import {
   MAX_SWEEP_CHARS, roundOffset, sampleOffsets, flipsOf, countChanges, passWindows, intersectWindows, bestSubset,
   fitToBudget, makeLongitudeInterpolator, makeLinearInterpolator, refineChanges,
@@ -1002,6 +1003,7 @@ class SwissEphemerisServer {
       sweepSettings: { siderealFlag: ayanamsa.flag, positionFlag },
       ayanamsa,
       formatTime,
+      datetimeString: datetime,
       // Transit-dependent blocks use an as_of date only when one was given
       transitDate: options.as_of && !asOfInputs ? asOf : null,
     };
@@ -1093,6 +1095,36 @@ class SwissEphemerisServer {
       out.aspects = compact ? compactAspects(aspects) : aspects;
     }
 
+    if (include.has('shadbala') || include.has('bhavabala')) {
+      const eph = createEphemeris();
+      const tropical = eph.grahas(ctx.date, { positionFlag: ctx.sweepSettings.positionFlag });
+      const offset = (ctx.datetimeString.match(/([+-])(\d{2}):?(\d{2})$/) || []);
+      const timezoneHours = offset.length ? (offset[1] === '-' ? -1 : 1) * (parseInt(offset[2]) + parseInt(offset[3]) / 60) : 0;
+      const chart = {
+        sidereal: Object.fromEntries(SEVEN_PLANETS.map(p => [p, ctx.grahas[p].lon])),
+        tropical: Object.fromEntries(SEVEN_PLANETS.map(p => [p, tropical[p].lon])),
+        lat: Object.fromEntries(SEVEN_PLANETS.map(p => [p, ctx.grahas[p].lat])),
+        mags: Object.fromEntries(SEVEN_PLANETS.map(p => [p, ctx.grahas[p].mag])),
+        lagna: ctx.lagnaLon,
+        mc: ctx.cusps[10],
+        birthMs: ctx.date.getTime(),
+        jd: ctx.date.getTime() / DAY_MS + 2440587.5,
+        year: ctx.date.getUTCFullYear(),
+        sun: eph.sunTimes(ctx.date, ctx.place.latitude, ctx.place.longitude, { hindu: options.sunrise === 'hindu' }),
+        timezoneHours,
+        warWinner: (options.dignity_options || {}).war_winner || 'latitude',
+        moonRule: options.moon_benefic || 'ashtami',
+      };
+      const shadbala = computeShadbala(chart);
+      if (include.has('shadbala')) {
+        out.shadbala = compact ? compactShadbala(shadbala) : { planets: shadbala.planets, kala_lords: shadbala.lords, drik_benefics: shadbala.drik_benefics };
+      }
+      if (include.has('bhavabala')) {
+        const bhava = computeBhavabala(chart, shadbala._virupas);
+        out.bhavabala = compact ? compactBhavabala(bhava) : bhava;
+      }
+    }
+
     if (include.has('ashtakavarga')) {
       const av = computeAshtakavarga(longitudes, ctx.lagnaLon, { prastara: !compact, shodhana: options.shodhana });
       const { _raw, ...shown } = av;
@@ -1176,6 +1208,20 @@ class SwissEphemerisServer {
         war_winner: d.war_winner || 'latitude',
         stationary_ratio: d.stationary_ratio ?? 0.1,
         node_relationships: 'Rahu as Saturn, Ketu as Mars',
+      };
+    }
+    if (include.has('shadbala') || include.has('bhavabala')) {
+      out.shadbala = {
+        method: 'BPHS with B.V. Raman\'s "Graha and Bhava Balas" procedures',
+        saptavargaja_points: 'moolatrikona 45 (D1), own 30, adhimitra 22.5, mitra 15, sama 7.5, shatru 3.75, adhishatru 1.875; relationships from D1',
+        ayana: 'declination from the sayana longitude with obliquity 24°; Sun doubled',
+        cheshta: 'seeghrochcha - (mean + true)/2 with Raman\'s mean longitudes (1900 Ujjain epoch); Sun: sayana Sun + 90°; Moon: elongation from the Sun',
+        abda_masa: 'weekday lords of the first day of the 360-day year and 30-day month of Raman\'s ahargana',
+        vara_hora: 'weekday from sunrise; equal-hour horas from sunrise',
+        sunrise: options.sunrise === 'hindu' ? 'disc centre without refraction (Hindu)' : 'upper limb with refraction',
+        moon_benefic: (options.moon_benefic || 'ashtami') === 'ashtami' ? 'ashtami: benefic from the 8th tithi of the bright half to the 8th tithi of the dark half (drik and bhava drishti)' : 'waxing: benefic in the bright half (drik and bhava drishti)',
+        drik: '(benefic - malefic aspect virupas)/4, special aspects not capped; Mercury benefic alone or with more benefics',
+        bhavabala: 'equal bhavas from the lagna degree; dig by sign type; drishti: benefics +1/4, malefics -1/4, Jupiter and Mercury in full',
       };
     }
     if (include.has('ashtakavarga')) {
@@ -2303,7 +2349,9 @@ class SwissEphemerisServer {
       aspect_strength: Boolean(args.aspect_strength),
       jaimini_aspects: Boolean(args.jaimini_aspects),
     };
-    return { include, vargas, varga_method: methods, dignity_options: dignityOptions, aspect_options: aspectOptions, shodhana: Boolean(args.shodhana) };
+    const sunrise = choice('sunrise', ['standard', 'hindu']);
+    const moonBenefic = choice('moon_benefic', ['ashtami', 'waxing']);
+    return { include, vargas, varga_method: methods, dignity_options: dignityOptions, aspect_options: aspectOptions, shodhana: Boolean(args.shodhana), sunrise, moon_benefic: moonBenefic };
   }
 
   // birth_time_sweep, sweep_output and their size limits

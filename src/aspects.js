@@ -13,8 +13,9 @@ export function aspectHouses(planet, rahuKetu = '5_9') {
 
 // BPHS drishti strength (virupas, 0-60) of an aspect across `angle` degrees (aspected minus
 // aspecting longitude). Special aspects get extra virupas: Saturn 3rd/10th +45, Jupiter
-// 5th/9th +30, Mars 4th/8th +15 (capped at 60).
-export function drishtiVirupas(planet, angle) {
+// 5th/9th +30, Mars 4th/8th +15. Capped at 60 unless `cap` is false (Shadbala's drik bala
+// uses the uncapped value, as in B.V. Raman's tables).
+export function drishtiVirupas(planet, angle, cap = true) {
   const d = norm360(angle);
   let v = 0;
   if (d >= 30 && d < 60) v = (d - 30) / 2;
@@ -27,7 +28,7 @@ export function drishtiVirupas(planet, angle) {
   if (planet === 'Saturn' && (inRange(60, 90) || inRange(270, 300))) v += 45;
   if (planet === 'Jupiter' && (inRange(120, 150) || inRange(240, 270))) v += 30;
   if (planet === 'Mars' && (inRange(90, 120) || inRange(210, 240))) v += 15;
-  return Math.min(60, v);
+  return cap ? Math.min(60, v) : v;
 }
 
 // Jaimini rashi drishti: movable signs aspect the fixed signs except the adjacent one, fixed
