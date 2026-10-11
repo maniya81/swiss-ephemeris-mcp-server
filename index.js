@@ -13,7 +13,8 @@ import { execSync } from 'node:child_process';
 import express from 'express';
 import { ToolError, invalid } from './src/errors.js';
 import { createEphemeris } from './src/ephemeris.js';
-import { PLANET_ABBR, GRAHAS as GRAHA_NAMES, round, norm360, signOf, houseFrom, shortPosition } from './src/constants.js';
+import { PLANET_ABBR, GRAHAS as GRAHA_NAMES, WEEKDAY_LORDS, round, norm360, signOf, houseFrom, shortPosition } from './src/constants.js';
+import { kpLords, kpHouse, kpSignificators, compactSignificators, rulingPlanets } from './src/kp.js';
 import { sampleBody, boundaryCrossings, stations, signIntervals, stateEpisodes, episodeAt, taraBala, chandraBala, natalHit, EPISODE_GAP_DAYS } from './src/gochar.js';
 import { computeDignity, compactDignity } from './src/dignity.js';
 import { computeVargas, computeVimshopaka, compactVargas, vargaPosition, ALL_VARGAS, VARGA_METHODS } from './src/vargas.js';
@@ -396,6 +397,58 @@ class SwissEphemerisServer {
                 current_timezone: { type: 'string', description: 'IANA timezone where the native lives now, e.g. Australia/Melbourne. Adds *_local times (compact strings show them in brackets)' },
               },
               required: ['datetime', 'latitude', 'longitude'],
+            },
+          },
+          {
+            name: 'calculate_ruling_planets',
+            description: 'KP ruling planets for a moment and place (default now, IST): day lord (weekday from the last sunrise), the Moon\'s and the lagna\'s sign, star and sub lords, the ordered ruling-planet set with Rahu/Ketu added when they occupy the sign of, or conjoin, a ruling planet, and the cleaned set without retrograde planets. With birth_datetime it adds the hour trigger: whether the transit Moon\'s or the rising degree\'s sub lord equals a running Vimshottari lord, and at which level. Example: {"datetime":"2025-06-01T10:15:30+05:30","latitude":22.1667,"longitude":71.6667,"birth_datetime":"1979-08-16T05:25:00+05:30"}',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                datetime: { type: 'string', description: 'Moment of judgment, ISO8601 with offset and seconds (default now, in IST)' },
+                latitude: { type: 'number', description: 'Latitude of the place of judgment' },
+                longitude: { type: 'number', description: 'Longitude of the place of judgment, positive east' },
+                birth_datetime: { type: 'string', description: 'Optional birth datetime for the hour trigger (natal Vimshottari chain at the moment)' },
+                keep_retrograde: { type: 'boolean', description: 'Keep retrograde planets in the cleaned set (default false: KP removes them)' },
+                ayanamsa: { type: 'string', enum: ['traditional_lahiri', 'lahiri', 'kp_new', 'kp_old', 'raman', 'yukteshwar', 'fagan_bradley'], description: 'Ayanamsa (default traditional_lahiri; KP practitioners often use kp_new)' },
+                node_type: { type: 'string', enum: ['true', 'mean'], description: 'true (default) or mean nodes' },
+                position_type: { type: 'string', enum: ['true', 'apparent'], description: 'true (default) or apparent positions' },
+                dasha_year_days: { type: 'number', description: 'Vimshottari year length for the hour trigger (default: true sidereal solar year)' },
+                current_timezone: { type: 'string', description: 'IANA timezone; adds moment_local' },
+              },
+              required: ['latitude', 'longitude'],
+            },
+          },
+          {
+            name: 'rectify_by_transit',
+            description: 'Birth-time rectification from transit anchors. For each anchor {as_of, planet, target}, finds the birth time in the window that puts the natal target (cusp1-cusp12, lagna, mc or a natal planet) exactly on the transiting planet\'s longitude at as_of, with the residual orb at the window edges; then the least-squares best birth time over all anchors, its RMS residual and the spread of the single-anchor solutions. Example: {"datetime":"1979-08-16T05:25:00+05:30","latitude":22.1667,"longitude":71.6667,"window_seconds":600,"anchors":[{"as_of":"2023-02-27T12:00:00+05:30","planet":"Rahu","target":"cusp10"}]}',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                datetime: { type: 'string', description: 'Recorded birth datetime, ISO8601 with offset and seconds (IST assumed without an offset)' },
+                latitude: { type: 'number', description: 'Birth latitude' },
+                longitude: { type: 'number', description: 'Birth longitude, positive east' },
+                window_seconds: { type: 'number', description: 'Search window: birth times from -window to +window seconds around datetime (default 600, up to 7200)' },
+                anchors: {
+                  type: 'array',
+                  maxItems: 20,
+                  items: {
+                    type: 'object',
+                    properties: {
+                      as_of: { type: 'string', description: 'Event date, e.g. "2023-02-27" or "2023-02-27T12:00:00+05:30"' },
+                      planet: { type: 'string', enum: ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn', 'Rahu', 'Ketu'], description: 'Transiting planet' },
+                      target: { type: 'string', description: 'Natal point: cusp1-cusp12, lagna, mc, or a natal planet name (e.g. "Moon")' },
+                      weight: { type: 'number', description: 'Weight in the combined fit (default 1)' },
+                    },
+                    required: ['as_of', 'planet', 'target'],
+                  },
+                  description: 'Transit anchors, e.g. [{"as_of":"2023-02-27","planet":"Rahu","target":"cusp10"}]',
+                },
+                ayanamsa: { type: 'string', enum: ['traditional_lahiri', 'lahiri', 'kp_new', 'kp_old', 'raman', 'yukteshwar', 'fagan_bradley'], description: 'Ayanamsa (default traditional_lahiri)' },
+                node_type: { type: 'string', enum: ['true', 'mean'], description: 'true (default) or mean nodes' },
+                position_type: { type: 'string', enum: ['true', 'apparent'], description: 'true (default) or apparent positions' },
+              },
+              required: ['datetime', 'latitude', 'longitude', 'anchors'],
             },
           },
         ],
@@ -1040,6 +1093,14 @@ class SwissEphemerisServer {
     const vimshottariDasha = this.calculateVimshottari(vimshottari, date.getTime(), clock, formatTime, asOf, yearDescription, dashaOptions);
     const kalachakraDasha = this.calculateKalachakra(kalachakra, clock, formatTime, asOf, yearDescription, { ...dashaOptions, ayanamsaName: ayanamsa.name });
     const settings = this.chartSettings({ ayanamsa, positionType, nodeType, yearDays, extra: this.blockSettings(options) });
+    // KP hour trigger at an explicit as_of: transit Moon and rising-degree sub lords (birth place)
+    // against the running Vimshottari lords
+    if (blocks.kp_significators && ctx.transitDate && vimshottariDasha.current) {
+      const eph = createEphemeris(ephePath);
+      const transit = eph.grahas(ctx.transitDate, { siderealFlag: ayanamsa.flag, positionFlag, nodeType });
+      const rising = eph.houses(ctx.transitDate, latitude, longitude, { siderealFlag: ayanamsa.flag, positionFlag });
+      blocks.kp_significators.hour_trigger = this.hourTrigger(vimshottariDasha.current.chain.split('-'), kpLords(transit.Moon.lon).sub_lord, kpLords(rising.asc).sub_lord, formatTime(ctx.transitDate.getTime()));
+    }
 
     if (compact) {
       // Compact: one string per planet, cusp and dasha level
@@ -1152,6 +1213,11 @@ class SwissEphemerisServer {
         const bhava = computeBhavabala(chart, shadbala._virupas);
         out.bhavabala = compact ? compactBhavabala(bhava) : bhava;
       }
+    }
+
+    if (include.has('kp_significators')) {
+      const sig = kpSignificators(longitudes, ctx.cusps);
+      out.kp_significators = compact ? compactSignificators(sig) : sig;
     }
 
     if (include.has('ashtakavarga')) {
@@ -2557,6 +2623,200 @@ class SwissEphemerisServer {
     return result;
   }
 
+  // KP hour trigger: does the transit Moon's or the rising degree's sub lord equal a running
+  // Vimshottari lord, and at which levels
+  hourTrigger(chainLords, moonSub, lagnaSub, asOf) {
+    const levelsOf = (lord) => chainLords.map((l, i) => (l === lord ? DASHA_LEVELS[i] : null)).filter(Boolean);
+    const moonMatches = levelsOf(moonSub);
+    const lagnaMatches = levelsOf(lagnaSub);
+    return {
+      as_of: asOf,
+      running_chain: chainLords.join('-'),
+      moon_sub_lord: moonSub,
+      moon_sub_lord_matches: moonMatches,
+      lagna_sub_lord: lagnaSub,
+      lagna_sub_lord_matches: lagnaMatches,
+      triggered: moonMatches.length > 0 || lagnaMatches.length > 0,
+    };
+  }
+
+  // Running Vimshottari lords (mahadasha first) at time t for a birth datetime
+  vimshottariLordsAt(birthIso, t, { ayanamsaKey = DEFAULT_AYANAMSA, positionType = 'true', yearDays } = {}) {
+    const birthMs = Date.parse(birthIso);
+    const ayanamsa = AYANAMSAS[ayanamsaKey];
+    const ephePath = process.env.SE_EPHE_PATH || '/app/vendor/swisseph';
+    const settings = { siderealFlag: ayanamsa.flag, positionFlag: positionType === 'true' ? ' -true' : '' };
+    const moon = createEphemeris(ephePath).longitude('Moon', new Date(birthMs), settings).lon;
+    const start = this.vimshottariStart(moon);
+    const years = (t - birthMs) / (SIDEREAL_YEAR_DAYS * DAY_MS);
+    const sunTable = yearDays ? null : this.makeSunTableForYears(birthMs, { ephePath, ...settings }, -start.elapsedYears, Math.max(years, 0) + 1);
+    const engine = this.vimshottariEngine(start, this.makeDashaClock(birthMs, { sunTable, yearDays }), this.makeTimeFormatter(birthIso));
+    return this.dashaChainAt(t, engine.mahadashas, engine.subPeriods, 6).map(p => p.lord);
+  }
+
+  // calculate_ruling_planets: KP ruling planets for a moment and place, with an optional hour
+  // trigger against a natal Vimshottari chain
+  calculateRulingPlanets(datetime, latitude, longitude, options = {}) {
+    const date = new Date(datetime);
+    if (isNaN(date.getTime())) throw invalid('datetime', 'Invalid datetime. Use ISO8601 with a UTC offset, e.g. 2025-06-01T10:15:30+05:30');
+    const ayanamsaKey = options.ayanamsa || DEFAULT_AYANAMSA;
+    const ayanamsa = AYANAMSAS[ayanamsaKey];
+    const positionType = options.position_type || 'true';
+    const nodeType = options.node_type || 'true';
+    const settingsFlags = { siderealFlag: ayanamsa.flag, positionFlag: positionType === 'true' ? ' -true' : '', nodeType };
+    const eph = createEphemeris();
+    const grahas = eph.grahas(date, settingsFlags);
+    const houses = eph.houses(date, latitude, longitude, settingsFlags);
+    // KP day lord: the weekday that began at the last sunrise at this place
+    const sun = eph.sunTimes(date, latitude, longitude);
+    const offset = (datetime.match(/([+-])(\d{2}):?(\d{2})$/) || []);
+    const offsetMs = offset.length ? (offset[1] === '-' ? -1 : 1) * (parseInt(offset[2]) * 60 + parseInt(offset[3])) * 60000 : 0;
+    const dayLord = WEEKDAY_LORDS[new Date(sun.sunrise + offsetMs).getUTCDay()];
+    const rp = rulingPlanets({ grahas, asc: houses.asc, dayLord, keepRetrograde: options.keep_retrograde });
+    const formatTime = this.makeTimeFormatter(datetime);
+    const result = {
+      settings: {
+        ayanamsa: ayanamsa.name,
+        positions: positionType,
+        nodes: nodeType,
+        day_lord: 'weekday from the last sunrise at the place',
+        order: 'lagna star lord, lagna sign lord, Moon star lord, Moon sign lord, day lord, then lagna sub lord and Moon sub lord',
+        nodes_rule: 'Rahu/Ketu are added just above the ruling planet whose sign they occupy or which they conjoin',
+        cleaning: options.keep_retrograde ? 'retrograde planets kept' : 'retrograde planets removed from the cleaned set (KP)',
+      },
+      moment: formatTime(date.getTime()),
+      moon: this.compactPoint(this.describeSiderealPoint(grahas.Moon.lon)),
+      lagna: this.compactPoint(this.describeSiderealPoint(houses.asc)),
+      sunrise: formatTime(sun.sunrise),
+      ...rp,
+    };
+    if (options.birth_datetime) {
+      const lords = this.vimshottariLordsAt(options.birth_datetime, date.getTime(), { ayanamsaKey, positionType, yearDays: options.dasha_year_days });
+      if (!lords.length) throw invalid('birth_datetime', 'The moment is outside the Vimshottari dashas of this birth (before birth?)');
+      result.hour_trigger = this.hourTrigger(lords, rp.components.moon.sub_lord, rp.components.lagna.sub_lord, formatTime(date.getTime()));
+    }
+    result.datetime = datetime;
+    result.coordinates = { latitude, longitude };
+    return result;
+  }
+
+  // rectify_by_transit: for each anchor, the birth time that puts the natal target (a cusp,
+  // the lagna, the MC or a natal planet) exactly on a transiting planet's longitude at as_of;
+  // then the least-squares birth time over all anchors
+  rectifyByTransit(datetime, latitude, longitude, options) {
+    const birth = new Date(datetime);
+    if (isNaN(birth.getTime())) throw invalid('datetime', 'Invalid datetime. Use ISO8601 with a UTC offset, e.g. 1979-08-16T05:25:00+05:30');
+    const ayanamsa = AYANAMSAS[options.ayanamsa || DEFAULT_AYANAMSA];
+    const positionType = options.position_type || 'true';
+    const nodeType = options.node_type || 'true';
+    const settingsFlags = { siderealFlag: ayanamsa.flag, positionFlag: positionType === 'true' ? ' -true' : '', nodeType };
+    const eph = createEphemeris();
+    const window = options.window_seconds ?? 600;
+    const step = window <= 1200 ? 1 : window / 1200;
+    const count = Math.round((2 * window) / step) + 1;
+    const from = new Date(birth.getTime() - window * 1000);
+    const offsets = Array.from({ length: count }, (_, k) => -window + k * step);
+
+    // Natal targets over the window
+    const needsHouses = options.anchors.some(a => /^cusp\d+$|^lagna$|^mc$/.test(a.target));
+    const houseSeries = needsHouses ? eph.housesSeries(from, count, step, latitude, longitude, settingsFlags) : null;
+    const planetSeries = {};
+    const targetValues = (target) => {
+      if (target === 'lagna') return houseSeries.map(h => h.asc);
+      if (target === 'mc') return houseSeries.map(h => h.mc);
+      const cusp = target.match(/^cusp(\d+)$/);
+      if (cusp) return houseSeries.map(h => h.cusps[parseInt(cusp[1])]);
+      if (!planetSeries[target]) planetSeries[target] = eph.series(target, from, count, step / 86400, settingsFlags).map(x => x.lon);
+      return planetSeries[target];
+    };
+    const wrap = (x) => { const d = norm360(x); return d > 180 ? d - 360 : d; };
+    const at = (ms) => this.formatInstant(ms, datetime);
+    const birthAt = (offset) => at(birth.getTime() + Math.round(offset * 1000));
+
+    const anchors = options.anchors.map((a) => {
+      const asOf = new Date(a.as_of);
+      const transitLon = eph.grahas(asOf, settingsFlags)[a.planet].lon;
+      const values = targetValues(a.target);
+      const residuals = values.map(v => wrap(v - transitLon));
+      let solution = null;
+      for (let k = 0; k + 1 < count && solution === null; k++) {
+        const r0 = residuals[k];
+        const r1 = residuals[k + 1];
+        if (Math.abs(r0 - r1) < 90 && (r0 === 0 || (r0 < 0) !== (r1 < 0))) solution = offsets[k] + (step * r0) / (r0 - r1);
+      }
+      const rate = wrap(values[count - 1] - values[0]) / (2 * window);
+      const out = {
+        ...a,
+        transit_position: shortPosition(transitLon),
+        natal_target_moves_deg_per_s: round(rate, 6),
+        residual_at_window_start_deg: round(residuals[0], 4),
+        residual_at_window_end_deg: round(residuals[count - 1], 4),
+        in_window: solution !== null,
+      };
+      if (solution !== null) {
+        out.offset_s = round(solution, 2);
+        out.birth_time = birthAt(solution);
+      } else {
+        const k = residuals.reduce((best, r, i) => (Math.abs(r) < Math.abs(residuals[best]) ? i : best), 0);
+        out.closest_offset_s = round(offsets[k], 2);
+        out.closest_residual_deg = round(residuals[k], 4);
+        out.note = 'No exact solution inside the window; widen window_seconds or check the anchor';
+      }
+      return { out, residuals, weight: a.weight ?? 1 };
+    });
+
+    // Least squares over the grid (anchors with a solution in the window only), refined with a
+    // parabola through the best three points
+    const used = anchors.filter(x => x.out.in_window);
+    const excludedFromFit = anchors.map((x, i) => (x.out.in_window ? null : `${i + 1}:${x.out.planet}->${x.out.target}`)).filter(Boolean);
+    if (!used.length) {
+      return {
+        settings: { ayanamsa: ayanamsa.name, positions: positionType, nodes: nodeType, cusps: 'Placidus (KP)', grid_step_s: step },
+        window: { from: birthAt(-window), to: birthAt(window), seconds: window },
+        anchors: anchors.map(x => x.out),
+        best_fit: null,
+        note: 'No anchor has an exact solution inside the window; widen window_seconds or check the anchors',
+        datetime,
+        coordinates: { latitude, longitude },
+      };
+    }
+    const cost = offsets.map((_, k) => used.reduce((sum, x) => sum + x.weight * x.residuals[k] ** 2, 0));
+    let kBest = cost.reduce((best, c, k) => (c < cost[best] ? k : best), 0);
+    let best = offsets[kBest];
+    if (kBest > 0 && kBest < count - 1) {
+      const [c0, c1, c2] = [cost[kBest - 1], cost[kBest], cost[kBest + 1]];
+      const denom = c0 - 2 * c1 + c2;
+      if (denom > 0) best += (step * (c0 - c2)) / (2 * denom);
+    }
+    const totalWeight = used.reduce((sum, x) => sum + x.weight, 0);
+    const solved = used.map(x => x.out.offset_s);
+    const mean = solved.length ? solved.reduce((a, b) => a + b, 0) / solved.length : null;
+    const spread = solved.length > 1 ? Math.sqrt(solved.reduce((sum, v) => sum + (v - mean) ** 2, 0) / (solved.length - 1)) : null;
+    const residualAt = (x) => {
+      const pos = (best + window) / step;
+      const k = Math.min(count - 2, Math.max(0, Math.floor(pos)));
+      return x.residuals[k] + (x.residuals[k + 1] - x.residuals[k]) * (pos - k);
+    };
+    return {
+      settings: { ayanamsa: ayanamsa.name, positions: positionType, nodes: nodeType, cusps: 'Placidus (KP)', grid_step_s: step, method: 'per-anchor root of (natal target - transit longitude); the combined fit minimises the weighted sum of squared residuals (degrees) of the anchors solvable in the window' },
+      window: { from: birthAt(-window), to: birthAt(window), seconds: window },
+      anchors: anchors.map(x => x.out),
+      best_fit: {
+        offset_s: round(best, 2),
+        birth_time: birthAt(best),
+        rms_residual_deg: round(Math.sqrt(used.reduce((sum, x) => sum + x.weight * residualAt(x) ** 2, 0) / totalWeight), 4),
+        residuals_deg: Object.fromEntries(anchors.map((x, i) => [`${i + 1}:${x.out.planet}->${x.out.target}`, round(residualAt(x), 4)])),
+        anchors_used: solved.length,
+        excluded_from_fit: excludedFromFit,
+        spread_s: spread === null ? null : round(spread, 2),
+        solutions_range_s: solved.length ? [round(Math.min(...solved), 2), round(Math.max(...solved), 2)] : null,
+        at_window_edge: kBest === 0 || kBest === count - 1,
+      },
+      datetime,
+      coordinates: { latitude, longitude },
+    };
+  }
+
   normalizeAsOf(asOf) {
     if (asOf === undefined) return undefined;
     if (Array.isArray(asOf)) {
@@ -3119,6 +3379,61 @@ class SwissEphemerisServer {
           }
         }
         return gResult;
+      }
+
+      case 'calculate_ruling_planets': {
+        const { latitude: rLatitude, longitude: rLongitude } = args;
+        if (args.datetime !== undefined && typeof args.datetime !== 'string') throw invalid('datetime', 'datetime must be an ISO8601 string, e.g. 2025-06-01T10:15:30+05:30');
+        if (typeof rLatitude !== 'number' || rLatitude < -90 || rLatitude > 90) throw invalid('latitude', 'latitude must be a number between -90 and 90');
+        if (typeof rLongitude !== 'number' || rLongitude < -180 || rLongitude > 180) throw invalid('longitude', 'longitude must be a number between -180 and 180');
+        if (args.ayanamsa !== undefined && !AYANAMSAS[args.ayanamsa]) throw invalid('ayanamsa', `ayanamsa must be one of: ${Object.keys(AYANAMSAS).join(', ')}`);
+        if (args.birth_datetime !== undefined && (typeof args.birth_datetime !== 'string' || isNaN(Date.parse(this.withDefaultOffset(args.birth_datetime))))) throw invalid('birth_datetime', 'birth_datetime must be an ISO8601 date, e.g. 1979-08-16T05:25:00+05:30');
+        if (args.dasha_year_days !== undefined && (typeof args.dasha_year_days !== 'number' || args.dasha_year_days < 300 || args.dasha_year_days > 400)) throw invalid('dasha_year_days', 'dasha_year_days must be a number between 300 and 400');
+        this.validateTimezone(args.current_timezone);
+        // Without a datetime: now, in IST
+        const rMoment = args.datetime ? this.withDefaultOffset(args.datetime) : this.makeTimeFormatter(`x${DEFAULT_BIRTH_OFFSET}`)(Date.now());
+        const rResult = this.calculateRulingPlanets(rMoment, rLatitude, rLongitude, {
+          ayanamsa: args.ayanamsa,
+          position_type: args.position_type,
+          node_type: args.node_type,
+          keep_retrograde: Boolean(args.keep_retrograde),
+          birth_datetime: args.birth_datetime ? this.withDefaultOffset(args.birth_datetime) : undefined,
+          dasha_year_days: args.dasha_year_days,
+        });
+        if (args.current_timezone) {
+          const formatLocal = this.makeZoneFormatter(args.current_timezone);
+          rResult.current_timezone = args.current_timezone;
+          rResult.moment_local = formatLocal(Date.parse(rResult.moment));
+        }
+        return rResult;
+      }
+
+      case 'rectify_by_transit': {
+        const { datetime: tDatetime, latitude: tLatitude, longitude: tLongitude, anchors } = args;
+        if (!tDatetime || typeof tDatetime !== 'string') throw invalid('datetime', 'datetime (birth, e.g. 1979-08-16T05:25:00+05:30) is required');
+        if (typeof tLatitude !== 'number' || tLatitude < -90 || tLatitude > 90) throw invalid('latitude', 'latitude must be a number between -90 and 90');
+        if (typeof tLongitude !== 'number' || tLongitude < -180 || tLongitude > 180) throw invalid('longitude', 'longitude must be a number between -180 and 180');
+        if (args.ayanamsa !== undefined && !AYANAMSAS[args.ayanamsa]) throw invalid('ayanamsa', `ayanamsa must be one of: ${Object.keys(AYANAMSAS).join(', ')}`);
+        if (args.window_seconds !== undefined && (typeof args.window_seconds !== 'number' || args.window_seconds < 10 || args.window_seconds > 7200)) throw invalid('window_seconds', 'window_seconds must be a number from 10 to 7200');
+        if (!Array.isArray(anchors) || !anchors.length || anchors.length > 20) throw invalid('anchors', 'anchors must be a list of 1 to 20 objects like {"as_of":"2023-02-27","planet":"Rahu","target":"cusp10"}');
+        const targetOk = (t) => /^cusp([1-9]|1[0-2])$/.test(t) || t === 'lagna' || t === 'mc' || GRAHA_NAMES.includes(t);
+        const normalized = anchors.map((a, i) => {
+          if (!a || typeof a !== 'object') throw invalid('anchors', `anchor ${i + 1} must be an object`);
+          const asOf = typeof a.as_of === 'string' ? this.withDefaultOffset(a.as_of) : null;
+          if (!asOf || isNaN(Date.parse(asOf))) throw invalid('anchors', `anchor ${i + 1}: as_of must be a date, e.g. "2023-02-27" or "2023-02-27T12:00:00+05:30"`);
+          if (!GRAHA_NAMES.includes(a.planet)) throw invalid('anchors', `anchor ${i + 1}: planet must be one of ${GRAHA_NAMES.join(', ')}`);
+          if (typeof a.target !== 'string' || !targetOk(a.target)) throw invalid('anchors', `anchor ${i + 1}: target must be cusp1-cusp12, lagna, mc or a natal planet (${GRAHA_NAMES.join(', ')})`);
+          if (a.weight !== undefined && (typeof a.weight !== 'number' || a.weight <= 0)) throw invalid('anchors', `anchor ${i + 1}: weight must be a positive number`);
+          return { as_of: asOf, planet: a.planet, target: a.target, ...(a.weight !== undefined ? { weight: a.weight } : {}) };
+        });
+        const tBirth = this.withDefaultOffset(tDatetime);
+        return this.rectifyByTransit(tBirth, tLatitude, tLongitude, {
+          anchors: normalized,
+          window_seconds: args.window_seconds,
+          ayanamsa: args.ayanamsa,
+          position_type: args.position_type,
+          node_type: args.node_type,
+        });
       }
 
       default:
