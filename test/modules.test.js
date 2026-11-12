@@ -62,8 +62,8 @@ test('Tara and chandra bala', () => {
   assert.equal(chandraBala(312, 15, 50).favourable, true);
 });
 
-test('KP lords of Sagar\'s lagna, Li 0°39\'20", are Jagannatha Hora\'s: Mars, Mercury, Venus', () => {
-  const l = kpLords(180 + 39 / 60 + 20 / 3600);
+test('KP lords of Data 9\'s lagna, Li 0°40\'30.23", are Jagannatha Hora\'s: Mars, Mercury, Venus', () => {
+  const l = kpLords(180 + 40 / 60 + 30.23 / 3600);
   assert.equal(l.sign_lord, 'Venus');
   assert.equal(l.star_lord, 'Mars');
   assert.equal(l.sub_lord, 'Mercury');

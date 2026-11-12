@@ -11,14 +11,18 @@ after(() => srv && srv.stop());
 const TRADITIONAL_LAHIRI = { siderealFlag: '-sidudef2435553.5,23.245522528', positionFlag: ' -true' };
 const AB = { Sun: 'Su', Moon: 'Mo', Mars: 'Ma', Mercury: 'Me', Jupiter: 'Ju', Venus: 'Ve', Saturn: 'Sa', Rahu: 'Ra', Ketu: 'Ke' };
 
-test('Ruling planets at the birth moment are JH\'s KP lords and weekday', { skip: SKIP }, async () => {
+test('Ruling planets at the birth moment are Data 9\'s KP lords and weekday', { skip: SKIP }, async () => {
   const { result } = await ok(srv, 'calculate_ruling_planets', { ...SAGAR, birth_datetime: SAGAR.datetime });
   const c = result.components;
-  assert.equal(JH.key_info.vedic_weekday, 'Sunday');
+  assert.match(JH.panchanga.vedic_weekday, /^Sunday/);
   assert.equal(c.day_lord, 'Sun');
-  // Lagna Libra, Moon Aquarius; star and sub lords from JH's KP tab
-  assert.deepEqual([AB[c.lagna.sign_lord], AB[c.lagna.star_lord], AB[c.lagna.sub_lord]], ['Ve', ...JH.kp.bodies.As.slice(0, 2)]);
-  assert.deepEqual([AB[c.moon.sign_lord], AB[c.moon.star_lord], AB[c.moon.sub_lord]], ['Sa', ...JH.kp.bodies.Mo.slice(0, 2)]);
+  // Lagna Libra (Chitra 3: Ve, Ma, Me), Moon Aquarius (Shatabhisha 2: Sa, Ra, Sa)
+  assert.equal(JH.bodies.Lagna.rasi, 'Li');
+  assert.equal(JH.bodies.Lagna.nakshatra, 'Chit');
+  assert.equal(JH.bodies.Moon.rasi, 'Aq');
+  assert.equal(JH.bodies.Moon.nakshatra, 'Sata');
+  assert.deepEqual([AB[c.lagna.sign_lord], AB[c.lagna.star_lord], AB[c.lagna.sub_lord]], ['Ve', 'Ma', 'Me']);
+  assert.deepEqual([AB[c.moon.sign_lord], AB[c.moon.star_lord], AB[c.moon.sub_lord]], ['Sa', 'Ra', 'Sa']);
   assert.equal(result.ruling_planets[0], 'Mars'); // lagna star lord first
   assert.ok(result.cleaned.every(p => !result.excluded.some(e => e.planet === p)));
   // Hour trigger: the Moon's sub lord against the running Vimshottari chain
@@ -33,8 +37,8 @@ test('Ruling planets at the birth moment are JH\'s KP lords and weekday', { skip
 test('KP significators: four levels per planet and ordered cusp significators', { skip: SKIP }, async () => {
   const { result } = await ok(srv, 'calculate_vedic_chart', { ...SAGAR, include: ['kp_significators'] });
   const sig = result.kp_significators;
-  // JH: the Moon is in Rahu's star (Satabhishak)
-  assert.equal(AB[sig.planets.Moon.star_lord], JH.kp.bodies.Mo[0]);
+  // JH Data 9: the Moon is in Rahu's star (Satabhishak)
+  assert.equal(AB[sig.planets.Moon.star_lord], 'Ra');
   assert.equal(sig.planets.Moon.in_node_star, 'Rahu');
   assert.ok(sig.in_node_stars.includes('Moon'));
   for (const [p, x] of Object.entries(sig.planets)) {

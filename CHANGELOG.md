@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Kalachakra now uses the True Lahiri / Chitrapaksha ayanamsa** (Spica always in the middle of Chitra, Swiss Ephemeris `-sid27`) instead of Traditional Lahiri, in `calculate_kalachakra_dasha` and in the `kalachakra_dasha` of `calculate_vedic_chart` (the rest of the chart keeps its `ayanamsa`). Kalachakra timelines move by months: about 56" of ayanamsa. `true_lahiri` is a new `ayanamsa` value; `calculate_vedic_chart` has a new `kalachakra_ayanamsa` parameter, and `ayanamsa_override: "traditional_lahiri"` restores the old Kalachakra of the standalone tool. Birth-time sweeps and event tests for Kalachakra follow the new default.
+- Test data 9 (the 1999-06-06 15:30:01 IST chart in JH with True Lahiri): fixtures and `test/data9.test.js`. The Sagar Kalachakra tests pin `ayanamsa_override: "traditional_lahiri"`, the ayanamsa JH had for them.
 - Skill `.claude/skills/swiss-ephemeris-mcp`: how to call each tool with the fewest tokens, with example requests and responses (checked against the server) and a parameter cheat sheet.
 - Tool descriptions: the remaining rectification examples use Sagar's chart.
 

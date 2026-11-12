@@ -2,7 +2,7 @@
 // and searches. Timestamps are checked against the ephemeris rather than frozen.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { server, ok, SKIP, SAGAR } from './helpers.js';
+import { server, ok, SKIP, LOCAL_SWETEST, SAGAR } from './helpers.js';
 import { createEphemeris } from '../src/ephemeris.js';
 import { taraBala } from '../src/gochar.js';
 import { NAKSHATRAS } from '../src/constants.js';
@@ -10,8 +10,15 @@ import { NAKSHATRAS } from '../src/constants.js';
 const srv = server();
 after(() => srv && srv.stop());
 const TRADITIONAL_LAHIRI = { siderealFlag: '-sidudef2435553.5,23.245522528', positionFlag: ' -true' };
-const eph = createEphemeris();
-const saturnSign = (ms) => Math.floor(eph.longitude('Saturn', new Date(ms), TRADITIONAL_LAHIRI).lon / 30);
+const eph = LOCAL_SWETEST ? createEphemeris() : null;
+const saturnSign = async (ms) => {
+  if (LOCAL_SWETEST) {
+    return Math.floor(eph.longitude('Saturn', new Date(ms), TRADITIONAL_LAHIRI).lon / 30);
+  }
+  const iso = new Date(ms).toISOString();
+  const c = await ok(srv, 'calculate_vedic_chart', { ...SAGAR, datetime: iso, include: [] });
+  return Math.floor(c.result.planets.Saturn.longitude / 30);
+};
 
 test('Sade Sati for the Aquarius Moon includes Saturn\'s retrograde re-entries', { skip: SKIP }, async () => {
   const { result } = await ok(srv, 'calculate_gochar', { ...SAGAR, as_of: '2025-06-01T12:00:00+05:30' });
@@ -27,8 +34,8 @@ test('Sade Sati for the Aquarius Moon includes Saturn\'s retrograde re-entries',
   // Each span is Saturn in that sign: one second inside its start, one second before its end
   const SIGN = { Cp: 9, Aq: 10, Pi: 11 };
   for (const s of spans) {
-    assert.equal(saturnSign(Date.parse(s.start) + 1500), SIGN[s.sign], `${s.sign} from ${s.start}`);
-    assert.equal(saturnSign(Date.parse(s.end) - 1500), SIGN[s.sign], `${s.sign} to ${s.end}`);
+    assert.equal(await saturnSign(Date.parse(s.start) + 1500), SIGN[s.sign], `${s.sign} from ${s.start}`);
+    assert.equal(await saturnSign(Date.parse(s.end) - 1500), SIGN[s.sign], `${s.sign} to ${s.end}`);
   }
   assert.equal(result.positions.Saturn.house_from_moon, 2);
 });
@@ -44,7 +51,7 @@ test('Span boundaries are Saturn sign ingresses accurate to a second', { skip: S
   // Saturn straddles the sign boundary 1.5 s either side of each ingress
   for (const at of ingresses) {
     const t = Date.parse(at);
-    assert.notEqual(saturnSign(t - 1500), saturnSign(t + 1500), at);
+    assert.notEqual(await saturnSign(t - 1500), await saturnSign(t + 1500), at);
   }
 });
 
@@ -65,7 +72,13 @@ test('Tara bala, chandra bala and natal hits', { skip: SKIP }, async () => {
   assert.equal(hit.exact.length, 2);
   const chart = (await ok(srv, 'calculate_vedic_chart', { ...SAGAR, include: [] })).result;
   for (const at of hit.exact) {
-    const lon = eph.longitude('Saturn', new Date(at), TRADITIONAL_LAHIRI).lon;
+    let lon;
+    if (LOCAL_SWETEST) {
+      lon = eph.longitude('Saturn', new Date(at), TRADITIONAL_LAHIRI).lon;
+    } else {
+      const atChart = (await ok(srv, 'calculate_vedic_chart', { ...SAGAR, datetime: at, include: [] })).result;
+      lon = atChart.planets.Saturn.longitude;
+    }
     assert.ok(Math.abs(lon - chart.planets.Moon.longitude) < 0.001, `${at}: Saturn ${lon}`);
   }
 });

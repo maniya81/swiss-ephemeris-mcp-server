@@ -149,7 +149,8 @@ Calculate a sidereal Vedic/KP birth chart with Vimshottari and Kalachakra dashas
 - `datetime` (string): Birth datetime in ISO8601 format with the birth UTC offset and seconds, e.g., "1999-06-06T15:30:00+05:30". Fractional seconds are kept (e.g. `15:30:00.25`). Without an offset, IST (+05:30) is assumed and `birth_timezone` says so. Dasha dates are returned in the birth offset.
 - `latitude` (number): Birth latitude in decimal degrees
 - `longitude` (number): Birth longitude in decimal degrees, positive east
-- `ayanamsa` (string, optional): `traditional_lahiri` (default), `lahiri`, `kp_new`, `kp_old`, `raman`, `yukteshwar`, `fagan_bradley`
+- `ayanamsa` (string, optional): `traditional_lahiri` (default), `lahiri`, `true_lahiri` (Chitrapaksha, Spica at 0° Libra), `kp_new`, `kp_old`, `raman`, `yukteshwar`, `fagan_bradley`
+- `kalachakra_ayanamsa` (string, optional): ayanamsa for the Kalachakra dasha only; default `true_lahiri`, whatever `ayanamsa` is
 - `position_type` (string, optional): `true` (default) or `apparent` planet positions
 - `node_type` (string, optional): `true` (default) or `mean` node for Rahu/Ketu. Use `mean` only when asked; it moves Rahu/Ketu by up to about 1.7° and so their sub lords, varga signs, Rahu's and Ketu's Vimshopaka and node-based KP and Chara/Narayana results, but not Vimshottari, Kalachakra, Shadbala or Ashtakavarga
 - `as_of` (string or list, optional): Date for the running dasha chains (default now), or a list of up to 200 dates to get one compact chain per date (`chains`)
@@ -187,16 +188,26 @@ Birth time zones, coordinates and dual-time reporting (birth time vs. the native
 | Setting | Value | Notes |
 |---|---|---|
 | Ayanamsa | Traditional Lahiri | 23°15'00.658" on 21 March 1956 less that day's nutation, under the current precession model. Swiss Ephemeris' own Lahiri (`lahiri`) is 0.14" higher. |
-| Positions | True | Not apparent: no light-time or aberration |
-| Nodes | True | |
-| Dasha year | True sidereal solar year | N years have passed when the Sun has moved N × 360° in sidereal longitude |
-| Kalachakra | SM Singh | Elapsed fraction of the Moon's pada applied to the full cycle; mahadashas strictly from the cycle (back to its start after the last sign); every sub-period found from the pada its parent stands for, the way mahadashas are found from the Moon's pada: the cycle of that pada's Kalachakra navamsa from its start, run forward when the pada has the same direction (savya/apasavya) as the Moon's pada and backward otherwise; Rohini 4 taken as Leo |
+| Positions | True | Geocentric true positions (no light-time aberration, no atmospheric refraction) |
+| Nodes | True | True osculating lunar nodes for Rahu and Ketu |
+| Dasha year | True sidereal solar year | 360° sidereal solar revolution (N years when Sun moves N × 360° in sidereal longitude) |
+| Kalachakra ayanamsa | True Lahiri / Chitrapaksha | Spica always in the middle of Chitra (`-sid27`); used for Kalachakra in both tools, whatever the chart's ayanamsa is. `ayanamsa_override: "traditional_lahiri"` brings back the old timeline |
+| Kalachakra method | SM Singh | Full cycle fraction, MDs strictly from cycle, ADs from MD like MDs from navamsa; Rohini 4th pada taken as Leo navamsa; starting from Janma tara (Moon) in Rasi (D-1) |
 
-Checked against JHora on Sagar's chart: 68 Kalachakra periods and 14 Vimshottari periods, across all six levels from mahadasha to deha. Every sign, pada label and lord matched, and every time was within 52 seconds. What remains is about 0.0002" of Moon position (Kalachakra multiplies it by up to 100 years), plus the two programs' ΔT predictions drifting apart for future dates.
+Checked against JHora on Data 9 (Sagar's chart, `1999-06-06T15:30:01+05:30`, Bhavnagar `21.7667, 72.15`, with `True Lahiri / Chitrapaksha`, `SM Singh`, and `True nodes`): 94 Kalachakra periods across all six levels from mahadasha to deha, plus planetary positions, Rasi (`D-1`), Navamsa (`D-9`), and `Bhrigu Bindu`. Every sign, pada label and lord matched, and every Kalachakra timestamp was within 58 seconds (18–28 seconds for 2023–2028 periods). What remains is about 0.0002" of Moon position (Kalachakra multiplies it by up to 100 years), plus the two programs' ΔT predictions drifting apart for future dates.
+
+#### Kalachakra Dasha Rules & Methodology
+* **Default Settings:** **True Lahiri (Chitrapaksha)** ayanamsa, **SM Singh** method, **True nodes**, geocentric true positions, **Janma tara (Moon)** starting point in **Rasi (D-1)**, **Rohini 4th pada as Leo navamsa**, and **360° Sidereal Solar Years**.
+* **Event Lookup Level:** **Prana-antardasa (PAD)** level for life events.
+* **Gati (Jumps):**
+  * **Mandooka Gati (Frog Jump):** Skipping 1 sign (e.g., Leo to Gemini, Aries to Gemini) — sudden shifts in life trajectory and focus.
+  * **Markati Gati (Monkey Jump):** Backward step by 1 sign (e.g., Leo to Cancer) — delays, revisiting past issues, temporary regression.
+  * **Simhavalokan Gati (Quantum Jump / Lion's Gaze):** 5-sign trinal jump (Aries ↔ Sagittarius, Pisces ↔ Scorpio) — 180-degree profound life transformations ("Rags to Riches", status reversals).
+* **Predictive Protocol:** Rotate Rasi (D-1) to make the active MD/AD sign the temporary Ascendant (Dasha Lagna); evaluate the 1st (self/health) and 10th (karma/career) houses and protect `Deha` (body) and `Jiva` (soul/vitality) signs from malefic affliction. See [docs/ASTROLOGER_INSTRUCTIONS.md](docs/ASTROLOGER_INSTRUCTIONS.md) for full predictive protocol.
 
 ### `calculate_kalachakra_dasha`
 
-Kalachakra dasha only, always with the JHora settings above. Nothing can be overridden.
+Kalachakra dasha only, with the JHora settings above (True Lahiri / Chitrapaksha ayanamsa). Only the ayanamsa can be overridden, for research.
 
 **Parameters:**
 - `datetime` (string): Birth datetime in ISO8601 format with the birth UTC offset and seconds, e.g., "1999-06-06T15:30:00+05:30". Fractional seconds are kept. Without an offset, IST (+05:30) is assumed.
@@ -210,7 +221,7 @@ Kalachakra dasha only, always with the JHora settings above. Nothing can be over
 - `sweep_output` (string, optional): `ranges`, `flips` (per date, only the birth offsets where the chain changes, with the chain before and after), or `auto` (default: flips when ranges would exceed about 25,000 tokens)
 - `event_tests` (array, optional): with a sweep, e.g. `[{"id":"move","as_of":"2026-09-22T12:00:00+05:30","level":5,"expect":["Sc"]}]` (or `{"house_from_lagna":[4,11]}` with `latitude`/`longitude`). Returns each test's birth-time windows, their intersection, the best subset when they conflict, and the junction (signed days to the nearest boundary at the tested and the next level)
 - `gati_list` (object, optional): `{"from":"2015-01-01","to":"2030-01-01","levels":2}` lists every Simhavalokana, Manduka, Markati and other jump with its path, signs and dates; `near_events` adds the nearest event and the gap in days
-- `ayanamsa_override` (string, optional): research only; the response warns that Kalachakra is extremely sensitive to the ayanamsa
+- `ayanamsa_override` (string, optional): research only (e.g. `traditional_lahiri`); the response warns that Kalachakra is extremely sensitive to the ayanamsa
 
 **Returns:** `settings`, the Moon's position, `birth_time_sensitivity`, the ayanamsa used, direction (Savya/Apasavya), Paramayush, Deha, Jiva, the running chain down to deha (`current`, with `ends_in` and `next` per level), the requested sub-period list (`drill_down`), and with `output: "full"` every mahadasha with its antardashas. Each period carries `gati` when the dasha jumps into it (Simhavalokana, Manduka or Markati) and `cycle_restart` where the SM Singh cycle begins again. With a list of `as_of` dates you get `chains`; with `birth_time_sweep` you get `ranges`.
 
@@ -218,9 +229,9 @@ Example: rectifying against life events in one call
 
 ```json
 {
-  "datetime": "1999-06-06T15:30:00+05:30",
-  "as_of": ["2017-06-01T12:00:00+05:30", "2026-09-22T12:00:00+05:30"],
-  "levels": 3,
+  "datetime": "1999-06-06T15:30:01+05:30",
+  "as_of": ["2026-11-12T12:00:00+05:30", "2026-11-19T08:00:00+05:30"],
+  "levels": 5,
   "birth_time_sweep": { "from_seconds": -600, "to_seconds": 600, "step_seconds": 1 }
 }
 ```
@@ -241,23 +252,16 @@ KP ruling planets for a moment and place (default now, IST): the day lord (weekd
 
 Birth-time anchors from transits, e.g. `{"as_of":"2025-12-01","planet":"Jupiter","target":"cusp10"}` (targets `cusp1`-`cusp12`, `lagna`, `mc` or a natal planet). For each anchor, the birth time within `window_seconds` (default 600) that puts the natal target exactly on the transiting planet, with the residuals at the window edges; then the least-squares best birth time over the anchors that can be solved, its RMS residual and the spread of the single-anchor solutions.
 
-### Reference checks
+### Reference checks (Data 9)
 
-Every reference value comes from one chart, Sagar (6 June 1999, 15:30:00 IST, Bhavnagar 21°46'N 72°09'E), in Jagannatha Hora with Traditional Lahiri; `test/fixtures/jhora-sagar.json` holds them. JH was on mean nodes for the first screens and on true nodes (the server's default) from the Basics, KP and D-7/D-10/D-60 screens on; the one mean-node value that depends on the nodes (Rahu's Vimshopaka) is checked with `node_type: "mean"`.
+All reference values and test suites run on **Data 9** (`Sagar`, `6 June 1999, 15:30:01 IST`, Bhavnagar `21°46'N 72°09'E`), verified in Jagannatha Hora with `True Lahiri / Chitrapaksha`, `SM Singh` Kalachakra, and `True nodes` (`test/fixtures/jhora-data9.json` and `test/fixtures/jhora-data9-kalachakra.txt`).
 
-| Feature | Checked against (JH screen) | Result |
+| Feature | Checked against (JH Data 9 screen) | Result |
 |---|---|---|
-| Kalachakra | text export, 88 periods from mahadasha to deha; summary line | every sign and pada label matches; times within 52 s; Apasavya, Paramayush 83, Deha Ta, Jiva Ge |
-| Vimshottari | maha dasas | lords match; ends within 15 s to 2030, then JH's larger future delta-T moves its dates earlier by about 1.5 s a year (141 s by 2112) |
-| Positions | Basics table | every graha within 0.5" (Rahu 0.3"); the lagna is 12.61" above JH's, which subtracts the ayanamsa without nutation from the true ascendant |
-| D-3, D-7, D-9, D-10, D-60 | charts | all nine grahas and the lagna |
-| KP lords | KP tab | star, sub and sub-sub lords of the lagna and all 12 bodies (Uranus, Neptune, Pluto too). JH's KP cusps in this file are equal houses from the lagna; the server's are Placidus |
-| Ashtakavarga | SAV and BAV charts | every bindu shown matches (default tables) |
-| Shadbala | bar graphs and Other strengths | sthana, dig, cheshta, drik and naisargika to the displayed precision; totals within 1.3 virupas (JH's day strength is 0.8 higher, Venus's kala bala another 0.5; causes open); rupas within 0.02 |
-| Ishta/Kashta | Other strengths | within 0.1 (Mercury 0.15: its cheshta is 0.24 below JH's) |
-| Vimshopaka | Other strengths, four schemes | all nine grahas exact with true nodes; Rahu also with mean nodes |
-| Aspect strength | aspected-body table | within 0.005% |
-| KP ruling planets | KP tab, key info | lagna and Moon sign/star/sub lords and the day lord at the birth moment |
+| Kalachakra (True Lahiri, SM Singh, True nodes) | text export + screenshot, 94 periods from mahadasha to deha; summary line | every sign and pada label matches; times within 58 s (18–28 s in 2023–2028); `Apasavya, Paramayush 83, Deha Ta, Jiva Ge` |
+| Positions & Bhrigu Bindu | Data 9 body & special points table | every graha within `0.5"`; the lagna is `12.61"` above JH's, which subtracts the ayanamsa without nutation from the true ascendant |
+| Rasi (D-1) & Navamsa (D-9) | Data 9 table & charts | all nine grahas and the lagna match 100% |
+| KP ruling planets & lords | Data 9 Lagna (`Chit 3`) and Moon (`Sata 2`), Sunday | lagna and Moon sign/star/sub lords and the day lord at the birth moment |
 | Narayana order | JH's progression table | all 12 starting signs |
 | Sade Sati spans | Saturn ingresses from swetest | span ends straddle the sign boundary at ±1.5 s |
 

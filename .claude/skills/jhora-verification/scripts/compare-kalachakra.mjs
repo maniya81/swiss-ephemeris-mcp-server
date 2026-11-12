@@ -4,7 +4,10 @@
 //
 // Usage (from the repository root, with swetest on PATH and SE_EPHE_PATH set):
 //   node .claude/skills/jhora-verification/scripts/compare-kalachakra.mjs \
-//     --birth 1999-06-06T15:30:00+05:30 --file jh.txt [--repo .] [--tolerance 60] [--direction parent]
+//     --birth 1999-06-06T15:30:00+05:30 --file jh.txt [--repo .] [--tolerance 60] [--direction parent] [--ayanamsa traditional_lahiri]
+//
+// The server's Kalachakra default is True Lahiri; pass --ayanamsa traditional_lahiri for a JH export
+// made with Traditional Lahiri (Sagar's).
 //
 // Every line "Xx (Pada) LEVEL: date (time) - date (time)" opens a period at that level; a line
 // "Xx (Pada): date (time) - date (time)" lists a sub-period of the block it is in (or a mahadasha
@@ -69,6 +72,7 @@ for (const row of unique) {
   if (!lists.has(key)) {
     const r = await server.call('calculate_kalachakra_dasha', {
       datetime: args.birth,
+      ...(args.ayanamsa ? { ayanamsa_override: args.ayanamsa } : {}),
       ...(row.parents.length ? { drill_down: row.parents, output: 'chain', levels: 1 } : { output: 'full', levels: 1 }),
       ...(args.direction ? { subperiod_direction: args.direction } : {}),
     });

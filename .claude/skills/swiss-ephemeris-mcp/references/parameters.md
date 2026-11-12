@@ -1,12 +1,13 @@
 # Parameters (defaults in brackets)
 
 Common: `datetime` (birth, ISO with offset and seconds), `latitude`, `longitude`,
-`ayanamsa` [traditional_lahiri] | lahiri | kp_new | kp_old | raman | yukteshwar | fagan_bradley,
+`ayanamsa` [traditional_lahiri] | true_lahiri | lahiri | kp_new | kp_old | raman | yukteshwar | fagan_bradley,
 `position_type` [true] | apparent, `node_type` [true] | mean, `current_timezone` (IANA name).
 
 ## calculate_vedic_chart
-- `as_of` date or list (≤200) [now]; `levels` 1-6 (1 MD … 6 deha) [chain: 3, other dashas 2];
+- `as_of` date or list (≤200) [now]; `levels` 1-6 (1 MD … 5 PAD … 6 deha) [chain: 3, other dashas 2];
   `output` [full] | chain (use chain); `dasha_year_days` (fixed year, e.g. 365.25) [true solar].
+- `kalachakra_ayanamsa` [true_lahiri] — Kalachakra always defaults to True Lahiri / Chitrapaksha (`true_lahiri`), SM Singh method, True nodes, Rohini 4th pada = Leo navamsa, 360° Sidereal Solar Years.
 - `include` [dignity, vargas, aspects] | "all" | list of: dignity vargas aspects ashtakavarga
   shadbala bhavabala kp_significators yogini ashtottari chara narayana.
 - vargas: `vargas` [D1,D9] | "all" (D1-D60); `varga_method` {D2: parashara|parivritti|pvr,
@@ -24,10 +25,11 @@ Common: `datetime` (birth, ISO with offset and seconds), `latitude`, `longitude`
   `event_tests` [{id, as_of, level, expect:[...]} | {…, house_from_lagna:[...]}, system?].
 
 ## calculate_kalachakra_dasha (only `datetime` needed)
-`as_of` (≤200), `levels` [6], `output` [full] | chain, `drill_down` ["Ta"], ["Ta","Vi"] or JH
+Defaults: `True Lahiri / Chitrapaksha` (`true_lahiri`), `SM Singh` method, `True nodes`, `Geocentric true positions`, `Janma tara (Moon)` in `Rasi (D-1)`, `Rohini 4th pada = Leo navamsa`, `360° Sidereal Solar Years`, event lookup at `Prana-antardasa (PAD)` (`level: 5`).
+Parameters: `as_of` (≤200), `levels` [6], `output` [full] | chain, `drill_down` ["Ta"], ["Ta","Vi"] or JH
 labels "Ta Dhan3" / "Sc (Visa1)" / "Sc#2" when a sign repeats; `gati_list`
 {from, to, levels, types?, near_events?}; `birth_time_sweep`, `sweep_output`, `event_tests`;
-`subperiod_direction`; `ayanamsa_override` (research only).
+`subperiod_direction` [parent]; `ayanamsa_override` (research only).
 
 ## calculate_gochar
 `as_of` date or list (≤200) [now]; `from`/`to` range (≤100 years) with `search_planets`

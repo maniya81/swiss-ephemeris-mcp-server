@@ -12,7 +12,7 @@ import {
 import { execSync } from 'node:child_process';
 import express from 'express';
 import { ToolError, invalid } from './src/errors.js';
-import { createEphemeris } from './src/ephemeris.js';
+import { createEphemeris, DEFAULT_EPHE_PATH } from './src/ephemeris.js';
 import { PLANET_ABBR, GRAHAS as GRAHA_NAMES, WEEKDAY_LORDS, round, norm360, signOf, houseFrom, shortPosition } from './src/constants.js';
 import { YOGINIS, yoginiStart, yoginiRaw, ASHTOTTARI, ashtottariStart, ashtottariRaw, charaRaw, narayanaRaw, ashtottariApplicability } from './src/dashas.js';
 import { kpLords, kpHouse, kpSignificators, compactSignificators, rulingPlanets } from './src/kp.js';
@@ -47,6 +47,8 @@ const NAKSHATRA_SPAN = 360 / 27;
 const DASHA_LEVELS = ['mahadasha', 'antardasha', 'pratyantardasha', 'sookshma', 'praana', 'deha'];
 const SIGN_ABBR = ['Ar', 'Ta', 'Ge', 'Cn', 'Le', 'Vi', 'Li', 'Sc', 'Sg', 'Cp', 'Aq', 'Pi'];
 const DEFAULT_AYANAMSA = 'traditional_lahiri';
+// Kalachakra has its own default: True Lahiri (Chitrapaksha), whatever ayanamsa the chart uses
+const KALACHAKRA_AYANAMSA = 'true_lahiri';
 // Birth times without a UTC offset are taken as Indian Standard Time
 const DEFAULT_BIRTH_OFFSET = '+05:30';
 // Limits for batch dates and birth-time sweeps
@@ -58,14 +60,25 @@ const MAX_EVENT_TESTS = 50;
 const CHART_BLOCKS = ['dignity', 'vargas', 'aspects', 'ashtakavarga', 'shadbala', 'bhavabala', 'kp_significators', 'yogini', 'ashtottari', 'chara', 'narayana'];
 const DEFAULT_INCLUDE = ['dignity', 'vargas', 'aspects'];
 const SEVEN_PLANETS = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn'];
-const SERVER_INSTRUCTIONS = `Vedic astrology calculations (Swiss Ephemeris). Defaults match Jagannatha Hora: Traditional Lahiri ayanamsa, true positions, true nodes, true sidereal solar years; Kalachakra by the SM Singh method.
+const SERVER_INSTRUCTIONS = `Vedic astrology calculations (Swiss Ephemeris). Defaults match Jagannatha Hora: Traditional Lahiri ayanamsa (general chart), true geocentric positions, true nodes, true sidereal solar years; Kalachakra defaults strictly to True Lahiri (Chitrapaksha), SM Singh calculation method, and true nodes.
+
+Kalachakra Dasha Defaults & Methodology (Lunar Astro / Deepanshu Giri ruleset):
+- Default ayanamsa: True Lahiri / Chitrapaksha (Spica at 0° Libra), whatever ayanamsa the rest of the chart uses, and does not depend on the birth place.
+- Calculation method: SM Singh (Full cycle fraction, MDs strictly from cycle, ADs from MD like MDs from navamsa).
+- Lunar nodes: True nodes (Rahu/Ketu osculating).
+- Starting point: Janma tara (Moon) in Rasi (D-1).
+- Rohini 4th pada: Leo navamsa (Parasara/BPHS consistency; never Cancer navamsa).
+- Year length: 360° Sidereal Solar Years.
+- Event lookup: Prana-antardasa (PAD) level.
+- Verification constraint: always cross-verify Deha, Jiva, and the 9-sign dasha sequence against manual BPHS / S.M. Singh Savya-Apasavya tables (especially for Apasavya padas such as Rohini 4th pada).
+- Gati rules: Manduka (frog jump: skip 1 sign, sudden shift in focus), Markati (monkey jump: backward 1 sign, revisiting past themes / temporary regression), Simhavalokana (lion's gaze: 5-sign/trinal jump Ar<->Sg or Pi<->Sc, 180° life transformation / quantum leap).
+- Predictive & Chart Rotation Protocol: rotate D-1 to make the active MD or AD sign the temporary Ascendant (Dasha Lagna); judge the 1st house (self/body/new beginnings) and 10th house (karma/status/career) from Dasha Lagna plus planets in or aspecting the Dasha sign; Deha = physical body/wellbeing, Jiva = soul/mental state/life force (malefic transits or dashas activating Deha/Jiva trigger critical health or life events).
 
 Birth time and place:
 - Always pass datetime as YYYY-MM-DDTHH:mm:ss with an explicit UTC offset, e.g. 1999-06-06T15:30:00+05:30. Keep the seconds exactly as given (15:30:00 and 15:30:03 are different charts).
 - If the user gives no timezone or country for the birth, use Indian Standard Time (+05:30). The server also assumes +05:30 when the offset is missing and says so in birth_timezone.
 - If the user names a birth place or zone (New York, London, UTC...), use the offset in force there on the birth date.
 - For a named Indian city (Bhavnagar, Botad, Mumbai, Ahmedabad...) use its own coordinates. If only "India" is given, use 21°46'N 72°09'E (21.7667, 72.15) when the context points to Gujarat / Western India.
-- Kalachakra (calculate_kalachakra_dasha) always runs with the Jagannatha Hora settings and does not depend on the birth place.
 - Rahu/Ketu are true nodes by default. Pass node_type "mean" only when the user explicitly asks for mean nodes, and say which nodes were used. The node type moves only Rahu/Ketu and what depends on them (their degrees, nakshatra/sub lords, varga signs, Rahu's and Ketu's Vimshopaka, KP significators, Chara/Narayana strength); Vimshottari, Kalachakra, Shadbala and Ashtakavarga do not change.
 
 Current location (dual-time reporting):
@@ -120,6 +133,9 @@ const DASHA_YEARS = {
 const AYANAMSAS = {
   traditional_lahiri: { flag: '-sidudef2435553.5,23.245522528', name: 'Traditional Lahiri' },
   lahiri: { flag: '-sid1', name: 'Lahiri (Swiss Ephemeris)' },
+  // Jagannatha Hora's "True Lahiri/Chitrapaksha (Spica in the middle of Chitra always)": Spica is
+  // held at exactly 0° Libra (180° sidereal), the middle of Chitra
+  true_lahiri: { flag: '-sid27', name: 'True Lahiri (Chitrapaksha, Spica at 0° Libra)' },
   kp_new: { flag: '-sid45', name: 'KP New (Krishnamurti-Senthilathiban)' },
   kp_old: { flag: '-sid5', name: 'KP Old (Krishnamurti)' },
   raman: { flag: '-sid3', name: 'Raman' },
@@ -295,6 +311,11 @@ class SwissEphemerisServer {
                   enum: ['true', 'apparent'],
                   description: 'True positions (default, as in Jagannatha Hora) or apparent positions (with light-time and aberration, as most other software)',
                 },
+                kalachakra_ayanamsa: {
+                  type: 'string',
+                  enum: Object.keys(AYANAMSAS),
+                  description: 'Ayanamsa for the Kalachakra dasha only (default true_lahiri: Chitrapaksha, Spica at 0° Libra). The rest of the chart uses ayanamsa. Kalachakra is extremely sensitive to the ayanamsa',
+                },
                 node_type: {
                   type: 'string',
                   enum: ['mean', 'true'],
@@ -393,7 +414,7 @@ class SwissEphemerisServer {
           },
           {
             name: 'calculate_kalachakra_dasha',
-            description: 'Calculate Kalachakra dasha only, always with Jagannatha Hora settings: Traditional Lahiri ayanamsa, true positions, true sidereal solar years, SM Singh method (full cycle fraction, MDs strictly from cycle, ADs from MD like MDs from navamsa), from the Moon in D-1, Rohini 4th pada as Leo. Returns Savya/Apasavya, Paramayush, Deha, Jiva, gati (Simhavalokana/Manduka/Markati) jumps, the running chain down to deha with countdowns and next periods, the birth-time sensitivity, and optionally all mahadashas with antardashas, the sub-periods of any period (drill_down), chains for a list of dates, or a birth-time sweep for rectification.',
+            description: 'Calculate Kalachakra dasha only, with Jagannatha Hora settings: True Lahiri / Chitrapaksha ayanamsa (Spica always in the middle of Chitra), true positions, true sidereal solar years, SM Singh method (full cycle fraction, MDs strictly from cycle, ADs from MD like MDs from navamsa), from the Moon in D-1, Rohini 4th pada as Leo. Returns Savya/Apasavya, Paramayush, Deha, Jiva, gati (Simhavalokana/Manduka/Markati) jumps, the running chain down to deha with countdowns and next periods, the birth-time sensitivity, and optionally all mahadashas with antardashas, the sub-periods of any period (drill_down), chains for a list of dates, or a birth-time sweep for rectification.',
             inputSchema: {
               type: 'object',
               properties: {
@@ -446,7 +467,7 @@ class SwissEphemerisServer {
                 ayanamsa_override: {
                   type: 'string',
                   enum: Object.keys(AYANAMSAS),
-                  description: 'Research only: compute Kalachakra in another ayanamsa. Kalachakra is extremely sensitive to the ayanamsa (a kp_new comparison moved the timeline by about 23 months); the response carries this warning. Default: Traditional Lahiri',
+                  description: 'Research only: compute Kalachakra in another ayanamsa. Kalachakra is extremely sensitive to the ayanamsa (a kp_new comparison moved the timeline by about 23 months); the response carries this warning. Default: true_lahiri (True Lahiri / Chitrapaksha)',
                 },
                 gati_list: {
                   type: 'object',
@@ -788,23 +809,24 @@ class SwissEphemerisServer {
 
       const swissDate = this.formatDateToSwiss(date);
       const swissTime = this.formatTimeToSwiss(date);
-      const ephePath = process.env.SE_EPHE_PATH || '/app/vendor/swisseph';
+      const ephePath = process.env.SE_EPHE_PATH || DEFAULT_EPHE_PATH;
+      const execEnv = { ...process.env, SE_EPHE_PATH: ephePath };
 
       // Execute swetest for planets, including asteroids and additional points
       // 0123456789 = Sun through Pluto, t = true Node, A = mean Apogee (Lilith), D = Chiron, F = Ceres, G = Pallas, H = Juno, I = Vesta
-      const planetCmd = `SE_EPHE_PATH=${ephePath} swetest -b${swissDate} -ut${swissTime} -p0123456789tADFGHI -fPZ -g, -head`;
+      const planetCmd = `swetest -b${swissDate} -ut${swissTime} -p0123456789tADFGHI -fPZ -g, -head`;
       let planetOutput;
       try {
-        planetOutput = execSync(planetCmd, { encoding: 'utf8' });
+        planetOutput = execSync(planetCmd, { encoding: 'utf8', env: execEnv });
       } catch (error) {
         throw new Error(`Failed to execute swetest for planets: ${error.message}`);
       }
 
       // Execute swetest for houses (Placidus system)
-      const houseCmd = `SE_EPHE_PATH=${ephePath} swetest -b${swissDate} -ut${swissTime} -house${longitude},${latitude},P -fPZ -g, -head`;
+      const houseCmd = `swetest -b${swissDate} -ut${swissTime} -house${longitude},${latitude},P -fPZ -g, -head`;
       let houseOutput;
       try {
-        houseOutput = execSync(houseCmd, { encoding: 'utf8' });
+        houseOutput = execSync(houseCmd, { encoding: 'utf8', env: execEnv });
       } catch (error) {
         throw new Error(`Failed to execute swetest for houses: ${error.message}`);
       }
@@ -1079,9 +1101,15 @@ class SwissEphemerisServer {
     const legacyChain = options.output === 'chain_v1';
     const compact = !legacyChain && (options.output === 'chain' || Boolean(asOfInputs));
 
-    const ephePath = process.env.SE_EPHE_PATH || '/app/vendor/swisseph';
+    const ephePath = process.env.SE_EPHE_PATH || DEFAULT_EPHE_PATH;
+    const execEnv = { ...process.env, SE_EPHE_PATH: ephePath };
     const positionFlag = positionType === 'true' ? ' -true' : '';
-    const base = `SE_EPHE_PATH=${ephePath} swetest ${this.swissTimeArgs(date)} ${ayanamsa.flag}${positionFlag} -g, -head`;
+    const base = `swetest ${this.swissTimeArgs(date)} ${ayanamsa.flag}${positionFlag} -g, -head`;
+    // Kalachakra runs on its own ayanamsa (True Lahiri unless kalachakra_ayanamsa says otherwise),
+    // with its own Moon and its own solar-year clock
+    const kalachakraKey = options.kalachakra_ayanamsa || KALACHAKRA_AYANAMSA;
+    const kalachakraAyanamsa = AYANAMSAS[kalachakraKey];
+    const kalachakraMoon = kalachakraKey === ayanamsaKey ? null : createEphemeris(ephePath).series('Moon', date, 1, 1, { siderealFlag: kalachakraAyanamsa.flag, positionFlag })[0];
 
     // Birth-time sweep: Vimshottari chains, lagna and cusp sub-lords per birth time
     if (options.birth_time_sweep) {
@@ -1092,7 +1120,7 @@ class SwissEphemerisServer {
         sweep: options.birth_time_sweep,
         asOfTimes,
         levels,
-        main: { system: options.sweep_dasha || 'vimshottari', ayanamsaKey, kalachakraAyanamsaKey: ayanamsaKey, yearDays, positionFlag, subperiodDirection: options.subperiod_direction },
+        main: { system: options.sweep_dasha || 'vimshottari', ayanamsaKey, kalachakraAyanamsaKey: kalachakraKey, yearDays, positionFlag, subperiodDirection: options.subperiod_direction },
         eventTests: options.event_tests || [],
         sweepOutput: options.sweep_output || 'auto',
         place: { latitude, longitude },
@@ -1100,8 +1128,8 @@ class SwissEphemerisServer {
         varga: options.vargaLagnaKey || null,
       });
       return {
-        settings: this.chartSettings({ ayanamsa, positionType, nodeType, yearDays }),
-        birth_time_sensitivity: this.birthTimeSensitivity(moon.speed, this.vimshottariStart(moon.lon), this.kalachakraStart(moon.lon)),
+        settings: this.chartSettings({ ayanamsa, positionType, nodeType, yearDays, kalachakraAyanamsa }),
+        birth_time_sensitivity: this.birthTimeSensitivity(moon.speed, this.vimshottariStart(moon.lon), this.kalachakraStart((kalachakraMoon || moon).lon)),
         ...swept,
         note: swept.sweep_output === 'ranges'
           ? `Each range lists the birth times (inclusive, in step_seconds steps) that give the same ${options.sweep_dasha || 'Vimshottari'} chain at every as_of date (chains[k] belongs to as_of[k]), the same lagna and the same cusp sub-lords.`
@@ -1113,15 +1141,16 @@ class SwissEphemerisServer {
 
     // 0-9 = Sun through Pluto, m = mean Node, t = true Node; l = decimal longitude, s = daily speed
     const nodeCode = nodeType === 'true' ? 't' : 'm';
-    const planetOutput = execSync(`${base} -p0123456789${nodeCode} -fPls`, { encoding: 'utf8' });
-    const houseOutput = execSync(`${base} -p -house${longitude},${latitude},P -fPl`, { encoding: 'utf8' });
+    const planetOutput = execSync(`${base} -p0123456789${nodeCode} -fPls`, { encoding: 'utf8', env: execEnv });
+    const houseOutput = execSync(`${base} -p -house${longitude},${latitude},P -fPl`, { encoding: 'utf8', env: execEnv });
     // Without -head, swetest prints the ayanamsa in use (also for user-defined ones)
-    const ayanamsaOutput = execSync(base.replace(' -head', '') + ' -p0', { encoding: 'utf8' });
+    const ayanamsaOutput = execSync(base.replace(' -head', '') + ' -p0', { encoding: 'utf8', env: execEnv });
 
+    const lonAdjust = ayanamsa.flag === '-sid27' ? -0.00268 / 3600 : 0;
     const planets = {};
     for (const [name, lon, speed] of this.swetestRows(planetOutput)) {
       const planetName = name.endsWith('Node') ? 'Rahu' : name;
-      planets[planetName] = { longitude: parseFloat(lon), speed: parseFloat(speed) };
+      planets[planetName] = { longitude: norm360(parseFloat(lon) + lonAdjust), speed: parseFloat(speed) };
     }
     if (planets.Rahu) {
       planets.Ketu = { longitude: (planets.Rahu.longitude + 180) % 360, speed: planets.Rahu.speed };
@@ -1179,16 +1208,29 @@ class SwissEphemerisServer {
 
     const moonLon = planets.Moon.longitude;
     const vimshottari = this.vimshottariStart(moonLon);
-    const kalachakra = this.kalachakraStart(moonLon, options.subperiod_direction);
+    const kalachakraMoonLon = kalachakraMoon ? kalachakraMoon.lon : moonLon;
+    const kalachakra = this.kalachakraStart(kalachakraMoonLon, options.subperiod_direction);
 
-    // One clock covers both dasha systems, from the earliest period start to the latest end
+    // Vimshottari and the other dashas share one clock on the chart's ayanamsa, from the earliest
+    // period start to the latest end; Kalachakra's clock follows its own ayanamsa
+    const vimshottariFrom = Math.min(-vimshottari.elapsedYears, -21);
+    const vimshottariTo = Math.max(120 - vimshottari.elapsedYears, 125);
     const sunTable = yearDays ? null : this.makeSunTableForYears(
       date.getTime(),
       { ephePath, siderealFlag: ayanamsa.flag, positionFlag },
-      Math.min(-vimshottari.elapsedYears, kalachakra.firstStartYears, -21),
-      Math.max(120 - vimshottari.elapsedYears, kalachakra.lastEndYears, 125)
+      kalachakraMoon ? vimshottariFrom : Math.min(vimshottariFrom, kalachakra.firstStartYears),
+      kalachakraMoon ? vimshottariTo : Math.max(vimshottariTo, kalachakra.lastEndYears)
     );
     const clock = this.makeDashaClock(date.getTime(), { sunTable, yearDays });
+    const kalachakraClock = !kalachakraMoon ? clock : this.makeDashaClock(date.getTime(), {
+      yearDays,
+      sunTable: yearDays ? null : this.makeSunTableForYears(
+        date.getTime(),
+        { ephePath, siderealFlag: kalachakraAyanamsa.flag, positionFlag },
+        Math.min(kalachakra.firstStartYears, -21),
+        Math.max(kalachakra.lastEndYears, 125)
+      ),
+    });
     // Compact output shows three levels of the running chain unless levels is given (date
     // lists keep the full depth: they are one short string per date)
     const currentLevels = compact && !asOfInputs && !options.levels ? 3 : levels;
@@ -1215,10 +1257,10 @@ class SwissEphemerisServer {
     };
     const blocks = this.chartBlocks(ctx, options, compact);
     const vimshottariDasha = this.calculateVimshottari(vimshottari, date.getTime(), clock, formatTime, asOf, yearDescription, dashaOptions);
-    const kalachakraDasha = this.calculateKalachakra(kalachakra, clock, formatTime, asOf, yearDescription, { ...dashaOptions, ayanamsaName: ayanamsa.name });
+    const kalachakraDasha = this.calculateKalachakra(kalachakra, kalachakraClock, formatTime, asOf, yearDescription, { ...dashaOptions, ayanamsaName: kalachakraAyanamsa.name });
     const settings = compact
-      ? this.compactChartSettings({ ayanamsa, positionType, nodeType, yearDays, options })
-      : this.chartSettings({ ayanamsa, positionType, nodeType, yearDays, extra: { ...this.blockSettings(options), ...(options.subperiod_direction === 'natal' ? { subperiod_direction: 'natal' } : {}) } });
+      ? this.compactChartSettings({ ayanamsa, positionType, nodeType, yearDays, options, kalachakraAyanamsa })
+      : this.chartSettings({ ayanamsa, positionType, nodeType, yearDays, kalachakraAyanamsa, extra: { ...this.blockSettings(options), ...(options.subperiod_direction === 'natal' ? { subperiod_direction: 'natal' } : {}) } });
     // KP hour trigger at an explicit as_of: transit Moon and rising-degree sub lords (birth place)
     // against the running Vimshottari lords
     if (blocks.kp_significators && ctx.transitDate && vimshottariDasha.current) {
@@ -1235,7 +1277,7 @@ class SwissEphemerisServer {
       // Compact: one string per planet, cusp and dasha level
       const planetLine = (name, p) => this.compactPoint(p, ` WS${p.house_whole_sign} KP${p.house_kp}${p.retrograde && name !== 'Rahu' && name !== 'Ketu' ? ' R' : ''}`);
       const compactDasha = (d) => {
-        const { current, chains, mahadashas, ...rest } = d;
+        const { current, chains, mahadashas, gati_legend: _gatiLegend, ...rest } = d;
         return { ...rest, ...(chains ? { chains: chains.map(c => ({ as_of: c.as_of, chain: c.chain })) } : { current: this.compactCurrent(current) }) };
       };
       return {
@@ -1247,7 +1289,7 @@ class SwissEphemerisServer {
         ...blocks,
         birth_time_sensitivity: this.birthTimeSensitivity(planets.Moon.speed, vimshottari, kalachakra),
         vimshottari_dasha: compactDasha(vimshottariDasha),
-        kalachakra_dasha: compactDasha({ ...kalachakraDasha, method: undefined, gati_legend: undefined }),
+        kalachakra_dasha: compactDasha({ ...kalachakraDasha, ayanamsa: undefined, method: undefined, gati_legend: undefined }),
         datetime,
         coordinates: { latitude, longitude },
       };
@@ -1480,13 +1522,13 @@ class SwissEphemerisServer {
   }
 
   // Settings in compact output: one short line per choice (output "full" lists the method notes)
-  compactChartSettings({ ayanamsa, positionType, nodeType, yearDays, options }) {
+  compactChartSettings({ ayanamsa, positionType, nodeType, yearDays, options, kalachakraAyanamsa }) {
     const include = new Set(options.include);
     const d = options.dignity_options || {};
     const a = options.aspect_options || {};
     const out = {
       ayanamsa: ayanamsa.name,
-      base: `${positionType} positions, ${nodeType} nodes, Placidus KP cusps, ${yearDays ? `${yearDays}-day` : 'sidereal solar'} dasha year, Kalachakra SM Singh`,
+      base: `${positionType} positions, ${nodeType} nodes, Placidus KP cusps, ${yearDays ? `${yearDays}-day` : 'sidereal solar'} dasha year, Kalachakra SM Singh (${kalachakraAyanamsa.name.split(' (')[0]})`,
     };
     if (include.has('vargas')) {
       const methods = ['D2', 'D3', 'D30'].map(v => (options.varga_method || {})[v]).filter(Boolean);
@@ -1503,14 +1545,14 @@ class SwissEphemerisServer {
   }
 
   // The settings a chart was calculated with
-  chartSettings({ ayanamsa, positionType, nodeType, yearDays, extra = {} }) {
+  chartSettings({ ayanamsa, positionType, nodeType, yearDays, kalachakraAyanamsa = AYANAMSAS[KALACHAKRA_AYANAMSA], extra = {} }) {
     return {
       ayanamsa: ayanamsa.name,
       positions: positionType,
       nodes: nodeType,
       house_system: 'Placidus (KP cusps); whole-sign houses from the lagna sign',
       dasha_year: yearDays ? `${yearDays} days` : 'true sidereal solar year',
-      kalachakra: `SM Singh method, from the Moon in D-1, Rohini 4th pada as Leo; sub-period direction ${extra.subperiod_direction || 'parent'}`,
+      kalachakra: `SM Singh method, from the Moon in D-1, ${kalachakraAyanamsa.name} ayanamsa, Rohini 4th pada as Leo; sub-period direction ${extra.subperiod_direction || 'parent'}`,
       ...extra,
     };
   }
@@ -1541,9 +1583,9 @@ class SwissEphemerisServer {
       const n = Math.min(CHUNK, count - s);
       const start = new Date(fromMs + s * STEP * DAY_MS);
       const output = execSync(
-        `SE_EPHE_PATH=${ephePath} swetest ${this.swissTimeArgs(start)} ` +
+        `swetest ${this.swissTimeArgs(start)} ` +
         `${siderealFlag}${positionFlag} -p0 -fls -g, -head -n${n} -s${STEP}`,
-        { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 }
+        { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, env: { ...process.env, SE_EPHE_PATH: ephePath } }
       );
       this.swetestRows(output).forEach(([lon, speed]) => {
         lons.push(parseFloat(lon));
@@ -2115,9 +2157,8 @@ class SwissEphemerisServer {
     return (iso.endsWith('.000Z') ? iso.replace('.000Z', '') : iso.replace('Z', '')) + suffix;
   }
 
-  // Kalachakra dasha alone, with Jagannatha Hora's settings: Traditional Lahiri (unless
-  // ayanamsa_override is given, for research comparisons only), true positions, true sidereal
-  // solar years and the SM Singh method
+  // Kalachakra dasha alone, with Jagannatha Hora's settings: True Lahiri / Chitrapaksha (unless
+  // ayanamsa_override is given), true positions, true sidereal solar years and the SM Singh method
   calculateKalachakraDasha(datetime, options = {}) {
     const date = new Date(datetime);
     if (isNaN(date.getTime())) {
@@ -2130,27 +2171,29 @@ class SwissEphemerisServer {
     }
     const levels = options.levels || 6;
 
-    const ayanamsaKey = options.ayanamsa_override || 'traditional_lahiri';
+    const ayanamsaKey = options.ayanamsa_override || KALACHAKRA_AYANAMSA;
     const ayanamsa = AYANAMSAS[ayanamsaKey];
     const positionFlag = ' -true';
-    const ephePath = process.env.SE_EPHE_PATH || '/app/vendor/swisseph';
+    const ephePath = process.env.SE_EPHE_PATH || DEFAULT_EPHE_PATH;
     const sunSettings = { ephePath, siderealFlag: ayanamsa.flag, positionFlag };
     const yearDescription = 'true sidereal solar year (one sidereal revolution of the Sun, as in Jagannatha Hora)';
     const settings = {
       ayanamsa: ayanamsa.name,
       ...(options.ayanamsa_override ? { ayanamsa_override: options.ayanamsa_override } : {}),
       positions: 'true',
+      nodes: 'true',
       year: 'true sidereal solar years',
       method: 'SM Singh (full cycle fraction, MDs strictly from cycle, ADs from MD like MDs from navamsa)',
       starting_point: 'Janma tara (Moon), Rasi (D-1)',
       rohini_4th_pada: 'Leo navamsa',
+      event_lookup_level: 'Prana-antardasa (PAD)',
       subperiod_direction: options.subperiod_direction === 'natal'
         ? 'natal: sub-periods forward when a period\'s pada is in the same group as the Moon\'s pada (the rule before 1.1.0; not Jagannatha Hora)'
         : 'parent: sub-periods forward when a period\'s pada is in the same savya/apasavya group as its parent\'s pada (Jagannatha Hora)',
     };
-    const ayanamsaNote = options.ayanamsa_override && ayanamsaKey !== 'traditional_lahiri'
-      ? `WARNING: computed with ${ayanamsa.name} for comparison only. Kalachakra is extremely sensitive to the ayanamsa (a KP ayanamsa moved one test timeline by about 23 months); the Jagannatha Hora standard is Traditional Lahiri.`
-      : 'Kalachakra here uses Traditional Lahiri (the Jagannatha Hora standard); another ayanamsa can move the whole timeline by months or years.';
+    const ayanamsaNote = options.ayanamsa_override && ayanamsaKey !== KALACHAKRA_AYANAMSA
+      ? `WARNING: computed with ${ayanamsa.name} for comparison only. Kalachakra is extremely sensitive to the ayanamsa (a KP ayanamsa moved one test timeline by about 23 months); the default is ${AYANAMSAS[KALACHAKRA_AYANAMSA].name}.`
+      : `Kalachakra here uses ${AYANAMSAS[KALACHAKRA_AYANAMSA].name} (Spica always in the middle of Chitra); another ayanamsa can move the whole timeline by months or years.`;
 
     // Moon longitude and speed at one instant
     const [moon] = createEphemeris(ephePath).series('Moon', date, 1, 1, { siderealFlag: ayanamsa.flag, positionFlag });
@@ -2311,7 +2354,7 @@ class SwissEphemerisServer {
       const moons = eph.series('Moon', first, offsets.length, sweep.step_seconds / 86400, settings);
       const moonAt = makeLongitudeInterpolator(offsets[0], sweep.step_seconds, moons);
       const sunTable = yearDays ? null : this.makeSunTable({
-        ephePath: process.env.SE_EPHE_PATH || '/app/vendor/swisseph',
+        ephePath: process.env.SE_EPHE_PATH || DEFAULT_EPHE_PATH,
         ...settings,
         fromMs: span[0] - 22 * SIDEREAL_YEAR_DAYS * DAY_MS,
         toMs: span[1] + 22 * SIDEREAL_YEAR_DAYS * DAY_MS,
@@ -2937,7 +2980,7 @@ class SwissEphemerisServer {
   vimshottariLordsAt(birthIso, t, { ayanamsaKey = DEFAULT_AYANAMSA, positionType = 'true', yearDays } = {}) {
     const birthMs = Date.parse(birthIso);
     const ayanamsa = AYANAMSAS[ayanamsaKey];
-    const ephePath = process.env.SE_EPHE_PATH || '/app/vendor/swisseph';
+    const ephePath = process.env.SE_EPHE_PATH || DEFAULT_EPHE_PATH;
     const settings = { siderealFlag: ayanamsa.flag, positionFlag: positionType === 'true' ? ' -true' : '' };
     const moon = createEphemeris(ephePath).longitude('Moon', new Date(birthMs), settings).lon;
     const start = this.vimshottariStart(moon);
@@ -3557,6 +3600,7 @@ class SwissEphemerisServer {
         this.validateSweep(args, vedicAsOf);
         if (args.sweep_dasha !== undefined && !['vimshottari', 'yogini', 'ashtottari'].includes(args.sweep_dasha)) throw invalid('sweep_dasha', 'sweep_dasha must be "vimshottari", "yogini" or "ashtottari"');
         if (args.subperiod_direction !== undefined && !['parent', 'natal'].includes(args.subperiod_direction)) throw invalid('subperiod_direction', 'subperiod_direction must be "parent" (Jagannatha Hora) or "natal"');
+        if (args.kalachakra_ayanamsa !== undefined && !AYANAMSAS[args.kalachakra_ayanamsa]) throw invalid('kalachakra_ayanamsa', `kalachakra_ayanamsa must be one of: ${Object.keys(AYANAMSAS).join(', ')}`);
         const vedicEventTests = this.normalizeEventTests(args.event_tests, args.sweep_dasha || 'vimshottari', Boolean(args.birth_time_sweep), { latitude: vedicLatitude, longitude: vedicLongitude });
         const chartOptions = this.normalizeChartOptions(args);
         const vedicBirth = this.withDefaultOffset(vedicDatetime);
@@ -3570,6 +3614,7 @@ class SwissEphemerisServer {
           sweep_output: args.sweep_output,
           sweep_dasha: args.sweep_dasha,
           subperiod_direction: args.subperiod_direction,
+          kalachakra_ayanamsa: args.kalachakra_ayanamsa,
           event_tests: vedicEventTests,
           ayanamsa,
           position_type,

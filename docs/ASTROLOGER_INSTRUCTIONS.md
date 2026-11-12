@@ -25,7 +25,81 @@ Dasha transitions (mahadasha down to sookshma, praana and deha) happen at one ph
    |---|---|---|---|
    | **Deha (Aq)** | Revati 3 | 2026-09-16 09:21:55 IST | 2026-09-16 13:51:55 AEST (UTC+10:00) |
 
-### 3. Engine settings
-- **Kalachakra:** `calculate_kalachakra_dasha` always uses the Jagannatha Hora settings: Traditional Lahiri, true positions, true sidereal solar years, SM Singh method, Moon in D-1, Rohini 4th pada as Leo.
-- **Other calculations:** `calculate_vedic_chart` uses the same defaults (Traditional Lahiri, `position_type: "true"`, `node_type: "true"`). Change them only when the user asks for another system; in particular use `node_type: "mean"` only when the user explicitly asks for mean nodes, and say so in the answer.
-- **Never round off seconds** in birth times or in dasha timestamps.
+### 3. Engine Settings & Kalachakra Defaults
+
+When calculating Kalachakra Dasha (`calculate_kalachakra_dasha` or `kalachakra_dasha` in `calculate_vedic_chart`), the server uses the following **exact default settings** (matching Jagannatha Hora / S.M. Singh methodology):
+- **Kalachakra Ayanamsa:** **True Lahiri / Chitrapaksha** (Spica placed at exactly 0° Libra / 180°00'00" sidereal). The ayanamsa of the rest of the chart does not change it.
+- **Calculation Method:** **SM Singh** (`Full cycle fraction, MDs strictly from cycle, ADs from MD like MDs from navamsa`).
+- **Nodes:** **True nodes** (Rahu and Ketu osculating true positions).
+- **Planetary Positions:** **Geocentric, True positions** (no light-time aberration, no atmospheric refraction).
+- **Starting Point:** **Janma tara (Moon)**.
+- **Base Divisional Chart:** **Rasi (D-1)**.
+- **Rohini 4th Pada Rule:** **Rohini 4th pada is Leo navamsa** (Parasara/BPHS consistency; never Cancer navamsa).
+- **Year Definition:** **360° Sidereal Solar Years** (one complete sidereal solar revolution per year).
+- **Event Lookup Sub-Period Level:** **Prana-antardasa (PAD)**.
+- **Other calculations:** `calculate_vedic_chart` uses Traditional Lahiri for general sidereal positions, `position_type: "true"`, and `node_type: "true"`. Use `node_type: "mean"` only when explicitly requested.
+- **Never round off seconds** in birth times or dasha timestamps.
+
+---
+
+### 4. JHora Kalachakra Dasha Methodology & Predictive Protocol
+
+#### A. Software Bug & Verification Constraint
+* **Apasavya Discrepancy:** Even with the `SM Singh` setting enabled, software like Jagannatha Hora can miscalculate starting balances and sequences for certain Apasavya (counter-clockwise) nakshatra padas (e.g., Rohini 4th pada) compared to S.M. Singh's manual tables.
+* **Mandatory Check:** Always cross-verify the server's / JHora's displayed `Deha` and `Jiva` signs and 9-sign dasha sequence against the manual BPHS/S.M. Singh Savya-Apasavya tables before predicting.
+
+#### B. Core Movement & Gati Rules
+* **Savya (Clockwise) vs. Apasavya (Counter-Clockwise):** Nakshatras are divided into two groups determining zodiacal progression and Deha-to-Jiva vs. Jiva-to-Deha flow.
+* **Mandooka Gati (Frog Jump):** Skipping 1 sign (e.g., Leo to Gemini, or Aries to Gemini). Indicates sudden shifts in focus, sudden events, or changes of trajectory.
+* **Markati Gati (Monkey Jump):** Backward movement by 1 sign (e.g., Leo to Cancer). Indicates revisiting past themes, delays, back-tracking, or temporary regression.
+* **Simhavalokan Gati (Quantum Jump / Lion's Gaze):** Jumping 5 signs (trinal/9th-5th jump: Aries ↔ Sagittarius, or Pisces ↔ Scorpio). Triggers profound 180-degree life transformations ("Rags to Riches", sudden elevation, or major status reversals).
+
+#### C. Predictive & Chart Rotation Protocol
+* **Chart Rotation:** In the Rasi (D-1) chart, rotate the chart so that the active **Mahadasha (MD)** or **Antardasha (AD)** sign becomes the temporary Ascendant (Dasha Lagna).
+* **Primary Houses to Judge:** 
+  1. **1st House from Dasha Lagna:** Physical self, vitality, mindset, new beginnings.
+  2. **10th House from Dasha Lagna:** Karma, career, social standing, actions.
+  3. Analyze planets posited in or aspecting the Dasha sign.
+* **Deha & Jiva Protection/Affliction:**
+  * **Deha:** Represents the physical body, health, and material wellbeing.
+  * **Jiva:** Represents the soul, vitality, mental state, and life force.
+  * Benefics aspecting or transiting Deha/Jiva signs bring health, protection, and prosperity; malefic transits (Saturn, Rahu, Mars) or afflicted dasha activations of Deha/Jiva trigger critical health issues or life crises.
+
+When calculating Kalachakra Dasha (`calculate_kalachakra_dasha` or `kalachakra_dasha` in `calculate_vedic_chart`), the server uses the following **exact default settings** (matching Jagannatha Hora / S.M. Singh methodology):
+- **Kalachakra Ayanamsa:** **True Lahiri / Chitrapaksha** (Spica placed at exactly 0° Libra / 180°00'00" sidereal). The ayanamsa of the rest of the chart does not change it.
+- **Calculation Method:** **SM Singh** (`Full cycle fraction, MDs strictly from cycle, ADs from MD like MDs from navamsa`).
+- **Nodes:** **True nodes** (Rahu and Ketu osculating true positions).
+- **Planetary Positions:** **Geocentric, True positions** (no light-time aberration, no atmospheric refraction).
+- **Starting Point:** **Janma tara (Moon)**.
+- **Base Divisional Chart:** **Rasi (D-1)**.
+- **Rohini 4th Pada Rule:** **Rohini 4th pada is Leo navamsa** (Parasara/BPHS consistency; never Cancer navamsa).
+- **Year Definition:** **360° Sidereal Solar Years** (one complete sidereal solar revolution per year).
+- **Event Lookup Sub-Period Level:** **Prana-antardasa (PAD)**.
+- **Other calculations:** `calculate_vedic_chart` uses Traditional Lahiri for general sidereal positions, `position_type: "true"`, and `node_type: "true"`. Use `node_type: "mean"` only when explicitly requested.
+- **Never round off seconds** in birth times or dasha timestamps.
+
+---
+
+### 4. JHora Kalachakra Dasha Methodology & Predictive Protocol
+*(Lunar Astro / Deepanshu Giri Methodology)*
+
+#### A. Software Bug & Verification Constraint
+* **Apasavya Discrepancy:** Even with the `SM Singh` setting enabled, software like Jagannatha Hora can miscalculate starting balances and sequences for certain Apasavya (counter-clockwise) nakshatra padas (e.g., Rohini 4th pada) compared to S.M. Singh's manual tables.
+* **Mandatory Check:** Always cross-verify the server's / JHora's displayed `Deha` and `Jiva` signs and 9-sign dasha sequence against the manual BPHS/S.M. Singh Savya-Apasavya tables before predicting.
+
+#### B. Core Movement & Gati Rules
+* **Savya (Clockwise) vs. Apasavya (Counter-Clockwise):** Nakshatras are divided into two groups determining zodiacal progression and Deha-to-Jiva vs. Jiva-to-Deha flow.
+* **Mandooka Gati (Frog Jump):** Skipping 1 sign (e.g., Leo to Gemini, or Aries to Gemini). Indicates sudden shifts in focus, sudden events, or changes of trajectory.
+* **Markati Gati (Monkey Jump):** Backward movement by 1 sign (e.g., Leo to Cancer). Indicates revisiting past themes, delays, back-tracking, or temporary regression.
+* **Simhavalokan Gati (Quantum Jump / Lion's Gaze):** Jumping 5 signs (trinal/9th-5th jump: Aries ↔ Sagittarius, or Pisces ↔ Scorpio). Triggers profound 180-degree life transformations ("Rags to Riches", sudden elevation, or major status reversals).
+
+#### C. Predictive & Chart Rotation Protocol
+* **Chart Rotation:** In the Rasi (D-1) chart, rotate the chart so that the active **Mahadasha (MD)** or **Antardasha (AD)** sign becomes the temporary Ascendant (Dasha Lagna).
+* **Primary Houses to Judge:** 
+  1. **1st House from Dasha Lagna:** Physical self, vitality, mindset, new beginnings.
+  2. **10th House from Dasha Lagna:** Karma, career, social standing, actions.
+  3. Analyze planets posited in or aspecting the Dasha sign.
+* **Deha & Jiva Protection/Affliction:**
+  * **Deha:** Represents the physical body, health, and material wellbeing.
+  * **Jiva:** Represents the soul, vitality, mental state, and life force.
+  * Benefics aspecting or transiting Deha/Jiva signs bring health, protection, and prosperity; malefic transits (Saturn, Rahu, Mars) or afflicted dasha activations of Deha/Jiva trigger critical health issues or life crises.

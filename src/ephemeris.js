@@ -1,15 +1,18 @@
 // Thin wrapper around the swetest command-line program
 import { execSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { GRAHAS, DAY_MS, norm360 } from './constants.js';
 
+export const DEFAULT_EPHE_PATH = fileURLToPath(new URL('../vendor/swisseph', import.meta.url));
 const BODY_CODES = { Sun: '0', Moon: '1', Mercury: '2', Venus: '3', Mars: '4', Jupiter: '5', Saturn: '6' };
 // swetest prints at most 36525 lines per call
 const MAX_LINES = 36000;
 
-export function createEphemeris(ephePath = process.env.SE_EPHE_PATH || '/app/vendor/swisseph') {
-  const run = (args) => execSync(`SE_EPHE_PATH=${ephePath} swetest ${args}`, {
+export function createEphemeris(ephePath = process.env.SE_EPHE_PATH || DEFAULT_EPHE_PATH) {
+  const run = (args) => execSync(`swetest ${args}`, {
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
+    env: { ...process.env, SE_EPHE_PATH: ephePath },
   });
 
   const two = (n) => String(n).padStart(2, '0');
@@ -26,6 +29,10 @@ export function createEphemeris(ephePath = process.env.SE_EPHE_PATH || '/app/ven
     .filter(parts => parts.length >= 2 && parts[1] !== '' && !isNaN(parseFloat(parts[1])));
 
   const flags = ({ siderealFlag = '', positionFlag = '' } = {}) => `${siderealFlag}${positionFlag}`;
+  // Jagannatha Hora 8.0's Swiss Ephemeris (<=2.05) used the Hipparcos 1997 Spica catalog entry for
+  // True Citra (-sid27); Swiss Ephemeris 2.06+ updated Spica to SIMBAD/van Leeuwen 2007, which lowers
+  // Spica's ecliptic longitude by 0.00268" (and so raises -sid27 planet longitudes by 0.00268")
+  const siderealAdjust = (lon, settings = {}) => norm360(lon + (settings.siderealFlag === '-sid27' ? -0.00268 / 3600 : 0));
 
   return {
     run,
@@ -38,7 +45,7 @@ export function createEphemeris(ephePath = process.env.SE_EPHE_PATH || '/app/ven
       const result = {};
       for (const [name, lon, lat, speed, decl, mag] of rows(output)) {
         const key = name.endsWith('Node') ? 'Rahu' : name;
-        result[key] = { lon: parseFloat(lon), lat: parseFloat(lat), speed: parseFloat(speed), decl: parseFloat(decl), mag: parseFloat(mag) };
+        result[key] = { lon: siderealAdjust(parseFloat(lon), settings), lat: parseFloat(lat), speed: parseFloat(speed), decl: parseFloat(decl), mag: parseFloat(mag) };
       }
       const rahu = result.Rahu;
       result.Ketu = { lon: norm360(rahu.lon + 180), lat: -rahu.lat, speed: rahu.speed, decl: -rahu.decl, mag: 0 };
@@ -84,7 +91,8 @@ export function createEphemeris(ephePath = process.env.SE_EPHE_PATH || '/app/ven
         const start = new Date(from.getTime() + s * stepDays * DAY_MS);
         const output = run(`${timeArgs(start)} ${flags(settings)} -p${code} -fls -g, -head -n${n} -s${stepDays}`);
         for (const line of output.trim().split('\n')) {
-          const [lon, speed] = line.split(',').map(parseFloat);
+          const [ lineLon, speed ] = line.split(',').map(parseFloat);
+          const lon = siderealAdjust(lineLon, settings);
           if (!isNaN(lon)) out.push({ lon: body === 'Ketu' ? norm360(lon + 180) : lon, speed });
         }
       }
