@@ -12,7 +12,9 @@
     "start:http": "MCP_HTTP_MODE=true node index.js",
     "dev": "node --watch index.js",
     "dev:http": "MCP_HTTP_MODE=true node --watch index.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "test:local": "node test/test-local-mcp.mjs",
+    "test:smoke": "node test/smoke-remote.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.13.0",
