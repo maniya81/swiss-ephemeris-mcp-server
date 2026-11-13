@@ -1,0 +1,1245 @@
+[
+ {
+  "id": "chart1",
+  "name": "Chart-1 (Cancer lagna)",
+  "datetime": "1965-01-12T18:50:00+05:30",
+  "latitude": 18.9667,
+  "longitude": 72.8333,
+  "settings": {
+   "ayanamsa": "traditional_lahiri",
+   "position_type": "true",
+   "node_type": "mean"
+  },
+  "expected": {
+   "lagna": "Cn 6°23'15\"",
+   "lagna_nakshatra": "Pushya 1",
+   "lagna_charan": 2,
+   "equal_house_cusps": {
+    "1": {
+     "sign": "Cancer",
+     "cusp": "06°23'15\" Cancer",
+     "nakshatra": "Pushya",
+     "pada": 1,
+     "lord": "Saturn",
+     "navamsa": "Leo"
+    },
+    "2": {
+     "sign": "Leo",
+     "cusp": "06°23'15\" Leo",
+     "nakshatra": "Magha",
+     "pada": 2,
+     "lord": "Ketu",
+     "navamsa": "Taurus"
+    },
+    "3": {
+     "sign": "Virgo",
+     "cusp": "06°23'15\" Virgo",
+     "nakshatra": "Uttara Phalguni",
+     "pada": 3,
+     "lord": "Sun",
+     "navamsa": "Aquarius"
+    },
+    "4": {
+     "sign": "Libra",
+     "cusp": "06°23'15\" Libra",
+     "nakshatra": "Chitra",
+     "pada": 4,
+     "lord": "Mars",
+     "navamsa": "Scorpio"
+    },
+    "5": {
+     "sign": "Scorpio",
+     "cusp": "06°23'15\" Scorpio",
+     "nakshatra": "Anuradha",
+     "pada": 1,
+     "lord": "Saturn",
+     "navamsa": "Leo"
+    },
+    "6": {
+     "sign": "Sagittarius",
+     "cusp": "06°23'15\" Sagittarius",
+     "nakshatra": "Mula",
+     "pada": 2,
+     "lord": "Ketu",
+     "navamsa": "Taurus"
+    },
+    "7": {
+     "sign": "Capricorn",
+     "cusp": "06°23'15\" Capricorn",
+     "nakshatra": "Uttara Ashadha",
+     "pada": 3,
+     "lord": "Sun",
+     "navamsa": "Aquarius"
+    },
+    "8": {
+     "sign": "Aquarius",
+     "cusp": "06°23'15\" Aquarius",
+     "nakshatra": "Dhanishta",
+     "pada": 4,
+     "lord": "Mars",
+     "navamsa": "Scorpio"
+    },
+    "9": {
+     "sign": "Pisces",
+     "cusp": "06°23'15\" Pisces",
+     "nakshatra": "Uttara Bhadrapada",
+     "pada": 1,
+     "lord": "Saturn",
+     "navamsa": "Leo"
+    },
+    "10": {
+     "sign": "Aries",
+     "cusp": "06°23'15\" Aries",
+     "nakshatra": "Ashwini",
+     "pada": 2,
+     "lord": "Ketu",
+     "navamsa": "Taurus"
+    },
+    "11": {
+     "sign": "Taurus",
+     "cusp": "06°23'15\" Taurus",
+     "nakshatra": "Krittika",
+     "pada": 3,
+     "lord": "Sun",
+     "navamsa": "Aquarius"
+    },
+    "12": {
+     "sign": "Gemini",
+     "cusp": "06°23'15\" Gemini",
+     "nakshatra": "Mrigashira",
+     "pada": 4,
+     "lord": "Mars",
+     "navamsa": "Scorpio"
+    }
+   },
+   "ashwini_house": 10,
+   "ashwini_on_cusp": true,
+   "ashwini_cusp_pada": 2,
+   "planets_in_ashwini": {}
+  },
+  "compact": "1:Pus1 2:Mag2 3:UPh3 4:Chi4 5:Anu1 6:Mul2 7:UAs3 8:Dha4 9:UBh1 10:Ash2 11:Kri3 12:Mri4"
+ },
+ {
+  "id": "chart4_taurus",
+  "name": "Chart 4 (Taurus lagna)",
+  "datetime": "1990-04-23T07:24:46+05:30",
+  "latitude": 28.6667,
+  "longitude": 77.4333,
+  "settings": {
+   "ayanamsa": "traditional_lahiri",
+   "position_type": "true",
+   "node_type": "mean"
+  },
+  "expected": {
+   "lagna": "Ta 7°05'17\"",
+   "lagna_nakshatra": "Krittika 4",
+   "lagna_charan": 3,
+   "equal_house_cusps": {
+    "1": {
+     "sign": "Taurus",
+     "cusp": "07°05'17\" Taurus",
+     "nakshatra": "Krittika",
+     "pada": 4,
+     "lord": "Sun",
+     "navamsa": "Pisces"
+    },
+    "2": {
+     "sign": "Gemini",
+     "cusp": "07°05'17\" Gemini",
+     "nakshatra": "Ardra",
+     "pada": 1,
+     "lord": "Rahu",
+     "navamsa": "Sagittarius"
+    },
+    "3": {
+     "sign": "Cancer",
+     "cusp": "07°05'17\" Cancer",
+     "nakshatra": "Pushya",
+     "pada": 2,
+     "lord": "Saturn",
+     "navamsa": "Virgo"
+    },
+    "4": {
+     "sign": "Leo",
+     "cusp": "07°05'17\" Leo",
+     "nakshatra": "Magha",
+     "pada": 3,
+     "lord": "Ketu",
+     "navamsa": "Gemini"
+    },
+    "5": {
+     "sign": "Virgo",
+     "cusp": "07°05'17\" Virgo",
+     "nakshatra": "Uttara Phalguni",
+     "pada": 4,
+     "lord": "Sun",
+     "navamsa": "Pisces"
+    },
+    "6": {
+     "sign": "Libra",
+     "cusp": "07°05'17\" Libra",
+     "nakshatra": "Swati",
+     "pada": 1,
+     "lord": "Rahu",
+     "navamsa": "Sagittarius"
+    },
+    "7": {
+     "sign": "Scorpio",
+     "cusp": "07°05'17\" Scorpio",
+     "nakshatra": "Anuradha",
+     "pada": 2,
+     "lord": "Saturn",
+     "navamsa": "Virgo"
+    },
+    "8": {
+     "sign": "Sagittarius",
+     "cusp": "07°05'17\" Sagittarius",
+     "nakshatra": "Mula",
+     "pada": 3,
+     "lord": "Ketu",
+     "navamsa": "Gemini"
+    },
+    "9": {
+     "sign": "Capricorn",
+     "cusp": "07°05'17\" Capricorn",
+     "nakshatra": "Uttara Ashadha",
+     "pada": 4,
+     "lord": "Sun",
+     "navamsa": "Pisces"
+    },
+    "10": {
+     "sign": "Aquarius",
+     "cusp": "07°05'17\" Aquarius",
+     "nakshatra": "Shatabhisha",
+     "pada": 1,
+     "lord": "Rahu",
+     "navamsa": "Sagittarius"
+    },
+    "11": {
+     "sign": "Pisces",
+     "cusp": "07°05'17\" Pisces",
+     "nakshatra": "Uttara Bhadrapada",
+     "pada": 2,
+     "lord": "Saturn",
+     "navamsa": "Virgo"
+    },
+    "12": {
+     "sign": "Aries",
+     "cusp": "07°05'17\" Aries",
+     "nakshatra": "Ashwini",
+     "pada": 3,
+     "lord": "Ketu",
+     "navamsa": "Gemini"
+    }
+   },
+   "ashwini_house": 12,
+   "ashwini_on_cusp": true,
+   "ashwini_cusp_pada": 3,
+   "planets_in_ashwini": {
+    "Sun": {
+     "pos": "Ar 8°56'35\"",
+     "nakshatra": "Ashwini",
+     "pada": 3,
+     "navamsa": "Gemini"
+    }
+   }
+  },
+  "compact": "1:Kri4 2:Ard1 3:Pus2 4:Mag3 5:UPh4 6:Swa1 7:Anu2 8:Mul3 9:UAs4 10:Sha1 11:UBh2 12:Ash3"
+ },
+ {
+  "id": "chart4_capricorn",
+  "name": "Chart 4 (Capricorn lagna)",
+  "datetime": "1971-06-23T21:24:46+05:30",
+  "latitude": 18.9667,
+  "longitude": 72.8333,
+  "settings": {
+   "ayanamsa": "traditional_lahiri",
+   "position_type": "true",
+   "node_type": "mean"
+  },
+  "expected": {
+   "lagna": "Cp 9°58'23\"",
+   "lagna_nakshatra": "Uttara Ashadha 4",
+   "lagna_charan": 3,
+   "equal_house_cusps": {
+    "1": {
+     "sign": "Capricorn",
+     "cusp": "09°58'23\" Capricorn",
+     "nakshatra": "Uttara Ashadha",
+     "pada": 4,
+     "lord": "Sun",
+     "navamsa": "Pisces"
+    },
+    "2": {
+     "sign": "Aquarius",
+     "cusp": "09°58'23\" Aquarius",
+     "nakshatra": "Shatabhisha",
+     "pada": 1,
+     "lord": "Rahu",
+     "navamsa": "Sagittarius"
+    },
+    "3": {
+     "sign": "Pisces",
+     "cusp": "09°58'23\" Pisces",
+     "nakshatra": "Uttara Bhadrapada",
+     "pada": 2,
+     "lord": "Saturn",
+     "navamsa": "Virgo"
+    },
+    "4": {
+     "sign": "Aries",
+     "cusp": "09°58'23\" Aries",
+     "nakshatra": "Ashwini",
+     "pada": 3,
+     "lord": "Ketu",
+     "navamsa": "Gemini"
+    },
+    "5": {
+     "sign": "Taurus",
+     "cusp": "09°58'23\" Taurus",
+     "nakshatra": "Krittika",
+     "pada": 4,
+     "lord": "Sun",
+     "navamsa": "Pisces"
+    },
+    "6": {
+     "sign": "Gemini",
+     "cusp": "09°58'23\" Gemini",
+     "nakshatra": "Ardra",
+     "pada": 1,
+     "lord": "Rahu",
+     "navamsa": "Sagittarius"
+    },
+    "7": {
+     "sign": "Cancer",
+     "cusp": "09°58'23\" Cancer",
+     "nakshatra": "Pushya",
+     "pada": 2,
+     "lord": "Saturn",
+     "navamsa": "Virgo"
+    },
+    "8": {
+     "sign": "Leo",
+     "cusp": "09°58'23\" Leo",
+     "nakshatra": "Magha",
+     "pada": 3,
+     "lord": "Ketu",
+     "navamsa": "Gemini"
+    },
+    "9": {
+     "sign": "Virgo",
+     "cusp": "09°58'23\" Virgo",
+     "nakshatra": "Uttara Phalguni",
+     "pada": 4,
+     "lord": "Sun",
+     "navamsa": "Pisces"
+    },
+    "10": {
+     "sign": "Libra",
+     "cusp": "09°58'23\" Libra",
+     "nakshatra": "Swati",
+     "pada": 1,
+     "lord": "Rahu",
+     "navamsa": "Sagittarius"
+    },
+    "11": {
+     "sign": "Scorpio",
+     "cusp": "09°58'23\" Scorpio",
+     "nakshatra": "Anuradha",
+     "pada": 2,
+     "lord": "Saturn",
+     "navamsa": "Virgo"
+    },
+    "12": {
+     "sign": "Sagittarius",
+     "cusp": "09°58'23\" Sagittarius",
+     "nakshatra": "Mula",
+     "pada": 3,
+     "lord": "Ketu",
+     "navamsa": "Gemini"
+    }
+   },
+   "ashwini_house": 4,
+   "ashwini_on_cusp": true,
+   "ashwini_cusp_pada": 3,
+   "planets_in_ashwini": {}
+  },
+  "compact": "1:UAs4 2:Sha1 3:UBh2 4:Ash3 5:Kri4 6:Ard1 7:Pus2 8:Mag3 9:UPh4 10:Swa1 11:Anu2 12:Mul3"
+ },
+ {
+  "id": "chart5_sagittarius",
+  "name": "Chart 5 (Sagittarius lagna)",
+  "datetime": "1986-09-06T14:24:46+05:30",
+  "latitude": 18.9667,
+  "longitude": 72.8333,
+  "settings": {
+   "ayanamsa": "traditional_lahiri",
+   "position_type": "true",
+   "node_type": "mean"
+  },
+  "expected": {
+   "lagna": "Sg 9°11'53\"",
+   "lagna_nakshatra": "Mula 3",
+   "lagna_charan": 3,
+   "equal_house_cusps": {
+    "1": {
+     "sign": "Sagittarius",
+     "cusp": "09°11'53\" Sagittarius",
+     "nakshatra": "Mula",
+     "pada": 3,
+     "lord": "Ketu",
+     "navamsa": "Gemini"
+    },
+    "2": {
+     "sign": "Capricorn",
+     "cusp": "09°11'53\" Capricorn",
+     "nakshatra": "Uttara Ashadha",
+     "pada": 4,
+     "lord": "Sun",
+     "navamsa": "Pisces"
+    },
+    "3": {
+     "sign": "Aquarius",
+     "cusp": "09°11'53\" Aquarius",
+     "nakshatra": "Shatabhisha",
+     "pada": 1,
+     "lord": "Rahu",
+     "navamsa": "Sagittarius"
+    },
+    "4": {
+     "sign": "Pisces",
+     "cusp": "09°11'53\" Pisces",
+     "nakshatra": "Uttara Bhadrapada",
+     "pada": 2,
+     "lord": "Saturn",
+     "navamsa": "Virgo"
+    },
+    "5": {
+     "sign": "Aries",
+     "cusp": "09°11'53\" Aries",
+     "nakshatra": "Ashwini",
+     "pada": 3,
+     "lord": "Ketu",
+     "navamsa": "Gemini"
+    },
+    "6": {
+     "sign": "Taurus",
+     "cusp": "09°11'53\" Taurus",
+     "nakshatra": "Krittika",
+     "pada": 4,
+     "lord": "Sun",
+     "navamsa": "Pisces"
+    },
+    "7": {
+     "sign": "Gemini",
+     "cusp": "09°11'53\" Gemini",
+     "nakshatra": "Ardra",
+     "pada": 1,
+     "lord": "Rahu",
+     "navamsa": "Sagittarius"
+    },
+    "8": {
+     "sign": "Cancer",
+     "cusp": "09°11'53\" Cancer",
+     "nakshatra": "Pushya",
+     "pada": 2,
+     "lord": "Saturn",
+     "navamsa": "Virgo"
+    },
+    "9": {
+     "sign": "Leo",
+     "cusp": "09°11'53\" Leo",
+     "nakshatra": "Magha",
+     "pada": 3,
+     "lord": "Ketu",
+     "navamsa": "Gemini"
+    },
+    "10": {
+     "sign": "Virgo",
+     "cusp": "09°11'53\" Virgo",
+     "nakshatra": "Uttara Phalguni",
+     "pada": 4,
+     "lord": "Sun",
+     "navamsa": "Pisces"
+    },
+    "11": {
+     "sign": "Libra",
+     "cusp": "09°11'53\" Libra",
+     "nakshatra": "Swati",
+     "pada": 1,
+     "lord": "Rahu",
+     "navamsa": "Sagittarius"
+    },
+    "12": {
+     "sign": "Scorpio",
+     "cusp": "09°11'53\" Scorpio",
+     "nakshatra": "Anuradha",
+     "pada": 2,
+     "lord": "Saturn",
+     "navamsa": "Virgo"
+    }
+   },
+   "ashwini_house": 5,
+   "ashwini_on_cusp": true,
+   "ashwini_cusp_pada": 3,
+   "planets_in_ashwini": {}
+  },
+  "compact": "1:Mul3 2:UAs4 3:Sha1 4:UBh2 5:Ash3 6:Kri4 7:Ard1 8:Pus2 9:Mag3 10:UPh4 11:Swa1 12:Anu2"
+ },
+ {
+  "id": "chart_rb",
+  "name": "Chart RB",
+  "datetime": "1969-11-19T23:30:00+05:30",
+  "latitude": 27.9,
+  "longitude": 77.3667,
+  "settings": {
+   "ayanamsa": "traditional_lahiri",
+   "position_type": "true",
+   "node_type": "mean"
+  },
+  "expected": {
+   "lagna": "Cn 27°56'12\"",
+   "lagna_nakshatra": "Ashlesha 4",
+   "lagna_charan": 9,
+   "equal_house_cusps": {
+    "1": {
+     "sign": "Cancer",
+     "cusp": "27°56'12\" Cancer",
+     "nakshatra": "Ashlesha",
+     "pada": 4,
+     "lord": "Mercury",
+     "navamsa": "Pisces"
+    },
+    "2": {
+     "sign": "Leo",
+     "cusp": "27°56'12\" Leo",
+     "nakshatra": "Uttara Phalguni",
+     "pada": 1,
+     "lord": "Sun",
+     "navamsa": "Sagittarius"
+    },
+    "3": {
+     "sign": "Virgo",
+     "cusp": "27°56'12\" Virgo",
+     "nakshatra": "Chitra",
+     "pada": 2,
+     "lord": "Mars",
+     "navamsa": "Virgo"
+    },
+    "4": {
+     "sign": "Libra",
+     "cusp": "27°56'12\" Libra",
+     "nakshatra": "Vishakha",
+     "pada": 3,
+     "lord": "Jupiter",
+     "navamsa": "Gemini"
+    },
+    "5": {
+     "sign": "Scorpio",
+     "cusp": "27°56'12\" Scorpio",
+     "nakshatra": "Jyeshtha",
+     "pada": 4,
+     "lord": "Mercury",
+     "navamsa": "Pisces"
+    },
+    "6": {
+     "sign": "Sagittarius",
+     "cusp": "27°56'12\" Sagittarius",
+     "nakshatra": "Uttara Ashadha",
+     "pada": 1,
+     "lord": "Sun",
+     "navamsa": "Sagittarius"
+    },
+    "7": {
+     "sign": "Capricorn",
+     "cusp": "27°56'12\" Capricorn",
+     "nakshatra": "Dhanishta",
+     "pada": 2,
+     "lord": "Mars",
+     "navamsa": "Virgo"
+    },
+    "8": {
+     "sign": "Aquarius",
+     "cusp": "27°56'12\" Aquarius",
+     "nakshatra": "Purva Bhadrapada",
+     "pada": 3,
+     "lord": "Jupiter",
+     "navamsa": "Gemini"
+    },
+    "9": {
+     "sign": "Pisces",
+     "cusp": "27°56'12\" Pisces",
+     "nakshatra": "Revati",
+     "pada": 4,
+     "lord": "Mercury",
+     "navamsa": "Pisces"
+    },
+    "10": {
+     "sign": "Aries",
+     "cusp": "27°56'12\" Aries",
+     "nakshatra": "Krittika",
+     "pada": 1,
+     "lord": "Sun",
+     "navamsa": "Sagittarius"
+    },
+    "11": {
+     "sign": "Taurus",
+     "cusp": "27°56'12\" Taurus",
+     "nakshatra": "Mrigashira",
+     "pada": 2,
+     "lord": "Mars",
+     "navamsa": "Virgo"
+    },
+    "12": {
+     "sign": "Gemini",
+     "cusp": "27°56'12\" Gemini",
+     "nakshatra": "Punarvasu",
+     "pada": 3,
+     "lord": "Jupiter",
+     "navamsa": "Gemini"
+    }
+   },
+   "ashwini_house": 10,
+   "ashwini_on_cusp": false,
+   "ashwini_cusp_pada": null,
+   "planets_in_ashwini": {
+    "Saturn": {
+     "pos": "Ar 10°21'13\"",
+     "nakshatra": "Ashwini",
+     "pada": 4,
+     "navamsa": "Cancer"
+    }
+   }
+  },
+  "compact": "1:Asl4 2:UPh1 3:Chi2 4:Vis3 5:Jye4 6:UAs1 7:Dha2 8:PBh3 9:Rev4 10:Kri1 11:Mri2 12:Pun3"
+ },
+ {
+  "id": "chart4_scorpio",
+  "name": "Chart 4 (Scorpio lagna)",
+  "datetime": "1985-04-22T21:45:46+05:30",
+  "latitude": 28.6667,
+  "longitude": 77.4333,
+  "settings": {
+   "ayanamsa": "traditional_lahiri",
+   "position_type": "true",
+   "node_type": "mean"
+  },
+  "expected": {
+   "lagna": "Sc 17°10'00\"",
+   "lagna_nakshatra": "Jyeshtha 1",
+   "lagna_charan": 6,
+   "equal_house_cusps": {
+    "1": {
+     "sign": "Scorpio",
+     "cusp": "17°10'00\" Scorpio",
+     "nakshatra": "Jyeshtha",
+     "pada": 1,
+     "lord": "Mercury",
+     "navamsa": "Sagittarius"
+    },
+    "2": {
+     "sign": "Sagittarius",
+     "cusp": "17°10'00\" Sagittarius",
+     "nakshatra": "Purva Ashadha",
+     "pada": 2,
+     "lord": "Venus",
+     "navamsa": "Virgo"
+    },
+    "3": {
+     "sign": "Capricorn",
+     "cusp": "17°10'00\" Capricorn",
+     "nakshatra": "Shravana",
+     "pada": 3,
+     "lord": "Moon",
+     "navamsa": "Gemini"
+    },
+    "4": {
+     "sign": "Aquarius",
+     "cusp": "17°10'00\" Aquarius",
+     "nakshatra": "Shatabhisha",
+     "pada": 4,
+     "lord": "Rahu",
+     "navamsa": "Pisces"
+    },
+    "5": {
+     "sign": "Pisces",
+     "cusp": "17°10'00\" Pisces",
+     "nakshatra": "Revati",
+     "pada": 1,
+     "lord": "Mercury",
+     "navamsa": "Sagittarius"
+    },
+    "6": {
+     "sign": "Aries",
+     "cusp": "17°10'00\" Aries",
+     "nakshatra": "Bharani",
+     "pada": 2,
+     "lord": "Venus",
+     "navamsa": "Virgo"
+    },
+    "7": {
+     "sign": "Taurus",
+     "cusp": "17°10'00\" Taurus",
+     "nakshatra": "Rohini",
+     "pada": 3,
+     "lord": "Moon",
+     "navamsa": "Gemini"
+    },
+    "8": {
+     "sign": "Gemini",
+     "cusp": "17°10'00\" Gemini",
+     "nakshatra": "Ardra",
+     "pada": 4,
+     "lord": "Rahu",
+     "navamsa": "Pisces"
+    },
+    "9": {
+     "sign": "Cancer",
+     "cusp": "17°10'00\" Cancer",
+     "nakshatra": "Ashlesha",
+     "pada": 1,
+     "lord": "Mercury",
+     "navamsa": "Sagittarius"
+    },
+    "10": {
+     "sign": "Leo",
+     "cusp": "17°10'00\" Leo",
+     "nakshatra": "Purva Phalguni",
+     "pada": 2,
+     "lord": "Venus",
+     "navamsa": "Virgo"
+    },
+    "11": {
+     "sign": "Virgo",
+     "cusp": "17°10'00\" Virgo",
+     "nakshatra": "Hasta",
+     "pada": 3,
+     "lord": "Moon",
+     "navamsa": "Gemini"
+    },
+    "12": {
+     "sign": "Libra",
+     "cusp": "17°10'00\" Libra",
+     "nakshatra": "Swati",
+     "pada": 4,
+     "lord": "Rahu",
+     "navamsa": "Pisces"
+    }
+   },
+   "ashwini_house": 6,
+   "ashwini_on_cusp": false,
+   "ashwini_cusp_pada": null,
+   "planets_in_ashwini": {
+    "Sun": {
+     "pos": "Ar 8°49'53\"",
+     "nakshatra": "Ashwini",
+     "pada": 3,
+     "navamsa": "Gemini"
+    }
+   }
+  },
+  "compact": "1:Jye1 2:PAs2 3:Shr3 4:Sha4 5:Rev1 6:Bha2 7:Roh3 8:Ard4 9:Asl1 10:PPh2 11:Has3 12:Swa4"
+ },
+ {
+  "id": "chart7",
+  "name": "Chart 7",
+  "datetime": "1988-08-11T08:52:00+05:30",
+  "latitude": 29.65,
+  "longitude": 75.4167,
+  "settings": {
+   "ayanamsa": "traditional_lahiri",
+   "position_type": "true",
+   "node_type": "mean"
+  },
+  "expected": {
+   "lagna": "Vi 2°34'09\"",
+   "lagna_nakshatra": "Uttara Phalguni 2",
+   "lagna_charan": 1,
+   "equal_house_cusps": {
+    "1": {
+     "sign": "Virgo",
+     "cusp": "02°34'09\" Virgo",
+     "nakshatra": "Uttara Phalguni",
+     "pada": 2,
+     "lord": "Sun",
+     "navamsa": "Capricorn"
+    },
+    "2": {
+     "sign": "Libra",
+     "cusp": "02°34'09\" Libra",
+     "nakshatra": "Chitra",
+     "pada": 3,
+     "lord": "Mars",
+     "navamsa": "Libra"
+    },
+    "3": {
+     "sign": "Scorpio",
+     "cusp": "02°34'09\" Scorpio",
+     "nakshatra": "Vishakha",
+     "pada": 4,
+     "lord": "Jupiter",
+     "navamsa": "Cancer"
+    },
+    "4": {
+     "sign": "Sagittarius",
+     "cusp": "02°34'09\" Sagittarius",
+     "nakshatra": "Mula",
+     "pada": 1,
+     "lord": "Ketu",
+     "navamsa": "Aries"
+    },
+    "5": {
+     "sign": "Capricorn",
+     "cusp": "02°34'09\" Capricorn",
+     "nakshatra": "Uttara Ashadha",
+     "pada": 2,
+     "lord": "Sun",
+     "navamsa": "Capricorn"
+    },
+    "6": {
+     "sign": "Aquarius",
+     "cusp": "02°34'09\" Aquarius",
+     "nakshatra": "Dhanishta",
+     "pada": 3,
+     "lord": "Mars",
+     "navamsa": "Libra"
+    },
+    "7": {
+     "sign": "Pisces",
+     "cusp": "02°34'09\" Pisces",
+     "nakshatra": "Purva Bhadrapada",
+     "pada": 4,
+     "lord": "Jupiter",
+     "navamsa": "Cancer"
+    },
+    "8": {
+     "sign": "Aries",
+     "cusp": "02°34'09\" Aries",
+     "nakshatra": "Ashwini",
+     "pada": 1,
+     "lord": "Ketu",
+     "navamsa": "Aries"
+    },
+    "9": {
+     "sign": "Taurus",
+     "cusp": "02°34'09\" Taurus",
+     "nakshatra": "Krittika",
+     "pada": 2,
+     "lord": "Sun",
+     "navamsa": "Capricorn"
+    },
+    "10": {
+     "sign": "Gemini",
+     "cusp": "02°34'09\" Gemini",
+     "nakshatra": "Mrigashira",
+     "pada": 3,
+     "lord": "Mars",
+     "navamsa": "Libra"
+    },
+    "11": {
+     "sign": "Cancer",
+     "cusp": "02°34'09\" Cancer",
+     "nakshatra": "Punarvasu",
+     "pada": 4,
+     "lord": "Jupiter",
+     "navamsa": "Cancer"
+    },
+    "12": {
+     "sign": "Leo",
+     "cusp": "02°34'09\" Leo",
+     "nakshatra": "Magha",
+     "pada": 1,
+     "lord": "Ketu",
+     "navamsa": "Aries"
+    }
+   },
+   "ashwini_house": 8,
+   "ashwini_on_cusp": true,
+   "ashwini_cusp_pada": 1,
+   "planets_in_ashwini": {}
+  },
+  "compact": "1:UPh2 2:Chi3 3:Vis4 4:Mul1 5:UAs2 6:Dha3 7:PBh4 8:Ash1 9:Kri2 10:Mri3 11:Pun4 12:Mag1"
+ },
+ {
+  "id": "chart9",
+  "name": "Chart 9",
+  "datetime": "1983-10-22T02:58:00+05:30",
+  "latitude": 18.5333,
+  "longitude": 73.8667,
+  "settings": {
+   "ayanamsa": "traditional_lahiri",
+   "position_type": "true",
+   "node_type": "mean"
+  },
+  "expected": {
+   "lagna": "Le 13°18'09\"",
+   "lagna_nakshatra": "Magha 4",
+   "lagna_charan": 4,
+   "equal_house_cusps": {
+    "1": {
+     "sign": "Leo",
+     "cusp": "13°18'09\" Leo",
+     "nakshatra": "Magha",
+     "pada": 4,
+     "lord": "Ketu",
+     "navamsa": "Cancer"
+    },
+    "2": {
+     "sign": "Virgo",
+     "cusp": "13°18'09\" Virgo",
+     "nakshatra": "Hasta",
+     "pada": 1,
+     "lord": "Moon",
+     "navamsa": "Aries"
+    },
+    "3": {
+     "sign": "Libra",
+     "cusp": "13°18'09\" Libra",
+     "nakshatra": "Swati",
+     "pada": 2,
+     "lord": "Rahu",
+     "navamsa": "Capricorn"
+    },
+    "4": {
+     "sign": "Scorpio",
+     "cusp": "13°18'09\" Scorpio",
+     "nakshatra": "Anuradha",
+     "pada": 3,
+     "lord": "Saturn",
+     "navamsa": "Libra"
+    },
+    "5": {
+     "sign": "Sagittarius",
+     "cusp": "13°18'09\" Sagittarius",
+     "nakshatra": "Mula",
+     "pada": 4,
+     "lord": "Ketu",
+     "navamsa": "Cancer"
+    },
+    "6": {
+     "sign": "Capricorn",
+     "cusp": "13°18'09\" Capricorn",
+     "nakshatra": "Shravana",
+     "pada": 1,
+     "lord": "Moon",
+     "navamsa": "Aries"
+    },
+    "7": {
+     "sign": "Aquarius",
+     "cusp": "13°18'09\" Aquarius",
+     "nakshatra": "Shatabhisha",
+     "pada": 2,
+     "lord": "Rahu",
+     "navamsa": "Capricorn"
+    },
+    "8": {
+     "sign": "Pisces",
+     "cusp": "13°18'09\" Pisces",
+     "nakshatra": "Uttara Bhadrapada",
+     "pada": 3,
+     "lord": "Saturn",
+     "navamsa": "Libra"
+    },
+    "9": {
+     "sign": "Aries",
+     "cusp": "13°18'09\" Aries",
+     "nakshatra": "Ashwini",
+     "pada": 4,
+     "lord": "Ketu",
+     "navamsa": "Cancer"
+    },
+    "10": {
+     "sign": "Taurus",
+     "cusp": "13°18'09\" Taurus",
+     "nakshatra": "Rohini",
+     "pada": 1,
+     "lord": "Moon",
+     "navamsa": "Aries"
+    },
+    "11": {
+     "sign": "Gemini",
+     "cusp": "13°18'09\" Gemini",
+     "nakshatra": "Ardra",
+     "pada": 2,
+     "lord": "Rahu",
+     "navamsa": "Capricorn"
+    },
+    "12": {
+     "sign": "Cancer",
+     "cusp": "13°18'09\" Cancer",
+     "nakshatra": "Pushya",
+     "pada": 3,
+     "lord": "Saturn",
+     "navamsa": "Libra"
+    }
+   },
+   "ashwini_house": 9,
+   "ashwini_on_cusp": true,
+   "ashwini_cusp_pada": 4,
+   "planets_in_ashwini": {
+    "Moon": {
+     "pos": "Ar 4°04'39\"",
+     "nakshatra": "Ashwini",
+     "pada": 2,
+     "navamsa": "Taurus"
+    }
+   }
+  },
+  "compact": "1:Mag4 2:Has1 3:Swa2 4:Anu3 5:Mul4 6:Shr1 7:Sha2 8:UBh3 9:Ash4 10:Roh1 11:Ard2 12:Pus3"
+ },
+ {
+  "id": "chart10",
+  "name": "Chart 10",
+  "datetime": "1979-03-02T14:41:54+05:30",
+  "latitude": 20.85,
+  "longitude": 72.9167,
+  "settings": {
+   "ayanamsa": "traditional_lahiri",
+   "position_type": "true",
+   "node_type": "mean"
+  },
+  "expected": {
+   "lagna": "Ge 24°21'30\"",
+   "lagna_nakshatra": "Punarvasu 2",
+   "lagna_charan": 8,
+   "equal_house_cusps": {
+    "1": {
+     "sign": "Gemini",
+     "cusp": "24°21'30\" Gemini",
+     "nakshatra": "Punarvasu",
+     "pada": 2,
+     "lord": "Jupiter",
+     "navamsa": "Taurus"
+    },
+    "2": {
+     "sign": "Cancer",
+     "cusp": "24°21'30\" Cancer",
+     "nakshatra": "Ashlesha",
+     "pada": 3,
+     "lord": "Mercury",
+     "navamsa": "Aquarius"
+    },
+    "3": {
+     "sign": "Leo",
+     "cusp": "24°21'30\" Leo",
+     "nakshatra": "Purva Phalguni",
+     "pada": 4,
+     "lord": "Venus",
+     "navamsa": "Scorpio"
+    },
+    "4": {
+     "sign": "Virgo",
+     "cusp": "24°21'30\" Virgo",
+     "nakshatra": "Chitra",
+     "pada": 1,
+     "lord": "Mars",
+     "navamsa": "Leo"
+    },
+    "5": {
+     "sign": "Libra",
+     "cusp": "24°21'30\" Libra",
+     "nakshatra": "Vishakha",
+     "pada": 2,
+     "lord": "Jupiter",
+     "navamsa": "Taurus"
+    },
+    "6": {
+     "sign": "Scorpio",
+     "cusp": "24°21'30\" Scorpio",
+     "nakshatra": "Jyeshtha",
+     "pada": 3,
+     "lord": "Mercury",
+     "navamsa": "Aquarius"
+    },
+    "7": {
+     "sign": "Sagittarius",
+     "cusp": "24°21'30\" Sagittarius",
+     "nakshatra": "Purva Ashadha",
+     "pada": 4,
+     "lord": "Venus",
+     "navamsa": "Scorpio"
+    },
+    "8": {
+     "sign": "Capricorn",
+     "cusp": "24°21'30\" Capricorn",
+     "nakshatra": "Dhanishta",
+     "pada": 1,
+     "lord": "Mars",
+     "navamsa": "Leo"
+    },
+    "9": {
+     "sign": "Aquarius",
+     "cusp": "24°21'30\" Aquarius",
+     "nakshatra": "Purva Bhadrapada",
+     "pada": 2,
+     "lord": "Jupiter",
+     "navamsa": "Taurus"
+    },
+    "10": {
+     "sign": "Pisces",
+     "cusp": "24°21'30\" Pisces",
+     "nakshatra": "Revati",
+     "pada": 3,
+     "lord": "Mercury",
+     "navamsa": "Aquarius"
+    },
+    "11": {
+     "sign": "Aries",
+     "cusp": "24°21'30\" Aries",
+     "nakshatra": "Bharani",
+     "pada": 4,
+     "lord": "Venus",
+     "navamsa": "Scorpio"
+    },
+    "12": {
+     "sign": "Taurus",
+     "cusp": "24°21'30\" Taurus",
+     "nakshatra": "Mrigashira",
+     "pada": 1,
+     "lord": "Mars",
+     "navamsa": "Leo"
+    }
+   },
+   "ashwini_house": 11,
+   "ashwini_on_cusp": false,
+   "ashwini_cusp_pada": null,
+   "planets_in_ashwini": {
+    "Moon": {
+     "pos": "Ar 7°37'03\"",
+     "nakshatra": "Ashwini",
+     "pada": 3,
+     "navamsa": "Gemini"
+    }
+   }
+  },
+  "compact": "1:Pun2 2:Asl3 3:PPh4 4:Chi1 5:Vis2 6:Jye3 7:PAs4 8:Dha1 9:PBh2 10:Rev3 11:Bha4 12:Mri1"
+ },
+ {
+  "id": "ds_doctor",
+  "name": "DS Doctor",
+  "datetime": "1968-03-28T05:22:00+05:30",
+  "latitude": 28.6667,
+  "longitude": 77.2167,
+  "settings": {
+   "ayanamsa": "traditional_lahiri",
+   "position_type": "true",
+   "node_type": "mean"
+  },
+  "expected": {
+   "lagna": "Aq 23°20'32\"",
+   "lagna_nakshatra": "Purva Bhadrapada 2",
+   "lagna_charan": 8,
+   "equal_house_cusps": {
+    "1": {
+     "sign": "Aquarius",
+     "cusp": "23°20'32\" Aquarius",
+     "nakshatra": "Purva Bhadrapada",
+     "pada": 2,
+     "lord": "Jupiter",
+     "navamsa": "Taurus"
+    },
+    "2": {
+     "sign": "Pisces",
+     "cusp": "23°20'32\" Pisces",
+     "nakshatra": "Revati",
+     "pada": 3,
+     "lord": "Mercury",
+     "navamsa": "Aquarius"
+    },
+    "3": {
+     "sign": "Aries",
+     "cusp": "23°20'32\" Aries",
+     "nakshatra": "Bharani",
+     "pada": 4,
+     "lord": "Venus",
+     "navamsa": "Scorpio"
+    },
+    "4": {
+     "sign": "Taurus",
+     "cusp": "23°20'32\" Taurus",
+     "nakshatra": "Mrigashira",
+     "pada": 1,
+     "lord": "Mars",
+     "navamsa": "Leo"
+    },
+    "5": {
+     "sign": "Gemini",
+     "cusp": "23°20'32\" Gemini",
+     "nakshatra": "Punarvasu",
+     "pada": 2,
+     "lord": "Jupiter",
+     "navamsa": "Taurus"
+    },
+    "6": {
+     "sign": "Cancer",
+     "cusp": "23°20'32\" Cancer",
+     "nakshatra": "Ashlesha",
+     "pada": 3,
+     "lord": "Mercury",
+     "navamsa": "Aquarius"
+    },
+    "7": {
+     "sign": "Leo",
+     "cusp": "23°20'32\" Leo",
+     "nakshatra": "Purva Phalguni",
+     "pada": 4,
+     "lord": "Venus",
+     "navamsa": "Scorpio"
+    },
+    "8": {
+     "sign": "Virgo",
+     "cusp": "23°20'32\" Virgo",
+     "nakshatra": "Chitra",
+     "pada": 1,
+     "lord": "Mars",
+     "navamsa": "Leo"
+    },
+    "9": {
+     "sign": "Libra",
+     "cusp": "23°20'32\" Libra",
+     "nakshatra": "Vishakha",
+     "pada": 2,
+     "lord": "Jupiter",
+     "navamsa": "Taurus"
+    },
+    "10": {
+     "sign": "Scorpio",
+     "cusp": "23°20'32\" Scorpio",
+     "nakshatra": "Jyeshtha",
+     "pada": 3,
+     "lord": "Mercury",
+     "navamsa": "Aquarius"
+    },
+    "11": {
+     "sign": "Sagittarius",
+     "cusp": "23°20'32\" Sagittarius",
+     "nakshatra": "Purva Ashadha",
+     "pada": 4,
+     "lord": "Venus",
+     "navamsa": "Scorpio"
+    },
+    "12": {
+     "sign": "Capricorn",
+     "cusp": "23°20'32\" Capricorn",
+     "nakshatra": "Dhanishta",
+     "pada": 1,
+     "lord": "Mars",
+     "navamsa": "Leo"
+    }
+   },
+   "ashwini_house": 3,
+   "ashwini_on_cusp": false,
+   "ashwini_cusp_pada": null,
+   "planets_in_ashwini": {
+    "Mars": {
+     "pos": "Ar 6°36'10\"",
+     "nakshatra": "Ashwini",
+     "pada": 2,
+     "navamsa": "Taurus"
+    }
+   }
+  },
+  "compact": "1:PBh2 2:Rev3 3:Bha4 4:Mri1 5:Pun2 6:Asl3 7:PPh4 8:Chi1 9:Vis2 10:Jye3 11:PAs4 12:Dha1"
+ }
+]
+

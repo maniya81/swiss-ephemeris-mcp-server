@@ -9,7 +9,8 @@ Common: `datetime` (birth, ISO with offset and seconds), `latitude`, `longitude`
   `output` [full] | chain (use chain); `dasha_year_days` (fixed year, e.g. 365.25) [true solar].
 - `kalachakra_ayanamsa` [true_lahiri] — Kalachakra always defaults to True Lahiri / Chitrapaksha (`true_lahiri`), SM Singh method, True nodes, Rohini 4th pada = Leo navamsa, 360° Sidereal Solar Years.
 - `include` [dignity, vargas, aspects] | "all" | list of: dignity vargas aspects ashtakavarga
-  shadbala bhavabala kp_significators yogini ashtottari chara narayana.
+  shadbala bhavabala kp_significators yogini ashtottari chara narayana, plus opt-in nakshatra_houses.
+- `locate` [optional] nakshatra name for `nakshatra_houses` (auto-includes `nakshatra_houses`).
 - vargas: `vargas` [D1,D9] | "all" (D1-D60); `varga_method` {D2: parashara|parivritti|pvr,
   D3/D30: parashara|parivritti}; `vimshopaka_method` [jh] | bphs.
 - dignity: `rahu_exaltation` [Ta] | Ge, `moolatrikona`, `combustion_limits`, `war_winner`
@@ -43,6 +44,9 @@ labels "Ta Dhan3" / "Sc (Visa1)" / "Sc#2" when a sign repeats; `gati_list`
 ## rectify_by_transit
 `anchors` [{as_of, planet, target: cusp1-cusp12 | lagna | mc | natal planet, weight?}] (1-20),
 `window_seconds` [600] (10-7200).
+
+## nakshatra_house_map
+Either birth data (`datetime`, `latitude`, `longitude`, optional `ayanamsa`, `position_type`, `node_type`) OR `lagna` (`"Cn 6°23'15\""` or `{sign, deg, min, sec?}`); optional `locate` (nakshatra name), `output` (`"full"` | `"chain"`).
 
 ## Western tools
 `calculate_planetary_positions` (datetime, latitude, longitude), `calculate_transits`

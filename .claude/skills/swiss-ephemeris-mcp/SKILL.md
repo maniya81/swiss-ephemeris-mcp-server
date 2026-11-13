@@ -1,6 +1,6 @@
 ---
 name: swiss-ephemeris-mcp
-description: How to call the Swiss Ephemeris MCP server (Vedic/KP astrology tools calculate_vedic_chart, calculate_kalachakra_dasha, calculate_gochar, calculate_ruling_planets, rectify_by_transit, plus western positions/transits/synastry) with the fewest tokens - which tool answers which question, the arguments that keep responses small, JHora Kalachakra Dasha configuration & Deepanshu Giri / Lunar Astro predictive ruleset, and real example requests and responses. Use it whenever these tools are available and the user asks about a birth chart, lagna, nakshatra, KP sub lords, any dasha (Vimshottari, Kalachakra, Yogini, Ashtottari, Chara, Narayana), what period is running or when it ends, transits, Sade Sati, ruling planets, shadbala, ashtakavarga, vargas, or birth-time rectification - even a casual "what's my dasha now?" or "when does Saturn leave Pisces?".
+description: How to call the Swiss Ephemeris MCP server (Vedic/KP astrology tools calculate_vedic_chart, calculate_kalachakra_dasha, calculate_gochar, calculate_ruling_planets, rectify_by_transit, nakshatra_house_map, plus western positions/transits/synastry) with the fewest tokens - which tool answers which question, the arguments that keep responses small, JHora Kalachakra Dasha configuration & Deepanshu Giri / Lunar Astro predictive ruleset, and real example requests and responses. Use it whenever these tools are available and the user asks about a birth chart, lagna, nakshatra, cusp nakshatras, which nakshatra is in which house, KP sub lords, any dasha (Vimshottari, Kalachakra, Yogini, Ashtottari, Chara, Narayana), what period is running or when it ends, transits, Sade Sati, ruling planets, shadbala, ashtakavarga, vargas, or birth-time rectification - even a casual "what's my dasha now?" or "when does Saturn leave Pisces?".
 ---
 
 # Swiss Ephemeris MCP: Minimal-Token Usage & Kalachakra Ruleset
@@ -36,8 +36,9 @@ Defaults already match Jagannatha Hora (JHora):
 | Shadbala, ashtakavarga, vargas, dignity, other dashas | `calculate_vedic_chart` `output:"chain"`, `include:[blocks]` |
 | Rectify birth time from events | `calculate_kalachakra_dasha` or `calculate_vedic_chart` with `birth_time_sweep` + `event_tests` |
 | Rectify from a transit on a cusp | `rectify_by_transit` |
+| Which nakshatra/pada is in which house, cusp nakshatras, lagna-only | `nakshatra_house_map` `output:"chain"` (+`locate`?) |
 
-Blocks: `dignity vargas aspects ashtakavarga shadbala bhavabala kp_significators yogini ashtottari chara narayana` (or `"all"`). Parameter list: `references/parameters.md`.
+Blocks: `dignity vargas aspects ashtakavarga shadbala bhavabala kp_significators yogini ashtottari chara narayana` (in `"all"`), plus opt-in `nakshatra_houses`. Parameter list: `references/parameters.md`.
 
 ## Keep responses small (sizes for one chart)
 - Always `output:"chain"`: the default `full` chart is about 18k tokens, `chain` with `include:[]` about 1.5k, with every block 2.8k. Kalachakra `full` 7k, `chain` 1.3k.

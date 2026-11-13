@@ -23,6 +23,10 @@ import { computeAspects, compactAspects } from './src/aspects.js';
 import { computeAshtakavarga, compactAshtakavarga, transitBindus } from './src/ashtakavarga.js';
 import { computeShadbala, computeBhavabala, compactShadbala, compactBhavabala } from './src/shadbala.js';
 import {
+  computeNakshatraHouseMap, compactNakshatraHouses, computeCharanWindow,
+  parseLagnaInput, normalizeNakshatraName,
+} from './src/nakshatra-houses.js';
+import {
   MAX_SWEEP_CHARS, roundOffset, sampleOffsets, flipsOf, countChanges, passWindows, intersectWindows, bestSubset,
   fitToBudget, makeLongitudeInterpolator, makeLinearInterpolator, refineChanges,
 } from './src/sweep.js';
@@ -57,7 +61,8 @@ const MAX_SWEEP_CANDIDATES = 3601;
 const MAX_SWEEP_CHAINS = 3601 * 200;
 const MAX_EVENT_TESTS = 50;
 // Optional calculate_vedic_chart blocks and the default set
-const CHART_BLOCKS = ['dignity', 'vargas', 'aspects', 'ashtakavarga', 'shadbala', 'bhavabala', 'kp_significators', 'yogini', 'ashtottari', 'chara', 'narayana'];
+const ALL_CHART_BLOCKS = ['dignity', 'vargas', 'aspects', 'ashtakavarga', 'shadbala', 'bhavabala', 'kp_significators', 'yogini', 'ashtottari', 'chara', 'narayana'];
+const CHART_BLOCKS = [...ALL_CHART_BLOCKS, 'nakshatra_houses'];
 const DEFAULT_INCLUDE = ['dignity', 'vargas', 'aspects'];
 const SEVEN_PLANETS = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn'];
 const SERVER_INSTRUCTIONS = `Vedic astrology calculations (Swiss Ephemeris). Defaults match Jagannatha Hora: Traditional Lahiri ayanamsa (general chart), true geocentric positions, true nodes, true sidereal solar years; Kalachakra defaults strictly to True Lahiri (Chitrapaksha), SM Singh calculation method, and true nodes.
@@ -346,7 +351,11 @@ class SwissEphemerisServer {
                 },
                 include: {
                   oneOf: [{ type: 'string', enum: ['all'] }, { type: 'array', items: { type: 'string', enum: CHART_BLOCKS } }],
-                  description: 'Blocks to add (default ["dignity","vargas","aspects"]; "all" for every block): dignity (exaltation, moolatrikona, panchadha relation, combustion, planetary war, motion, Baladi/Jagradadi/Deeptadi, lordships), vargas, aspects, ashtakavarga, shadbala, bhavabala, kp_significators, yogini, ashtottari, chara, narayana. Example: ["shadbala","ashtakavarga"]',
+                  description: 'Blocks to add (default ["dignity","vargas","aspects"]; "all" for every standard block): dignity (exaltation, moolatrikona, panchadha relation, combustion, planetary war, motion, Baladi/Jagradadi/Deeptadi, lordships), vargas, aspects, ashtakavarga, shadbala, bhavabala, kp_significators, yogini, ashtottari, chara, narayana, nakshatra_houses (equal-house cusp nakshatras and padas, Deepanshu Giri method). Example: ["shadbala","ashtakavarga"]',
+                },
+                locate: {
+                  type: 'string',
+                  description: 'Optional nakshatra name (e.g. "Ashwini") to locate in the equal-house nakshatra map: returns its house(s), whether it sits on the cusp, cusp pada, planets in it, and 3rd/4th/5th/7th/8th-from spans. Automatically includes nakshatra_houses',
                 },
                 vargas: {
                   oneOf: [{ type: 'string', enum: ['all'] }, { type: 'array', items: { type: 'string', enum: ALL_VARGAS } }],
@@ -586,6 +595,67 @@ class SwissEphemerisServer {
                 position_type: { type: 'string', enum: ['true', 'apparent'], description: 'true (default) or apparent positions' },
               },
               required: ['datetime', 'latitude', 'longitude', 'anchors'],
+            },
+          },
+          {
+            name: 'nakshatra_house_map',
+            description: 'Which nakshatra and pada sits on each of the 12 house cusps and which nakshatras fall in each house (equal houses from the lagna, sidereal Lahiri, cusp = middle of the house, Deepanshu Giri method). Also locates any nakshatra: its house, whether it is on the cusp, its pada there and the planets in it, and warns when the lagna is within seconds of a pada edge. Use whenever the user asks which nakshatra is in which house, cusp nakshatras, "where is Ashwini in my chart", the blank-chart method, or gives only a lagna degree.',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                datetime: {
+                  type: 'string',
+                  description: 'Birth datetime in ISO8601 format with UTC offset and seconds, e.g. 1965-01-12T18:50:00+05:30 (IST assumed without an offset). Mutually exclusive with lagna',
+                },
+                latitude: {
+                  type: 'number',
+                  description: 'Birth latitude in decimal degrees (required with datetime)',
+                },
+                longitude: {
+                  type: 'number',
+                  description: 'Birth longitude in decimal degrees, positive east (required with datetime)',
+                },
+                lagna: {
+                  oneOf: [
+                    { type: 'string' },
+                    {
+                      type: 'object',
+                      properties: {
+                        sign: { type: 'string' },
+                        deg: { type: 'number' },
+                        min: { type: 'number' },
+                        sec: { type: 'number' },
+                      },
+                      required: ['sign', 'deg'],
+                    },
+                  ],
+                  description: 'Sidereal lagna degree when birth data is not available, e.g. "Cn 6°23\'15\\"" or {"sign":"Cancer","deg":6,"min":23,"sec":15}. Mutually exclusive with datetime/latitude/longitude',
+                },
+                locate: {
+                  type: 'string',
+                  description: 'Optional nakshatra name (e.g. "Ashwini") to locate: returns house(s), whether it is on the cusp, cusp pada, planets in it, and 3rd/4th/5th/7th/8th-from spans',
+                },
+                ayanamsa: {
+                  type: 'string',
+                  enum: Object.keys(AYANAMSAS),
+                  description: 'Ayanamsa to use (default traditional_lahiri)',
+                },
+                position_type: {
+                  type: 'string',
+                  enum: ['true', 'apparent'],
+                  description: 'True positions (default) or apparent positions',
+                },
+                node_type: {
+                  type: 'string',
+                  enum: ['true', 'mean'],
+                  description: 'Lunar node for Rahu/Ketu: true (default) or mean',
+                },
+                output: {
+                  type: 'string',
+                  enum: ['full', 'chain'],
+                  description: 'full (default): detailed 12-house map, planets, and charan_window; chain: compact summary under 1,500 tokens',
+                },
+              },
             },
           },
         ],
@@ -1248,6 +1318,9 @@ class SwissEphemerisServer {
       grahas: createEphemeris(ephePath).grahas(date, { siderealFlag: ayanamsa.flag, positionFlag, nodeType }),
       sweepSettings: { siderealFlag: ayanamsa.flag, positionFlag },
       ayanamsa,
+      ayanamsaKey,
+      positionType,
+      nodeType,
       formatTime,
       datetimeString: datetime,
       // Transit-dependent blocks use an as_of date only when one was given
@@ -1410,6 +1483,30 @@ class SwissEphemerisServer {
           ? `sign SAV/BAV, kakshya lord (+ gave a bindu): ${Object.entries(t).map(([g, x]) => `${g.slice(0, 2)} ${x.sign} ${x.sav_bindus}${x.bav_bindus !== undefined ? `/${x.bav_bindus} ${x.kakshya.lord.slice(0, 2)}${x.kakshya.lord_gave_bindu ? '+' : '-'}` : ''}`).join(', ')}`
           : { as_of: ctx.formatTime(ctx.transitDate.getTime()), planets: t };
       }
+    }
+
+    if (include.has('nakshatra_houses')) {
+      const charanWindow = computeCharanWindow(
+        createEphemeris(),
+        ctx.date,
+        ctx.datetimeString,
+        ctx.place.latitude,
+        ctx.place.longitude,
+        ctx.sweepSettings
+      );
+      const nhMap = computeNakshatraHouseMap(ctx.lagnaLon, {
+        planets: ctx.grahas,
+        locate: options.locate,
+        charanWindow,
+        settings: {
+          ayanamsa: ctx.ayanamsaKey,
+          ayanamsa_name: ctx.ayanamsa.name,
+          position_type: ctx.positionType,
+          node_type: ctx.nodeType,
+          house_system: 'equal houses from the lagna (cusp = middle of the house); whole-sign nakshatra placement (Deepanshu Giri method)',
+        },
+      });
+      out.nakshatra_houses = compact ? compactNakshatraHouses(nhMap) : nhMap;
     }
     return out;
   }
@@ -3153,6 +3250,85 @@ class SwissEphemerisServer {
     };
   }
 
+  calculateNakshatraHouseMap(args) {
+    const hasLagna = args.lagna !== undefined;
+    const hasBirth = args.datetime !== undefined || args.latitude !== undefined || args.longitude !== undefined;
+    if (hasLagna && hasBirth) {
+      throw invalid('lagna', 'Provide either birth data (datetime, latitude, longitude) or lagna, not both');
+    }
+    if (!hasLagna && !hasBirth) {
+      throw invalid('datetime', 'Provide either birth data (datetime, latitude, longitude) or lagna');
+    }
+
+    const ayanamsaKey = args.ayanamsa || DEFAULT_AYANAMSA;
+    const ayanamsa = AYANAMSAS[ayanamsaKey];
+    if (!ayanamsa) {
+      throw invalid('ayanamsa', `ayanamsa must be one of: ${Object.keys(AYANAMSAS).join(', ')}`);
+    }
+    const positionType = args.position_type || 'true';
+    if (positionType !== 'true' && positionType !== 'apparent') {
+      throw invalid('position_type', 'position_type must be "true" or "apparent"');
+    }
+    const nodeType = args.node_type || 'true';
+    if (nodeType !== 'true' && nodeType !== 'mean') {
+      throw invalid('node_type', 'node_type must be "true" or "mean"');
+    }
+    if (args.output !== undefined && args.output !== 'full' && args.output !== 'chain') {
+      throw invalid('output', 'output must be "full" or "chain"');
+    }
+    const compact = args.output === 'chain';
+    const locate = args.locate !== undefined ? normalizeNakshatraName(args.locate).name : undefined;
+
+    const settings = {
+      ayanamsa: ayanamsaKey,
+      ayanamsa_name: ayanamsa.name,
+      position_type: positionType,
+      node_type: nodeType,
+      house_system: 'equal houses from the lagna (cusp = middle of the house); whole-sign nakshatra placement (Deepanshu Giri method)',
+    };
+
+    if (hasLagna) {
+      const lagnaLon = parseLagnaInput(args.lagna);
+      const map = computeNakshatraHouseMap(lagnaLon, { locate, lagnaOnly: true, settings });
+      return compact ? compactNakshatraHouses(map) : map;
+    }
+
+    if (!args.datetime || typeof args.datetime !== 'string') {
+      throw invalid('datetime', 'datetime parameter is required and must be a string');
+    }
+    if (typeof args.latitude !== 'number' || args.latitude < -90 || args.latitude > 90) {
+      throw invalid('latitude', 'latitude must be a number between -90 and 90');
+    }
+    if (typeof args.longitude !== 'number' || args.longitude < -180 || args.longitude > 180) {
+      throw invalid('longitude', 'longitude must be a number between -180 and 180');
+    }
+
+    const birthDatetime = this.withDefaultOffset(args.datetime);
+    const date = new Date(birthDatetime);
+    if (isNaN(date.getTime())) {
+      throw invalid('datetime', 'Invalid datetime format. Use ISO8601 format like 1965-01-12T18:50:00+05:30');
+    }
+
+    const eph = createEphemeris();
+    const positionFlag = positionType === 'true' ? ' -true' : '';
+    const sweepSettings = { siderealFlag: ayanamsa.flag, positionFlag };
+    const houses = eph.houses(date, args.latitude, args.longitude, sweepSettings);
+    const grahas = eph.grahas(date, { ...sweepSettings, nodeType });
+    const charanWindow = computeCharanWindow(eph, date, birthDatetime, args.latitude, args.longitude, sweepSettings);
+    const map = computeNakshatraHouseMap(houses.asc, {
+      planets: grahas,
+      locate,
+      charanWindow,
+      settings,
+    });
+    const out = compact ? compactNakshatraHouses(map) : map;
+    return {
+      ...out,
+      datetime: birthDatetime,
+      coordinates: { latitude: args.latitude, longitude: args.longitude },
+    };
+  }
+
   normalizeAsOf(asOf) {
     if (asOf === undefined) return undefined;
     if (Array.isArray(asOf)) {
@@ -3179,11 +3355,16 @@ class SwissEphemerisServer {
   // Chart options: include, vargas, varga_method and the classical choices of each block
   normalizeChartOptions(args) {
     let include = args.include === undefined ? [...DEFAULT_INCLUDE] : args.include;
-    if (include === 'all') include = [...CHART_BLOCKS];
+    if (include === 'all') include = [...ALL_CHART_BLOCKS];
     if (!Array.isArray(include) || include.some(b => !CHART_BLOCKS.includes(b))) {
       throw invalid('include', `include must be "all" or a list of: ${CHART_BLOCKS.join(', ')}`);
     }
     if (args.kp_significators === true && !include.includes('kp_significators')) include = [...include, 'kp_significators'];
+    let locate;
+    if (args.locate !== undefined) {
+      locate = normalizeNakshatraName(args.locate).name;
+      if (!include.includes('nakshatra_houses')) include = [...include, 'nakshatra_houses'];
+    }
     let vargas = args.vargas === undefined ? ['D1', 'D9'] : args.vargas;
     if (vargas === 'all') vargas = [...ALL_VARGAS];
     if (!Array.isArray(vargas) || !vargas.length || vargas.some(v => !ALL_VARGAS.includes(v))) {
@@ -3229,7 +3410,7 @@ class SwissEphemerisServer {
     const ashtakavargaTables = choice('ashtakavarga_tables', ['jh', 'bphs']);
     const vimshopakaMethod = choice('vimshopaka_method', ['jh', 'bphs']);
     aspectOptions.drishti_rule = choice('drishti_rule', ['jh', 'bphs']);
-    return { include, vargas, varga_method: methods, dignity_options: dignityOptions, aspect_options: aspectOptions, shodhana: Boolean(args.shodhana), sunrise, moon_benefic: moonBenefic, chara_method: charaMethod, shadbala_method: shadbalaMethod, ashtakavarga_tables: ashtakavargaTables, vimshopaka_method: vimshopakaMethod, levels_given: args.levels !== undefined };
+    return { include, vargas, varga_method: methods, dignity_options: dignityOptions, aspect_options: aspectOptions, shodhana: Boolean(args.shodhana), sunrise, moon_benefic: moonBenefic, chara_method: charaMethod, shadbala_method: shadbalaMethod, ashtakavarga_tables: ashtakavargaTables, vimshopaka_method: vimshopakaMethod, locate, levels_given: args.levels !== undefined };
   }
 
   // birth_time_sweep, sweep_output and their size limits
@@ -3788,6 +3969,10 @@ class SwissEphemerisServer {
           position_type: args.position_type,
           node_type: args.node_type,
         });
+      }
+
+      case 'nakshatra_house_map': {
+        return this.calculateNakshatraHouseMap(args);
       }
 
       default:

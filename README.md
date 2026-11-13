@@ -24,7 +24,7 @@ The server is deployed live on Google Cloud Run and available for public MCP and
 - **Chart Points**: Ascendant, Midheaven, IC, Descendant
 - **Additional Points**: South Node, Part of Fortune
 - **Vedic / KP**: Sidereal chart (Lahiri, KP New, KP Old and more) with nakshatra, pada, star lord, KP sub lord and sub-sub lord, plus Vimshottari dasha down to sookshma
-- **Chart blocks**: divisional charts D1-D60 with Vimshopaka, dignity and avasthas, Vedic aspects, Ashtakavarga, Shadbala and Bhavabala, KP significators
+- **Chart blocks**: divisional charts D1-D60 with Vimshopaka, dignity and avasthas, Vedic aspects, Ashtakavarga, Shadbala and Bhavabala, KP significators, Nakshatra houses (`nakshatra_houses`)
 - **More dashas**: Kalachakra (SM Singh), Yogini, Ashtottari, Chara and Narayana
 - **Gochar**: Sade Sati and other Saturn states with exact spans, tara/chandra bala, natal hits, ingress and station search
 - **Rectification**: birth-time sweeps with event tests, Kalachakra jump lists, transit-to-cusp anchors, KP ruling planets and the hour trigger
@@ -73,7 +73,7 @@ npm start
 
 ## Usage
 
-The server provides six main tools:
+The server provides seven main tools:
 
 ### `calculate_planetary_positions`
 
@@ -166,6 +166,7 @@ Calculate a sidereal Vedic/KP birth chart with Vimshottari and Kalachakra dashas
   - `shadbala`, `bhavabala`: the six balas with sub-parts in virupas, rupas, required minimum, ratio and rank, Ishta/Kashta phala, and the strength of the 12 houses
   - `kp_significators` (or `kp_significators: true`): four-level significations per planet and cusp significators by strength; with a single `as_of`, the hour trigger
   - `yogini`, `ashtottari` (with its applicability check), `chara` (`chara_method`), `narayana`: running chain with countdowns, date lists and full trees
+  - `nakshatra_houses` (opt-in, not in `"all"`): equal-house cusp nakshatras/padas and whole-sign nakshatra contents per house (Deepanshu Giri method); optional `locate` parameter (auto-includes `nakshatra_houses`) finds a nakshatra's house(s), cusp status, planets and `nth_from` (3/4/5/7/8) degree spans
 - Classical choices: `varga_method`, `rahu_exaltation`, `moolatrikona`, `combustion_limits`, `war_winner`, `stationary_ratio`, `rahu_ketu_aspects`, `sunrise`, `moon_benefic`, `chara_method`, and the method switches `shadbala_method`, `ashtakavarga_tables`, `vimshopaka_method`, `drishti_rule` (each `jh` by default, as Jagannatha Hora). Every response names the ones it used in `settings`.
 - Rectification: `birth_time_sweep` (chains, lagna, cusp sub lords and varga lagnas per birth time), `sweep_output` (`ranges` or `flips`), `event_tests` and `sweep_dasha` (`vimshottari`, `yogini`, `ashtottari`); see the Kalachakra tool below
 
@@ -251,6 +252,15 @@ KP ruling planets for a moment and place (default now, IST): the day lord (weekd
 ### `rectify_by_transit`
 
 Birth-time anchors from transits, e.g. `{"as_of":"2025-12-01","planet":"Jupiter","target":"cusp10"}` (targets `cusp1`-`cusp12`, `lagna`, `mc` or a natal planet). For each anchor, the birth time within `window_seconds` (default 600) that puts the natal target exactly on the transiting planet, with the residuals at the window edges; then the least-squares best birth time over the anchors that can be solved, its RMS residual and the spread of the single-anchor solutions.
+
+### `nakshatra_house_map`
+
+Lightweight nakshatra-pada house map using Deepanshu Giri's method (equal houses from the lagna where cusp n = lagna + 30°·(n−1) is the middle of the house, whole-sign nakshatra contents per house, and constant lagna charan 1–9 across all 12 cusps):
+
+- **Inputs**: Either full birth data (`datetime`, `latitude`, `longitude`, optional `ayanamsa`, `position_type`, `node_type`) **or** a `lagna` alone (`"Cn 6°23'15\""` or `{"sign":"Cancer","deg":6,"min":23,"sec":15}` — omits planets and birth-time window, noted in `notes`).
+- **`locate`** (optional): Case-insensitive nakshatra name (supports aliases like `"Aswini"`, `"Ashvini"`, `"Purva Bhadra"`, `"Shatabhishak"`) returning its house(s), whether it sits on the cusp and which pada, planets inside it, and the same degree span in the 3rd, 4th, 5th, 7th and 8th signs (`nth_from`).
+- **Edge safety**: Reports `margin_arcsec` to the nearest pada edge, `charan_window` (bisected birth-time window keeping the same charan with `seconds_before`/`seconds_after`), and `borderline: true` with warnings when a birth-time shift under 30 s (or lagna-only margin ≤ 300″, or planet margin < 0.25 h) flips a pada.
+- **`output`**: `"full"` (default) or compact `"chain"` (under 1,500 tokens).
 
 ### Reference checks (Data 9)
 
