@@ -1,6 +1,6 @@
 ---
 name: swiss-ephemeris-mcp
-description: How to call the Swiss Ephemeris MCP server (all 10 tools — Vedic/KP: calculate_vedic_chart, calculate_kalachakra_dasha, calculate_gochar, calculate_ruling_planets, rectify_by_transit, nakshatra_house_map; Western Tropical: calculate_planetary_positions, calculate_transits, calculate_solar_revolution, calculate_synastry) with minimal tokens, exact defaults, JHora Kalachakra & Deepanshu Giri rulesets, and verified example responses.
+description: "How to call the Swiss Ephemeris MCP server (all 10 tools — Vedic/KP: calculate_vedic_chart, calculate_kalachakra_dasha, calculate_gochar, calculate_ruling_planets, rectify_by_transit, nakshatra_house_map; Western Tropical: calculate_planetary_positions, calculate_transits, calculate_solar_revolution, calculate_synastry) with minimal tokens, exact defaults, JHora Kalachakra & Deepanshu Giri rulesets, and verified example responses."
 ---
 
 # Swiss Ephemeris MCP: Tool Guide, Defaults & Predictive Rules
