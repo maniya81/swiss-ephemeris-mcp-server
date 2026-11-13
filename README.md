@@ -73,14 +73,14 @@ npm start
 
 ## Usage
 
-The server provides seven main tools:
+The server provides ten tools (4 Western Tropical and 6 Vedic/KP):
 
 ### `calculate_planetary_positions`
 
 Calculate astronomical data for a specific date, time, and location.
 
 **Parameters:**
-- `datetime` (string): ISO8601 format, e.g., "1985-04-12T23:20:50Z"
+- `datetime` (string): ISO8601 format with explicit UTC offset or `Z`, e.g., `"1985-04-12T23:20:50Z"` (offsetless strings use host local timezone)
 - `latitude` (number): Latitude in decimal degrees (-90 to 90)
 - `longitude` (number): Longitude in decimal degrees (-180 to 180)
 
@@ -95,7 +95,7 @@ Calculate astronomical data for a specific date, time, and location.
 Calculate birth chart positions and current transits for comparison.
 
 **Parameters:**
-- `birth_datetime` (string): Birth datetime in ISO8601 format
+- `birth_datetime` (string): Birth datetime in ISO8601 format with explicit UTC offset or `Z`
 - `latitude` (number): Birth latitude in decimal degrees
 - `longitude` (number): Birth longitude in decimal degrees
 
@@ -109,7 +109,7 @@ Calculate birth chart positions and current transits for comparison.
 Calculate solar return chart for a specific year (when Sun returns to natal position).
 
 **Parameters:**
-- `birth_datetime` (string): Birth datetime in ISO8601 format
+- `birth_datetime` (string): Birth datetime in ISO8601 format with explicit UTC offset or `Z`
 - `birth_latitude` (number): Birth latitude in decimal degrees
 - `birth_longitude` (number): Birth longitude in decimal degrees
 - `return_year` (number): Year for solar return calculation (e.g., 2024)
@@ -128,10 +128,10 @@ Calculate solar return chart for a specific year (when Sun returns to natal posi
 Calculate synastry chart between two people for relationship compatibility analysis.
 
 **Parameters:**
-- `person1_datetime` (string): Person 1 birth datetime in ISO8601 format
+- `person1_datetime` (string): Person 1 birth datetime in ISO8601 format with explicit UTC offset or `Z`
 - `person1_latitude` (number): Person 1 birth latitude in decimal degrees
 - `person1_longitude` (number): Person 1 birth longitude in decimal degrees
-- `person2_datetime` (string): Person 2 birth datetime in ISO8601 format
+- `person2_datetime` (string): Person 2 birth datetime in ISO8601 format with explicit UTC offset or `Z`
 - `person2_latitude` (number): Person 2 birth latitude in decimal degrees
 - `person2_longitude` (number): Person 2 birth longitude in decimal degrees
 
@@ -154,8 +154,8 @@ Calculate a sidereal Vedic/KP birth chart with Vimshottari and Kalachakra dashas
 - `position_type` (string, optional): `true` (default) or `apparent` planet positions
 - `node_type` (string, optional): `true` (default) or `mean` node for Rahu/Ketu. Use `mean` only when asked; it moves Rahu/Ketu by up to about 1.7° and so their sub lords, varga signs, Rahu's and Ketu's Vimshopaka and node-based KP and Chara/Narayana results, but not Vimshottari, Kalachakra, Shadbala or Ashtakavarga
 - `as_of` (string or list, optional): Date for the running dasha chains (default now), or a list of up to 200 dates to get one compact chain per date (`chains`)
-- `output` (string, optional): `full` (default) or `chain`, which leaves out the dasha trees and returns only the running chains
-- `levels` (integer, optional): How deep chains go, from 1 (mahadasha) to 6 (deha, the default)
+- `output` (string, optional): `full` (default) or `chain`, which leaves out the dasha trees and returns compact strings (`chain_v1` deprecated)
+- `levels` (integer, optional): How deep chains go, from 1 (mahadasha) to 6 (deha, default in `full` mode; `chain` defaults to 3 for Vimshottari/Kalachakra and 2 for extra dashas unless `levels` is passed)
 - `current_timezone` (string, optional): IANA timezone where the native lives now, e.g. `Australia/Melbourne`. Every dasha `start`/`end` also gets `start_local`/`end_local`, e.g. `2026-10-08 03:02:21 AEDT (UTC+11:00)`, using that zone's daylight-saving rules for each date.
 - `dasha_year_days` (number, optional): Fixed days per dasha year, e.g. 365.25. Omit it to use true sidereal solar years.
 - `include` (list or `"all"`, optional): extra blocks, default `["dignity","vargas","aspects"]`:

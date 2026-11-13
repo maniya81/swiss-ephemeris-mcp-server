@@ -75,13 +75,13 @@ Kalachakra Dasha Defaults & Methodology (Lunar Astro / Deepanshu Giri ruleset):
 - Rohini 4th pada: Leo navamsa (Parasara/BPHS consistency; never Cancer navamsa).
 - Year length: 360° Sidereal Solar Years.
 - Event lookup: Prana-antardasa (PAD) level.
-- Verification constraint: always cross-verify Deha, Jiva, and the 9-sign dasha sequence against manual BPHS / S.M. Singh Savya-Apasavya tables (especially for Apasavya padas such as Rohini 4th pada).
-- Gati rules: Manduka (frog jump: skip 1 sign, sudden shift in focus), Markati (monkey jump: backward 1 sign, revisiting past themes / temporary regression), Simhavalokana (lion's gaze: 5-sign/trinal jump Ar<->Sg or Pi<->Sc, 180° life transformation / quantum leap).
+- Software & table note: standalone Jagannatha Hora can miscalculate starting balances or sequences for certain Apasavya padas (e.g., Rohini 4th pada); this server already implements S.M. Singh's exact Savya/Apasavya tables (with Rohini 4th pada = Leo navamsa), so trust and report the server's deha, jiva, and dasha sequences directly.
+- Gati rules (exact tags emitted by the server): Manduka (frog jump: skips 1 sign, +/-2 zodiac signs e.g. Le->Ge or Cn->Ta, sudden shift in focus), Markati (monkey jump: Cn<->Le step adjacent to a Manduka jump, e.g. Ta/Cn->Ta/Le [Markati]->Ta/Ge [Manduka], backtracking / transitional adjustments), Simhavalokana (lion's gaze: trinal jump across 4 or 8 signs, 1/5/9 relation e.g. Ar<->Sg or Pi<->Sc, major reversal / quantum leap), plus other jump and cycle_restart.
 - Predictive & Chart Rotation Protocol: rotate D-1 to make the active MD or AD sign the temporary Ascendant (Dasha Lagna); judge the 1st house (self/body/new beginnings) and 10th house (karma/status/career) from Dasha Lagna plus planets in or aspecting the Dasha sign; Deha = physical body/wellbeing, Jiva = soul/mental state/life force (malefic transits or dashas activating Deha/Jiva trigger critical health or life events).
 
 Birth time and place:
 - Always pass datetime as YYYY-MM-DDTHH:mm:ss with an explicit UTC offset, e.g. 1999-06-06T15:30:00+05:30. Keep the seconds exactly as given (15:30:00 and 15:30:03 are different charts).
-- If the user gives no timezone or country for the birth, use Indian Standard Time (+05:30). The server also assumes +05:30 when the offset is missing and says so in birth_timezone.
+- Vedic tools assume Indian Standard Time (+05:30) when the offset is omitted (noted in birth_timezone; omitting datetime on calculate_ruling_planets defaults to now in IST). Western tools (calculate_planetary_positions, calculate_transits, calculate_solar_revolution, calculate_synastry) use the server host's local timezone when the offset is omitted, so always pass an explicit UTC offset or Z.
 - If the user names a birth place or zone (New York, London, UTC...), use the offset in force there on the birth date.
 - For a named Indian city (Bhavnagar, Botad, Mumbai, Ahmedabad...) use its own coordinates. If only "India" is given, use 21°46'N 72°09'E (21.7667, 72.15) when the context points to Gujarat / Western India.
 - Rahu/Ketu are true nodes by default. Pass node_type "mean" only when the user explicitly asks for mean nodes, and say which nodes were used. The node type moves only Rahu/Ketu and what depends on them (their degrees, nakshatra/sub lords, varga signs, Rahu's and Ketu's Vimshopaka, KP significators, Chara/Narayana strength); Vimshottari, Kalachakra, Shadbala and Ashtakavarga do not change.
@@ -93,7 +93,7 @@ Current location (dual-time reporting):
 - Present transitions in a table with both columns, e.g. | Level | Sign & Pada | Birth Time (IST) | Current Local Time (Melbourne) |, and never round off seconds.
 
 Keeping calls small:
-- When you only need the running period, pass output: "chain" (no full dasha tree); levels (1-6) limits the depth.
+- When you only need the running period, pass output: "chain" (no full dasha tree); levels (1-6) limits the depth (on calculate_vedic_chart, output: "chain" defaults to 3 levels for Vimshottari/Kalachakra and 2 for extra dashas unless levels is given; pass levels: 5 for PAD).
 - For several dates (e.g. life events), pass as_of as a list: one call returns a compact chain per date.
 - For birth-time rectification, use calculate_kalachakra_dasha with birth_time_sweep and the event dates as as_of; birth times giving the same chains are merged into ranges. birth_time_sensitivity gives the days of shift per second of birth time.
 - Each current level includes ends_in and next (the following period at that level). Kalachakra periods carry gati (Simhavalokana, Manduka, Markati jumps).
@@ -106,6 +106,8 @@ Rectification:
 Other tools:
 - calculate_gochar: transits over the natal chart (Sade Sati and other Saturn states with exact spans including retrograde re-entries, Jupiter/Rahu/Ketu stays, tara and chandra bala, natal hits, ingress and station search in a from/to range).
 - calculate_ruling_planets: KP ruling planets for a moment and place; with birth_datetime also the hour trigger.
+- nakshatra_house_map: equal houses from the lagna (cusp = middle of the house) and whole-sign nakshatra placement (Deepanshu Giri method), charan_window safety margin, locate lookup (including dual-sign nakshatras), or lagna-only cusp mapping; defaults to true nodes (pass node_type: "mean" when matching book examples).
+- Western Tropical tools (Placidus houses): calculate_planetary_positions, calculate_transits, calculate_solar_revolution, calculate_synastry.
 - Every response has a settings block; report the classical choices it names when they matter. Errors come back as JSON with the reason and the parameter to fix.`;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SIDEREAL_YEAR_DAYS = 365.256363;
@@ -184,7 +186,7 @@ class SwissEphemerisServer {
               properties: {
                 datetime: {
                   type: 'string',
-                  description: 'ISO8601 datetime, e.g., 1985-04-12T23:20:50Z',
+                  description: 'ISO8601 datetime with explicit UTC offset or Z (offsetless strings use host local timezone), e.g., 1985-04-12T23:20:50Z',
                 },
                 latitude: {
                   type: 'number',
@@ -206,7 +208,7 @@ class SwissEphemerisServer {
               properties: {
                 birth_datetime: {
                   type: 'string',
-                  description: 'Birth datetime in ISO8601 format, e.g., 1985-04-12T23:20:50Z',
+                  description: 'Birth datetime in ISO8601 format with explicit UTC offset or Z (offsetless strings use host local timezone), e.g., 1985-04-12T23:20:50Z',
                 },
                 latitude: {
                   type: 'number',
@@ -228,7 +230,7 @@ class SwissEphemerisServer {
               properties: {
                 birth_datetime: {
                   type: 'string',
-                  description: 'Birth datetime in ISO8601 format, e.g., 1985-04-12T23:20:50Z',
+                  description: 'Birth datetime in ISO8601 format with explicit UTC offset or Z (offsetless strings use host local timezone), e.g., 1985-04-12T23:20:50Z',
                 },
                 birth_latitude: {
                   type: 'number',
@@ -262,7 +264,7 @@ class SwissEphemerisServer {
               properties: {
                 person1_datetime: {
                   type: 'string',
-                  description: 'Person 1 birth datetime in ISO8601 format, e.g., 1985-04-12T23:20:50Z',
+                  description: 'Person 1 birth datetime in ISO8601 format with explicit UTC offset or Z (offsetless strings use host local timezone), e.g., 1985-04-12T23:20:50Z',
                 },
                 person1_latitude: {
                   type: 'number',
@@ -274,7 +276,7 @@ class SwissEphemerisServer {
                 },
                 person2_datetime: {
                   type: 'string',
-                  description: 'Person 2 birth datetime in ISO8601 format, e.g., 1990-08-25T14:30:00Z',
+                  description: 'Person 2 birth datetime in ISO8601 format with explicit UTC offset or Z (offsetless strings use host local timezone), e.g., 1990-08-25T14:30:00Z',
                 },
                 person2_latitude: {
                   type: 'number',
@@ -407,7 +409,7 @@ class SwissEphemerisServer {
                       id: { type: 'string' },
                       as_of: { type: 'string', description: 'Event date' },
                       system: { type: 'string', enum: ['kalachakra', 'vimshottari', 'yogini', 'ashtottari'] },
-                      ayanamsa: { type: 'string', description: 'Optional ayanamsa for this test (Vimshottari, Yogini, Ashtottari)' },
+                      ayanamsa: { type: 'string', enum: Object.keys(AYANAMSAS), description: 'Optional ayanamsa for this test (Kalachakra, Vimshottari, Yogini, Ashtottari)' },
                       level: { type: 'integer', minimum: 1, maximum: 6, description: '1 mahadasha ... 6 deha' },
                       expect: { description: 'Acceptable signs (Kalachakra, e.g. ["Li"]), lords (Vimshottari/Ashtottari, e.g. ["Mercury"]) or yoginis (e.g. ["Pingala"]); or {"house_from_lagna":[4,11]} / {"house_from_moon":[7]} for Kalachakra' },
                     },
@@ -505,7 +507,7 @@ class SwissEphemerisServer {
                       id: { type: 'string' },
                       as_of: { type: 'string', description: 'Event date' },
                       system: { type: 'string', enum: ['kalachakra', 'vimshottari', 'yogini', 'ashtottari'] },
-                      ayanamsa: { type: 'string', description: 'Optional ayanamsa for this test (Vimshottari, Yogini, Ashtottari)' },
+                      ayanamsa: { type: 'string', enum: Object.keys(AYANAMSAS), description: 'Optional ayanamsa for this test (Kalachakra, Vimshottari, Yogini, Ashtottari)' },
                       level: { type: 'integer', minimum: 1, maximum: 6, description: '1 mahadasha ... 6 deha' },
                       expect: { description: 'Acceptable signs (Kalachakra, e.g. ["Li"]), lords (Vimshottari/Ashtottari, e.g. ["Mercury"]) or yoginis (e.g. ["Pingala"]); or {"house_from_lagna":[4,11]} / {"house_from_moon":[7]} for Kalachakra' },
                     },
@@ -536,7 +538,7 @@ class SwissEphemerisServer {
                 search_events: { type: 'array', items: { type: 'string', enum: ['sign', 'nakshatra', 'station'] }, description: 'Events to search for (default all three). Stations are not listed for the Sun, Moon and nodes' },
                 orb: { type: 'number', description: 'Orb in degrees for transit-to-natal hits (default 1)' },
                 kantaka_includes_first: { type: 'boolean', description: 'Count Saturn over the natal Moon (1st) as Kantaka Shani too (default false: the 1st is the Sade Sati peak; Kantaka = 4th, 7th, 10th)' },
-                ayanamsa: { type: 'string', enum: ['traditional_lahiri', 'lahiri', 'kp_new', 'kp_old', 'raman', 'yukteshwar', 'fagan_bradley'], description: 'Ayanamsa (default traditional_lahiri, as in Jagannatha Hora)' },
+                ayanamsa: { type: 'string', enum: Object.keys(AYANAMSAS), description: 'Ayanamsa (default traditional_lahiri, as in Jagannatha Hora)' },
                 node_type: { type: 'string', enum: ['true', 'mean'], description: 'Rahu/Ketu: true (default) or mean node' },
                 position_type: { type: 'string', enum: ['true', 'apparent'], description: 'true (default, as in Jagannatha Hora) or apparent positions' },
                 output: { type: 'string', enum: ['full', 'chain'], description: 'full (default for one date): structured objects. chain: one string per item (fewer tokens). A list of as_of dates is always compact' },
@@ -556,7 +558,7 @@ class SwissEphemerisServer {
                 longitude: { type: 'number', description: 'Longitude of the place of judgment, positive east' },
                 birth_datetime: { type: 'string', description: 'Optional birth datetime for the hour trigger (natal Vimshottari chain at the moment)' },
                 keep_retrograde: { type: 'boolean', description: 'Keep retrograde planets in the cleaned set (default false: KP removes them)' },
-                ayanamsa: { type: 'string', enum: ['traditional_lahiri', 'lahiri', 'kp_new', 'kp_old', 'raman', 'yukteshwar', 'fagan_bradley'], description: 'Ayanamsa (default traditional_lahiri; KP practitioners often use kp_new)' },
+                ayanamsa: { type: 'string', enum: Object.keys(AYANAMSAS), description: 'Ayanamsa (default traditional_lahiri; KP practitioners often use kp_new)' },
                 node_type: { type: 'string', enum: ['true', 'mean'], description: 'true (default) or mean nodes' },
                 position_type: { type: 'string', enum: ['true', 'apparent'], description: 'true (default) or apparent positions' },
                 dasha_year_days: { type: 'number', description: 'Vimshottari year length for the hour trigger (default: true sidereal solar year)' },
@@ -590,7 +592,7 @@ class SwissEphemerisServer {
                   },
                   description: 'Transit anchors, e.g. [{"as_of":"2025-12-01","planet":"Jupiter","target":"cusp10"}]',
                 },
-                ayanamsa: { type: 'string', enum: ['traditional_lahiri', 'lahiri', 'kp_new', 'kp_old', 'raman', 'yukteshwar', 'fagan_bradley'], description: 'Ayanamsa (default traditional_lahiri)' },
+                ayanamsa: { type: 'string', enum: Object.keys(AYANAMSAS), description: 'Ayanamsa (default traditional_lahiri)' },
                 node_type: { type: 'string', enum: ['true', 'mean'], description: 'true (default) or mean nodes' },
                 position_type: { type: 'string', enum: ['true', 'apparent'], description: 'true (default) or apparent positions' },
               },
@@ -1146,7 +1148,7 @@ class SwissEphemerisServer {
   calculateVedicChart(datetime, latitude, longitude, options = {}) {
     const date = new Date(datetime);
     if (isNaN(date.getTime())) {
-      throw new Error('Invalid datetime format. Use ISO8601 format like 1985-04-12T23:20:50Z');
+      throw invalid('datetime', 'Invalid datetime format. Use ISO8601 format like 1999-06-06T15:30:00+05:30');
     }
 
     const ayanamsaKey = options.ayanamsa || DEFAULT_AYANAMSA;
@@ -1162,7 +1164,7 @@ class SwissEphemerisServer {
     const asOfInputs = Array.isArray(options.as_of) ? options.as_of : null;
     const asOfTimes = (asOfInputs || [options.as_of]).map(a => (a ? new Date(a) : new Date()));
     if (asOfTimes.some(t => isNaN(t.getTime()))) {
-      throw new Error('Invalid as_of datetime. Use ISO8601 format like 2024-01-01T00:00:00+05:30');
+      throw invalid('as_of', 'Invalid as_of datetime. Use ISO8601 format like 2024-01-01T00:00:00+05:30');
     }
     const asOf = asOfTimes[0];
     const levels = options.levels || 6;
@@ -1818,8 +1820,8 @@ class SwissEphemerisServer {
     };
   }
 
-  // Adds start_local/end_local (and as_of_local) next to every start/end in a dasha result
-  addLocalTimes(value, formatLocal, keys = ['start', 'end', 'as_of']) {
+  // Adds start_local/end_local (and as_of_local, sweep, and gati_list timestamps) next to dasha times
+  addLocalTimes(value, formatLocal, keys = ['start', 'end', 'as_of', 'from', 'to', 'nearest_event', 'birth_from', 'birth_to', 'birth_time']) {
     const isTime = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v) && !isNaN(Date.parse(v));
     if (Array.isArray(value)) {
       value.forEach(v => this.addLocalTimes(v, formatLocal, keys));
@@ -1841,6 +1843,9 @@ class SwissEphemerisServer {
     if (currentTimezone) {
       const formatLocal = this.makeZoneFormatter(currentTimezone);
       result.current_timezone = currentTimezone;
+      if (Array.isArray(result.as_of) && result.as_of.every(v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v) && !isNaN(Date.parse(v)))) {
+        result.as_of_local = result.as_of.map(v => formatLocal(new Date(v).getTime()));
+      }
       dashaKeys.forEach(key => this.addLocalTimes(result[key], formatLocal, timeKeys));
     }
     return result;
@@ -3371,8 +3376,8 @@ class SwissEphemerisServer {
       throw invalid('vargas', `vargas must be "all" or a list of: ${ALL_VARGAS.join(', ')}`);
     }
     if (args.vargas !== undefined && !include.includes('vargas')) include = [...include, 'vargas'];
-    const methods = args.varga_method || {};
-    if (typeof methods !== 'object' || Object.entries(methods).some(([v, m]) => !VARGA_METHODS[v] || !VARGA_METHODS[v].includes(m))) {
+    const methods = args.varga_method === undefined ? {} : args.varga_method;
+    if (!methods || typeof methods !== 'object' || Array.isArray(methods) || Object.entries(methods).some(([v, m]) => !VARGA_METHODS[v] || !VARGA_METHODS[v].includes(m))) {
       throw invalid('varga_method', `varga_method may set ${Object.entries(VARGA_METHODS).map(([v, m]) => `${v}: ${m.join('|')}`).join('; ')}`);
     }
     const choice = (name, allowed) => {
@@ -3384,7 +3389,7 @@ class SwissEphemerisServer {
       war_winner: choice('war_winner', ['latitude', 'brightness']),
     };
     if (args.combustion_limits !== undefined) {
-      if (typeof args.combustion_limits !== 'object' || Object.values(args.combustion_limits).some(v => typeof v !== 'number' || v < 0 || v > 30)) {
+      if (!args.combustion_limits || typeof args.combustion_limits !== 'object' || Array.isArray(args.combustion_limits) || Object.values(args.combustion_limits).some(v => typeof v !== 'number' || !Number.isFinite(v) || v < 0 || v > 30)) {
         throw invalid('combustion_limits', 'combustion_limits must map planets (e.g. "Mercury", "Mercury_retrograde") to degrees between 0 and 30');
       }
       dignityOptions.combustion_limits = args.combustion_limits;
@@ -3394,7 +3399,7 @@ class SwissEphemerisServer {
       dignityOptions.stationary_ratio = args.stationary_ratio;
     }
     if (args.moolatrikona !== undefined) {
-      const ok = typeof args.moolatrikona === 'object' && Object.entries(args.moolatrikona).every(([pl, r]) => SEVEN_PLANETS.includes(pl) && Array.isArray(r) && r.length === 3);
+      const ok = Boolean(args.moolatrikona) && typeof args.moolatrikona === 'object' && !Array.isArray(args.moolatrikona) && Object.entries(args.moolatrikona).every(([pl, r]) => SEVEN_PLANETS.includes(pl) && Array.isArray(r) && r.length === 3);
       if (!ok) throw invalid('moolatrikona', 'moolatrikona must map planets to [sign index 0-11, from degree, to degree]');
       dignityOptions.moolatrikona = args.moolatrikona;
     }
@@ -3531,101 +3536,69 @@ class SwissEphemerisServer {
     }
   }
 
+  validateWesternDate(value, param) {
+    if (!value || typeof value !== 'string') {
+      throw new McpError(ErrorCode.InvalidParams, `${param} parameter must be a non-empty string`);
+    }
+    if (isNaN(new Date(value).getTime())) {
+      throw new McpError(ErrorCode.InvalidParams, `${param} must be a valid ISO8601 datetime string (with explicit UTC offset or Z), e.g., 1985-04-12T23:20:50Z`);
+    }
+  }
+
+  validateCoordinates(latitude, longitude, latParam = 'latitude', lonParam = 'longitude') {
+    if (typeof latitude !== 'number' || !Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
+      throw new McpError(ErrorCode.InvalidParams, `${latParam} must be a number between -90 and 90`);
+    }
+    if (typeof longitude !== 'number' || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+      throw new McpError(ErrorCode.InvalidParams, `${lonParam} must be a number between -180 and 180`);
+    }
+  }
+
   async handleToolCall(name, args) {
     switch (name) {
-      case 'calculate_planetary_positions':
+      case 'calculate_planetary_positions': {
         const { datetime, latitude, longitude } = args;
-        
-        if (!datetime || typeof datetime !== 'string') {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            'datetime parameter is required and must be a string'
-          );
-        }
-        
-        if (typeof latitude !== 'number' || latitude < -90 || latitude > 90) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            'latitude must be a number between -90 and 90'
-          );
-        }
-        
-        if (typeof longitude !== 'number' || longitude < -180 || longitude > 180) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            'longitude must be a number between -180 and 180'
-          );
-        }
-
+        this.validateWesternDate(datetime, 'datetime');
+        this.validateCoordinates(latitude, longitude);
         return this.calculateEphemeris(datetime, latitude, longitude);
+      }
 
-      case 'calculate_transits':
+      case 'calculate_transits': {
         const { birth_datetime, latitude: birth_latitude, longitude: birth_longitude } = args;
-        
-        if (!birth_datetime || typeof birth_datetime !== 'string') {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            'birth_datetime parameter is required and must be a string'
-          );
-        }
-        
-        if (typeof birth_latitude !== 'number' || birth_latitude < -90 || birth_latitude > 90) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            'birth_latitude must be a number between -90 and 90'
-          );
-        }
-        
-        if (typeof birth_longitude !== 'number' || birth_longitude < -180 || birth_longitude > 180) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            'birth_longitude must be a number between -180 and 180'
-          );
-        }
+        this.validateWesternDate(birth_datetime, 'birth_datetime');
+        this.validateCoordinates(birth_latitude, birth_longitude);
 
         // Calculate birth chart
         const natalChart = this.calculateEphemeris(birth_datetime, birth_latitude, birth_longitude);
- 
-         // Calculate current transits
-         const currentDate = new Date();
-         const currentISOString = currentDate.toISOString();
-         const currentEphemeris = this.calculateEphemeris(currentISOString, birth_latitude, birth_longitude);
- 
-         return {
-           natal_chart: natalChart,
-           current_transits: currentEphemeris,
-           calculation_time: currentISOString
-         };
 
-      case 'calculate_solar_revolution':
+        // Calculate current transits
+        const currentDate = new Date();
+        const currentISOString = currentDate.toISOString();
+        const currentEphemeris = this.calculateEphemeris(currentISOString, birth_latitude, birth_longitude);
+
+        return {
+          natal_chart: natalChart,
+          current_transits: currentEphemeris,
+          calculation_time: currentISOString,
+        };
+      }
+
+      case 'calculate_solar_revolution': {
         const { birth_datetime: sr_birth_datetime, birth_latitude: sr_birth_latitude, birth_longitude: sr_birth_longitude, return_year, return_latitude, return_longitude } = args;
+        this.validateWesternDate(sr_birth_datetime, 'birth_datetime');
+        this.validateCoordinates(sr_birth_latitude, sr_birth_longitude, 'birth_latitude', 'birth_longitude');
 
-        if (!sr_birth_datetime || typeof sr_birth_datetime !== 'string') {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            'birth_datetime parameter is required and must be a string'
-          );
-        }
-
-        if (typeof sr_birth_latitude !== 'number' || sr_birth_latitude < -90 || sr_birth_latitude > 90) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            'birth_latitude must be a number between -90 and 90'
-          );
-        }
-
-        if (typeof sr_birth_longitude !== 'number' || sr_birth_longitude < -180 || sr_birth_longitude > 180) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            'birth_longitude must be a number between -180 and 180'
-          );
-        }
-
-        if (typeof return_year !== 'number' || return_year < 1900 || return_year > 2100) {
+        if (typeof return_year !== 'number' || !Number.isFinite(return_year) || return_year < 1900 || return_year > 2100) {
           throw new McpError(
             ErrorCode.InvalidParams,
             'return_year must be a number between 1900 and 2100'
           );
+        }
+
+        const returnLat = return_latitude !== undefined ? return_latitude : sr_birth_latitude;
+        const returnLon = return_longitude !== undefined ? return_longitude : sr_birth_longitude;
+        if (return_latitude !== undefined || return_longitude !== undefined) {
+          this.validateCoordinates(returnLat, returnLon, 'return_latitude', 'return_longitude');
         }
 
         // Calculate birth chart to get natal Sun position
@@ -3636,11 +3609,7 @@ class SwissEphemerisServer {
         // Use the birthday in the return year as a starting point
         const birthDate = new Date(sr_birth_datetime);
         const returnDate = new Date(return_year, birthDate.getMonth(), birthDate.getDate(), birthDate.getHours(), birthDate.getMinutes(), birthDate.getSeconds());
-        
-        // Use return location if provided, otherwise use birth location
-        const returnLat = return_latitude !== undefined ? return_latitude : sr_birth_latitude;
-        const returnLon = return_longitude !== undefined ? return_longitude : sr_birth_longitude;
-        
+
         // Calculate the solar return chart at the approximate return date
         const solarReturnChart = this.calculateEphemeris(returnDate.toISOString(), returnLat, returnLon);
 
@@ -3654,58 +3623,21 @@ class SwissEphemerisServer {
             datetime: returnDate.toISOString(),
             coordinates: {
               latitude: returnLat,
-              longitude: returnLon
-            }
+              longitude: returnLon,
+            },
           },
           natal_sun_longitude: natalSunLongitude,
           return_sun_longitude: solarReturnChart.planets.Sun.longitude,
-          calculation_time: new Date().toISOString()
+          calculation_time: new Date().toISOString(),
         };
+      }
 
-      case 'calculate_synastry':
+      case 'calculate_synastry': {
         const { person1_datetime, person1_latitude, person1_longitude, person2_datetime, person2_latitude, person2_longitude } = args;
-
-        if (!person1_datetime || typeof person1_datetime !== 'string') {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            'person1_datetime parameter is required and must be a string'
-          );
-        }
-
-        if (typeof person1_latitude !== 'number' || person1_latitude < -90 || person1_latitude > 90) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            'person1_latitude must be a number between -90 and 90'
-          );
-        }
-
-        if (typeof person1_longitude !== 'number' || person1_longitude < -180 || person1_longitude > 180) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            'person1_longitude must be a number between -180 and 180'
-          );
-        }
-
-        if (!person2_datetime || typeof person2_datetime !== 'string') {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            'person2_datetime parameter is required and must be a string'
-          );
-        }
-
-        if (typeof person2_latitude !== 'number' || person2_latitude < -90 || person2_latitude > 90) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            'person2_latitude must be a number between -90 and 90'
-          );
-        }
-
-        if (typeof person2_longitude !== 'number' || person2_longitude < -180 || person2_longitude > 180) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            'person2_longitude must be a number between -180 and 180'
-          );
-        }
+        this.validateWesternDate(person1_datetime, 'person1_datetime');
+        this.validateCoordinates(person1_latitude, person1_longitude, 'person1_latitude', 'person1_longitude');
+        this.validateWesternDate(person2_datetime, 'person2_datetime');
+        this.validateCoordinates(person2_latitude, person2_longitude, 'person2_latitude', 'person2_longitude');
 
         // Calculate person 1's natal chart
         const person1NatalChart = this.calculateEphemeris(person1_datetime, person1_latitude, person1_longitude);
@@ -3720,8 +3652,9 @@ class SwissEphemerisServer {
           person1_chart: person1NatalChart,
           person2_chart: person2NatalChart,
           synastry_aspects: aspects,
-          calculation_time: new Date().toISOString()
+          calculation_time: new Date().toISOString(),
         };
+      }
 
       case 'calculate_vedic_chart': {
         const { datetime: vedicDatetime, latitude: vedicLatitude, longitude: vedicLongitude, ayanamsa, position_type, node_type, as_of, dasha_year_days } = args;
@@ -3806,7 +3739,12 @@ class SwissEphemerisServer {
           output: args.output,
         });
         vedicResult.datetime_input = vedicDatetime;
-        return this.withCurrentTimezone(vedicResult, vedicBirth, args.current_timezone, ['vimshottari_dasha', 'kalachakra_dasha', 'yogini_dasha', 'ashtottari_dasha', 'chara_dasha', 'narayana_dasha']);
+        return this.withCurrentTimezone(
+          vedicResult,
+          vedicBirth,
+          args.current_timezone,
+          ['vimshottari_dasha', 'kalachakra_dasha', 'yogini_dasha', 'ashtottari_dasha', 'chara_dasha', 'narayana_dasha', 'ranges', 'flips', 'event_tests', 'kp_significators', 'ashtakavarga']
+        );
       }
 
       case 'calculate_kalachakra_dasha': {
@@ -3852,7 +3790,12 @@ class SwissEphemerisServer {
           place,
         });
         kcResult.datetime_input = kcDatetime;
-        return this.withCurrentTimezone(kcResult, kcBirth, args.current_timezone, ['current', 'chains', 'drill_down', 'mahadashas']);
+        return this.withCurrentTimezone(
+          kcResult,
+          kcBirth,
+          args.current_timezone,
+          ['current', 'chains', 'drill_down', 'mahadashas', 'gati_list', 'ranges', 'flips', 'event_tests']
+        );
       }
 
       case 'calculate_gochar': {
@@ -3939,6 +3882,7 @@ class SwissEphemerisServer {
           const formatLocal = this.makeZoneFormatter(args.current_timezone);
           rResult.current_timezone = args.current_timezone;
           rResult.moment_local = formatLocal(Date.parse(rResult.moment));
+          if (rResult.hour_trigger) this.addLocalTimes(rResult.hour_trigger, formatLocal, ['as_of']);
         }
         return rResult;
       }

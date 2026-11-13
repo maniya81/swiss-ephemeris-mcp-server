@@ -86,6 +86,12 @@ test('T5.2: lagna-only inputs ("Leo 11 10", "Cancer 5 0", "Capricorn 9°58\'", o
   assert.ok(cp.warnings.length > 0);
   assert.ok(cp.notes.includes('no planets') && cp.notes.includes('no birth-time window'));
 
+  // Exact ±15° equal-house bhava_span rule from SKILL.md (Cn 16°08'07" -> H10 Ar 1°08'07" – Ta 1°08'07")
+  const cn16 = computeNakshatraHouseMap('Cn 16°08\'07"', { lagnaOnly: true });
+  assert.equal(cn16.houses[9].cusp_nakshatra, 'Bharani');
+  assert.equal(cn16.houses[9].cusp_pada, 1);
+  assert.equal(cn16.houses[9].bhava_span, 'Ar 1°08\'07" – Ta 1°08\'07"');
+
   const obj = computeNakshatraHouseMap({ sign: 'Cancer', deg: 6, min: 23, sec: 15 }, { lagnaOnly: true });
   assert.equal(compactCuspsString(obj.houses), GOLDEN[0].compact);
   assert.ok(obj.notes);
@@ -184,6 +190,7 @@ test('T1: all 10 golden charts match nakshatra_house_golden.json via nakshatra_h
     assert.ok(estimateTokens(nhText) < 1500, `${g.id} chain tokens ${estimateTokens(nhText)} >= 1500`);
     assert.equal(vcChain.nakshatra_houses.houses.length, 12);
     assert.equal(vcChain.nakshatra_houses.lagna_charan, g.expected.lagna_charan);
+    assert.ok(typeof vcChain.nakshatra_houses.charan_window === 'string' && vcChain.nakshatra_houses.charan_window.includes('–'));
   }
 });
 
@@ -280,6 +287,7 @@ test('T3: borderline charan_window, warning, and flip verification', { skip: SKI
   // chart9: 02:43:54 -> 02:58:08 (+7.3 to +7.9 s), borderline: true; re-run at 02:58:10
   const c9 = (await call(byId.chart9)).result;
   assert.equal(c9.borderline, true);
+  assert.equal(c9.houses[0].cusp_navamsa, 'Cancer');
   assert.ok(c9.charan_window.from.startsWith('02:43:54'));
   assert.ok(c9.charan_window.to.startsWith('02:58:0'));
   assert.ok(c9.charan_window.seconds_after >= 7.0 && c9.charan_window.seconds_after <= 8.5);
@@ -287,12 +295,16 @@ test('T3: borderline charan_window, warning, and flip verification', { skip: SKI
   assert.equal(c9Flip.lagna_charan, 5);
   assert.equal(c9Flip.houses[0].cusp_nakshatra, 'Purva Phalguni');
   assert.equal(c9Flip.houses[0].cusp_pada, 1);
+  assert.equal(c9Flip.houses[0].cusp_navamsa, 'Leo');
   assert.equal(c9Flip.houses[8].cusp_nakshatra, 'Bharani');
   assert.equal(c9Flip.houses[8].cusp_pada, 1);
+  assert.equal(c9Flip.planets.find(p => p.name === 'Moon').nakshatra, 'Ashwini');
+  assert.equal(c9Flip.planets.find(p => p.name === 'Moon').pada, 2);
 
   // ds_doctor: 05:21:58.5 -> 05:31:23 (-1.5 s), borderline: true; re-run at 05:21:57
   const dsd = (await call(byId.ds_doctor)).result;
   assert.equal(dsd.borderline, true);
+  assert.equal(dsd.houses[0].cusp_navamsa, 'Taurus');
   assert.ok(dsd.charan_window.from.startsWith('05:21:58'));
   assert.ok(dsd.charan_window.to.startsWith('05:31:23'));
   assert.ok(Math.abs(dsd.charan_window.seconds_before - 1.5) <= 1.0);
@@ -300,8 +312,11 @@ test('T3: borderline charan_window, warning, and flip verification', { skip: SKI
   assert.equal(dsdFlip.lagna_charan, 7);
   assert.equal(dsdFlip.houses[0].cusp_nakshatra, 'Purva Bhadrapada');
   assert.equal(dsdFlip.houses[0].cusp_pada, 1);
+  assert.equal(dsdFlip.houses[0].cusp_navamsa, 'Aries');
   assert.equal(dsdFlip.houses[2].cusp_nakshatra, 'Bharani');
   assert.equal(dsdFlip.houses[2].cusp_pada, 3);
+  assert.equal(dsdFlip.planets.find(p => p.name === 'Mars').nakshatra, 'Ashwini');
+  assert.equal(dsdFlip.planets.find(p => p.name === 'Mars').pada, 2);
 
   // chart1: 18:36:17 -> 18:51:15, borderline: false
   const c1 = (await call(byId.chart1)).result;
@@ -404,5 +419,98 @@ test('Error responses use {"error":{"reason":...,"parameter":...}} shape', { ski
 
   const badVcLocate = await srv.call('calculate_vedic_chart', { ...SAGAR, locate: 'FakeNak' });
   assert.equal(badVcLocate.parameter, 'locate');
+});
+
+test('SKILL.md Examples 1-4 end-to-end verification (chain charan_window, lagna-only MCP, Chart 9 7th-from Ashwini)', { skip: SKIP }, async () => {
+  // Example 3: Lagna-only via MCP nakshatra_house_map (both Cp 9°58'23" and Capricorn 9°58')
+  const { result: ex3Chain } = await ok(srv, 'nakshatra_house_map', { lagna: 'Cp 9°58\'23"', output: 'chain' });
+  assert.equal(ex3Chain.lagna_charan, 3);
+  assert.equal(ex3Chain.borderline, true);
+  assert.ok(ex3Chain.margin.startsWith('97"'));
+  assert.ok(ex3Chain.houses[3].includes('4 Ar cusp 9°58\'23" Ashwini 3'));
+  assert.ok(ex3Chain.notes.includes('no planets'));
+
+  const { result: ex3Short } = await ok(srv, 'nakshatra_house_map', { lagna: "Capricorn 9°58'", output: 'full' });
+  assert.equal(ex3Short.margin_arcsec, 120);
+  assert.equal(ex3Short.borderline, true);
+  assert.equal(ex3Short.houses[3].cusp_nakshatra, 'Ashwini');
+  assert.equal(ex3Short.houses[3].cusp_pada, 3);
+
+  // Example 4: Chart 9 locate Ashwini -> 7th from Ashwini is Libra 0-13°20' (H3) with cusp + Sun + Saturn
+  const c9 = GOLDEN.find(g => g.id === 'chart9');
+  const baseC9 = {
+    datetime: c9.datetime,
+    latitude: c9.latitude,
+    longitude: c9.longitude,
+    ayanamsa: 'traditional_lahiri',
+    position_type: 'true',
+    node_type: 'mean',
+    locate: 'Ashwini',
+  };
+  const { result: ex4Full } = await ok(srv, 'nakshatra_house_map', { ...baseC9, output: 'full' });
+  const seventh = ex4Full.locate.nth_from['7'];
+  assert.equal(seventh.house, 3);
+  assert.equal(seventh.sign, 'Libra');
+  assert.equal(seventh.from_dms, '0°00\'00"');
+  assert.equal(seventh.to_dms, '13°20\'00"');
+  assert.equal(seventh.on_cusp, true);
+  assert.deepEqual(seventh.planets.map(p => p.name).sort(), ['Saturn', 'Sun']);
+
+  const { result: ex4Chain } = await ok(srv, 'nakshatra_house_map', { ...baseC9, output: 'chain' });
+  assert.ok(typeof ex4Chain.charan_window === 'string' && ex4Chain.charan_window.startsWith('02:43:54'));
+  assert.ok(ex4Chain.locate.includes('3rd H11'));
+  assert.ok(!ex4Chain.locate.includes('3th'));
+  assert.ok(ex4Chain.locate.includes('7th H3 (Li 0°00\'00"-13°20\'00") [cusp]'));
+  assert.ok(ex4Chain.locate.includes('Su Li 4°17') && ex4Chain.locate.includes('Sa Li 12°29'));
+
+  // Example 3 counterfactual across 10°00'00" Capricorn edge
+  const { result: ex3Shift } = await ok(srv, 'nakshatra_house_map', { lagna: 'Cp 10°00\'00"', output: 'full' });
+  assert.equal(ex3Shift.lagna_charan, 4);
+  assert.equal(ex3Shift.houses[0].cusp_nakshatra, 'Shravana');
+  assert.equal(ex3Shift.houses[0].cusp_pada, 1);
+  assert.equal(ex3Shift.houses[0].cusp_navamsa, 'Aries');
+  assert.equal(ex3Shift.houses[3].cusp_nakshatra, 'Ashwini');
+  assert.equal(ex3Shift.houses[3].cusp_pada, 4);
+  assert.equal(ex3Shift.houses[3].cusp_navamsa, 'Cancer');
+
+  // Dual-sign nakshatra locate (Krittika on Chart 1 spans Houses 10 & 11)
+  const c1 = GOLDEN[0];
+  const { result: dual } = await ok(srv, 'nakshatra_house_map', {
+    datetime: c1.datetime,
+    latitude: c1.latitude,
+    longitude: c1.longitude,
+    node_type: 'mean',
+    locate: 'Krittika',
+    output: 'chain',
+  });
+  assert.ok(dual.locate.includes('Krittika: houses 10 & 11, on cusp (pada 3)'));
+  assert.ok(dual.locate.includes('3rd H12/1 (Ge 26°40\'00"-30°00\'00" & Cn 0°00\'00"-10°00\'00") [cusp]'));
+});
+
+test('Tool schemas align with parameters.md (true_lahiri supported on gochar, ruling planets, rectify_by_transit)', { skip: SKIP }, async () => {
+  const tools = await srv.listTools();
+  const byName = Object.fromEntries(tools.map(t => [t.name, t]));
+  assert.equal(tools.length, 10);
+
+  for (const name of ['calculate_vedic_chart', 'calculate_gochar', 'calculate_ruling_planets', 'rectify_by_transit', 'nakshatra_house_map']) {
+    assert.ok(
+      byName[name].inputSchema.properties.ayanamsa.enum.includes('true_lahiri'),
+      `${name} schema should include true_lahiri`
+    );
+  }
+
+  const { result: go } = await ok(srv, 'calculate_gochar', { ...SAGAR, as_of: '2026-11-12T12:00:00+05:30', ayanamsa: 'true_lahiri', output: 'chain' });
+  assert.ok(go.settings.ayanamsa.includes('True Lahiri'));
+
+  const { result: rp } = await ok(srv, 'calculate_ruling_planets', { datetime: '2026-11-12T12:00:00+05:30', latitude: SAGAR.latitude, longitude: SAGAR.longitude, ayanamsa: 'true_lahiri' });
+  assert.ok(rp.settings.ayanamsa.includes('True Lahiri'));
+
+  const { result: rt } = await ok(srv, 'rectify_by_transit', {
+    ...SAGAR,
+    window_seconds: 600,
+    ayanamsa: 'true_lahiri',
+    anchors: [{ as_of: '2025-12-01T12:00:00+05:30', planet: 'Jupiter', target: 'cusp10' }],
+  });
+  assert.ok(rt.settings.ayanamsa.includes('True Lahiri'));
 });
 

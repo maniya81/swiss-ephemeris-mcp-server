@@ -116,6 +116,56 @@ test('Errors are JSON with a reason and the parameter to fix', { skip: SKIP }, a
   assert.ok(bad.error.length > 10);
   const badRk = await srv.call('calculate_vedic_chart', { ...SAGAR, rahu_ketu_aspects: 'all' });
   assert.equal(badRk.parameter, 'rahu_ketu_aspects');
+  for (const [param, val] of [['moolatrikona', null], ['combustion_limits', null], ['varga_method', null], ['varga_method', []]]) {
+    const res = await srv.call('calculate_vedic_chart', { ...SAGAR, include: [], [param]: val });
+    assert.equal(res.parameter, param);
+  }
+  const badDt = await srv.call('calculate_vedic_chart', { ...SAGAR, datetime: 'not-a-date', include: [] });
+  assert.equal(badDt.parameter, 'datetime');
+  const badAsOf = await srv.call('calculate_vedic_chart', { ...SAGAR, as_of: 'not-a-date', include: [] });
+  assert.equal(badAsOf.parameter, 'as_of');
+});
+
+test('Schema parity and current_timezone local timestamps on sweep/gati/hour_trigger', { skip: SKIP }, async () => {
+  const tools = await srv.listTools();
+  assert.equal(tools.length, 10);
+  const vedic = tools.find(t => t.name === 'calculate_vedic_chart');
+  const kcTool = tools.find(t => t.name === 'calculate_kalachakra_dasha');
+  const ayanamsas = vedic.inputSchema.properties.ayanamsa.enum;
+  assert.deepEqual(vedic.inputSchema.properties.event_tests.items.properties.ayanamsa.enum, ayanamsas);
+  assert.deepEqual(kcTool.inputSchema.properties.event_tests.items.properties.ayanamsa.enum, ayanamsas);
+
+  const gatiRes = (await ok(srv, 'calculate_kalachakra_dasha', {
+    datetime: SAGAR.datetime,
+    gati_list: { from: '2025-01-01', to: '2030-01-01', levels: 2, near_events: ['2026-11-12T12:00:00+05:30'] },
+    current_timezone: 'America/New_York',
+  })).result;
+  assert.ok(gatiRes.gati_list.from_local && gatiRes.gati_list.to_local);
+  assert.ok(gatiRes.gati_list.jumps[0].start_local);
+  assert.ok(gatiRes.gati_list.jumps[0].end_local);
+  assert.ok(gatiRes.gati_list.jumps[0].nearest_event_local);
+
+  const sweepRes = (await ok(srv, 'calculate_kalachakra_dasha', {
+    datetime: SAGAR.datetime,
+    as_of: ['2026-11-12T12:00:00+05:30'],
+    levels: 5,
+    birth_time_sweep: { from_seconds: -2, to_seconds: 2, step_seconds: 1 },
+    event_tests: [{ id: 'ev1', as_of: '2026-11-12T12:00:00+05:30', system: 'kalachakra', level: 5, expect: ['Cn'] }],
+    current_timezone: 'Australia/Melbourne',
+  })).result;
+  assert.ok(Array.isArray(sweepRes.as_of_local));
+  assert.ok(sweepRes.ranges[0].birth_from_local && sweepRes.ranges[0].birth_to_local);
+  assert.ok(sweepRes.event_tests.intersection[0].birth_from_local);
+  assert.ok(sweepRes.event_tests.junction.birth_time_local);
+
+  const rpRes = (await ok(srv, 'calculate_ruling_planets', {
+    datetime: '2026-11-12T12:00:00+05:30',
+    latitude: SAGAR.latitude,
+    longitude: SAGAR.longitude,
+    birth_datetime: SAGAR.datetime,
+    current_timezone: 'Australia/Melbourne',
+  })).result;
+  assert.ok(rpRes.moment_local && rpRes.hour_trigger?.as_of_local);
 });
 
 test('Determinism: identical input gives identical output', { skip: SKIP }, async () => {

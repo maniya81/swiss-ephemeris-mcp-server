@@ -204,7 +204,11 @@ Tips for good results:
 | Tool | Use it for |
 |---|---|
 | `calculate_vedic_chart` | Sidereal Vedic/KP chart with JHora defaults: nakshatra, pada, star/sub/sub-sub lords, KP cusps, Vimshottari and Kalachakra (SM Singh) dashas |
-| `calculate_kalachakra_dasha` | Kalachakra dasha only, always with JHora settings; running chain to deha and drill-down into any period |
+| `calculate_kalachakra_dasha` | Kalachakra dasha only, always with True Lahiri / JHora SM Singh settings; running chain to deha, drill-down, `gati_list`, and rectification sweep |
+| `calculate_gochar` | Transit overlays on natal chart: Sade Sati and Saturn states, Jupiter/Rahu/Ketu stays, tara and chandra bala, natal hits, ingress/station search |
+| `calculate_ruling_planets` | KP ruling planets for a moment and place; with `birth_datetime`, also the hour trigger |
+| `rectify_by_transit` | Birth-time rectification against transit-to-natal cusp/lagna/MC/planet anchors |
+| `nakshatra_house_map` | Equal-house cusp nakshatra/pada mapping and whole-sign nakshatra placement (Deepanshu Giri method), `locate`, `charan_window`, or lagna-only lookup |
 | `calculate_planetary_positions` | Tropical (Western) chart |
 | `calculate_transits` | Tropical natal chart plus the current sky |
 | `calculate_solar_revolution` | Tropical solar return |
@@ -214,7 +218,7 @@ See the [README](../README.md#usage) for each tool's parameters.
 
 ## Part 3: Local use without hosting
 
-Both options run the server in Docker on your own computer, over stdio. Docker avoids building `swetest` yourself. It is also the only way to run the server on Windows: the server starts `swetest` with Unix shell syntax, which fails in a native Windows install.
+Both options run the server in Docker on your own computer, over stdio. Docker avoids building `swetest` and bundled ephemeris files yourself.
 
 First, install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and build the image from the repository root:
 
@@ -241,7 +245,7 @@ The repository already includes `.vscode/mcp.json`:
 ```
 
 1. Open the repository folder in VS Code and open `.vscode/mcp.json`.
-2. Click **Start** above `"swissEphemeris"`. It should change to **Running** with 5 tools.
+2. Click **Start** above `"swissEphemeris"`. It should change to **Running** with 10 tools.
 3. In Copilot Chat, switch to **Agent** mode, click the tools icon, and tick the `swissEphemeris` tools.
 4. Ask for a chart as in the example above.
 

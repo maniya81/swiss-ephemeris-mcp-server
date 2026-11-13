@@ -66,3 +66,54 @@ test('calculate_synastry compares two charts and computes synastry aspects', { s
   assert.ok(Array.isArray(result.synastry_aspects), 'has synastry_aspects array');
   assert.ok(result.synastry_aspects.length > 0, 'contains aspects between the two charts');
 });
+
+test('Western validation reports exact schema parameter names', { skip: SKIP }, async () => {
+  const badLat = await srv.call('calculate_transits', {
+    birth_datetime: '1999-06-06T10:00:01Z',
+    latitude: 999,
+    longitude: SAGAR.longitude,
+  });
+  assert.equal(badLat.parameter, 'latitude');
+
+  const badLon = await srv.call('calculate_transits', {
+    birth_datetime: '1999-06-06T10:00:01Z',
+    latitude: SAGAR.latitude,
+    longitude: 999,
+  });
+  assert.equal(badLon.parameter, 'longitude');
+
+  const badRetLat = await srv.call('calculate_solar_revolution', {
+    birth_datetime: '1999-06-06T10:00:01Z',
+    birth_latitude: SAGAR.latitude,
+    birth_longitude: SAGAR.longitude,
+    return_year: 2026,
+    return_latitude: 999,
+  });
+  assert.equal(badRetLat.parameter, 'return_latitude');
+
+  const badRetLon = await srv.call('calculate_solar_revolution', {
+    birth_datetime: '1999-06-06T10:00:01Z',
+    birth_latitude: SAGAR.latitude,
+    birth_longitude: SAGAR.longitude,
+    return_year: 2026,
+    return_longitude: -999,
+  });
+  assert.equal(badRetLon.parameter, 'return_longitude');
+
+  const badDt = await srv.call('calculate_planetary_positions', {
+    datetime: 'not-a-date',
+    latitude: SAGAR.latitude,
+    longitude: SAGAR.longitude,
+  });
+  assert.equal(badDt.parameter, 'datetime');
+
+  const badSynDt = await srv.call('calculate_synastry', {
+    person1_datetime: '1999-06-06T10:00:01Z',
+    person1_latitude: SAGAR.latitude,
+    person1_longitude: SAGAR.longitude,
+    person2_datetime: 'not-a-date',
+    person2_latitude: 51.5074,
+    person2_longitude: -0.1278,
+  });
+  assert.equal(badSynDt.parameter, 'person2_datetime');
+});

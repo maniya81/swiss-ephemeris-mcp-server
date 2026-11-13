@@ -64,7 +64,7 @@ async function testStdioMode() {
     {
       name: 'calculate_gochar',
       args: { datetime: '1999-06-06T15:30:01+05:30', latitude: 21.7667, longitude: 72.15, as_of: '2026-11-12T12:00:00+05:30' },
-      check: (res) => `Tara Bala=${res.tara_bala?.name ?? 'N/A'}, Chandra Bala=${res.chandra_bala?.name ?? 'N/A'}, Saturn=${res.saturn?.state ?? 'N/A'}`,
+      check: (res) => `Tara Bala=${res.tara_bala?.tara ?? 'N/A'}, Chandra Bala=H${res.chandra_bala?.house_from_moon ?? 'N/A'}, Sade Sati=${res.saturn?.sade_sati?.active ? res.saturn.sade_sati.phase : 'inactive'}`,
     },
     {
       name: 'calculate_ruling_planets',
@@ -78,6 +78,11 @@ async function testStdioMode() {
         anchors: [{ as_of: '2025-12-01T12:00:00+05:30', planet: 'Jupiter', target: 'cusp10' }],
       },
       check: (res) => `Best Fit Offset=${res.best_fit?.offset_s}s, Birth Time=${res.best_fit?.birth_time}`,
+    },
+    {
+      name: 'nakshatra_house_map',
+      args: { datetime: '1999-06-06T15:30:01+05:30', latitude: 21.7667, longitude: 72.15, locate: 'Chitra', output: 'chain' },
+      check: (res) => `Lagna=${res.lagna}, Charan=${res.lagna_charan}, Locate=${res.locate}`,
     },
   ];
 

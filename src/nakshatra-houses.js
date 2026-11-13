@@ -365,6 +365,8 @@ export function computeNakshatraHouseMap(lagnaInput, options = {}) {
     }
 
     const signContents = signNakshatraContents(signIdx).map(({ from_arcsec: _f, to_arcsec: _t, ...rest }) => rest);
+    const spanStart = decodeArcsec(((Lc - 54000) % ARCSEC_CIRCLE + ARCSEC_CIRCLE) % ARCSEC_CIRCLE);
+    const spanEnd = decodeArcsec((Lc + 54000) % ARCSEC_CIRCLE);
     const housePlanets = decodedPlanets
       .filter(p => p.house === h)
       .map(p => ({
@@ -396,6 +398,7 @@ export function computeNakshatraHouseMap(lagnaInput, options = {}) {
       cusp_navamsa_deg: round(cusp.navamsaDegArcsec / 3600, 4),
       cusp_navamsa_dms: cusp.navamsaDms,
       vargottama,
+      bhava_span: `${spanStart.pos} – ${spanEnd.pos}`,
       nakshatras: signContents,
       planets: housePlanets,
     });
@@ -606,6 +609,7 @@ export function compactNakshatraHouses(full) {
     lagna: `${full.lagna} ${full.lagna_nakshatra}`,
     lagna_charan: full.lagna_charan,
     margin: marginStr,
+    ...(full.charan_window ? { charan_window: `${full.charan_window.from} – ${full.charan_window.to}` } : {}),
     borderline: full.borderline,
     ...(full.warnings.length ? { warnings: full.warnings } : {}),
     houses,
@@ -621,12 +625,16 @@ export function compactNakshatraHouses(full) {
     const plDesc = loc.planets.length
       ? `planets: ${loc.planets.map(p => `${PLANET_ABBR[p.name] || p.name}${p.retrograde && p.name !== 'Rahu' && p.name !== 'Ketu' ? ' R' : ''} ${p.pos} P${p.pada} (D9 ${p.navamsa})`).join(', ')}`
       : 'no planets';
+    const ord = (n) => (n === 3 ? '3rd' : `${n}th`);
     const nthHits = Object.values(loc.nth_from)
       .filter(n => n.on_cusp || n.planets.length)
       .map((n) => {
         const hs = n.houses ? n.houses.join('/') : n.house;
+        const spanLabel = n.spans
+          ? n.spans.map(s => `${SIGN_ABBR[SIGNS.indexOf(s.sign)]} ${s.from_dms}-${s.to_dms}`).join(' & ')
+          : `${SIGN_ABBR[SIGNS.indexOf(n.sign)]} ${n.from_dms}-${n.to_dms}`;
         const pls = n.planets.map(p => `${PLANET_ABBR[p.name] || p.name} ${p.pos} ${p.nakshatra} ${p.pada} (D9 ${p.navamsa})`).join(', ');
-        return `${n.nth}th H${hs}${n.on_cusp ? ' [cusp]' : ''}${pls ? `: ${pls}` : ''}`;
+        return `${ord(n.nth)} H${hs} (${spanLabel})${n.on_cusp ? ' [cusp]' : ''}${pls ? `: ${pls}` : ''}`;
       });
     out.locate = `${loc.nakshatra}: ${houseDesc}, ${cuspDesc}, ${plDesc}${nthHits.length ? `; nth_from: ${nthHits.join('; ')}` : ''}`;
   }
