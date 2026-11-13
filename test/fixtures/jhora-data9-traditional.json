@@ -1,0 +1,183 @@
+{
+  "source": "Jagannatha Hora text export and screenshots supplied by the user (Sagar, 1999-06-06 15:30:01 IST, Traditional Lahiri), November 2026",
+  "birth": {
+    "name": "Sagar",
+    "datetime": "1999-06-06T15:30:01+05:30",
+    "place": "Bhavnagar, India",
+    "latitude": 21.766666666666666,
+    "longitude": 72.15,
+    "altitude_m": 0.0,
+    "timezone": "+05:30"
+  },
+  "jh_settings": {
+    "ayanamsa": "Traditional Lahiri, no correction (23-50-56.61)",
+    "positions": "Geocentric positions, True positions, Don't use refraction, Use annual aberration of light, Use gravitational deflection, Use nutation",
+    "nodes": "True nodes",
+    "dasa_year": "True sidereal solar years (360° Sidereal Solar Years)"
+  },
+  "panchanga": {
+    "lunar_year_month": "Pramathi - Adhika Jyeshtha",
+    "tithi": "Krishna Sapthami (Sa) (27.86% left)",
+    "vedic_weekday": "Sunday (Su)",
+    "nakshatra": "Satabhishak (Ra) (59.33% left)",
+    "yoga": "Vishkambha (Sa) (73.58% left)",
+    "karana": "Bava (Su) (55.72% left)",
+    "sunrise": "6:01:41",
+    "sunset": "19:18:21",
+    "janma_ghatis": 23.6806,
+    "ayanamsa": "23-50-56.61",
+    "sidereal_time": "7:46:07"
+  },
+  "bodies": {
+    "Lagna":   { "longitude": "0 Li 39' 33.75\"", "nakshatra": "Chit", "pada": 3, "rasi": "Li", "navamsa": "Li", "kp": ["Ma", "Me", "Ve"] },
+    "Sun":     { "longitude": "21 Ta 25' 59.36\"", "nakshatra": "Rohi", "pada": 4, "rasi": "Ta", "navamsa": "Cn", "kp": ["Mo", "Ve", "Ra"] },
+    "Moon":    { "longitude": "12 Aq 05' 23.74\"", "nakshatra": "Sata", "pada": 2, "rasi": "Aq", "navamsa": "Cp", "kp": ["Ra", "Sa", "Ra"] },
+    "Mars":    { "longitude": "0 Li 37' 58.02\"", "nakshatra": "Chit", "pada": 3, "rasi": "Li", "navamsa": "Li", "kp": ["Ma", "Me", "Ve"] },
+    "Mercury": { "longitude": "5 Ge 00' 11.70\"", "nakshatra": "Mrig", "pada": 4, "rasi": "Ge", "navamsa": "Sc", "kp": ["Ma", "Su", "Ma"] },
+    "Jupiter": { "longitude": "2 Ar 14' 05.05\"", "nakshatra": "Aswi", "pada": 1, "rasi": "Ar", "navamsa": "Ar", "kp": ["Ke", "Ve", "Sa"] },
+    "Venus":   { "longitude": "6 Cn 40' 47.67\"", "nakshatra": "Push", "pada": 2, "rasi": "Cn", "navamsa": "Vi", "kp": ["Sa", "Me", "Ra"] },
+    "Saturn":  { "longitude": "17 Ar 50' 07.47\"", "nakshatra": "Bhar", "pada": 2, "rasi": "Ar", "navamsa": "Vi", "kp": ["Ve", "Ma", "Ke"] },
+    "Rahu":    { "longitude": "20 Cn 52' 02.67\"", "nakshatra": "Asre", "pada": 2, "rasi": "Cn", "navamsa": "Cp", "kp": ["Me", "Ve", "Sa"] },
+    "Ketu":    { "longitude": "20 Cp 52' 02.67\"", "nakshatra": "Srav", "pada": 4, "rasi": "Cp", "navamsa": "Cn", "kp": ["Mo", "Ve", "Su"] }
+  },
+  "outer_kp": {
+    "Uranus":  ["Mo", "Su", "Ra"],
+    "Neptune": ["Mo", "Mo", "Ra"],
+    "Pluto":   ["Sa", "Ju", "Ju"]
+  },
+  "bhrigu_bindu": "1 Sc 28' 43.21\"",
+  "placidus_cusps": {
+    "1":  "0 Li 39' 33.75\"",
+    "2":  "29 Li 52' 53.63\"",
+    "3":  "29 Sc 56' 05.23\"",
+    "4":  "0 Cp 45' 36.39\"",
+    "5":  "2 Aq 10' 24.93\"",
+    "6":  "2 Pi 45' 35.38\"",
+    "7":  "0 Ar 39' 33.75\"",
+    "8":  "29 Ar 52' 53.63\"",
+    "9":  "29 Ta 56' 05.23\"",
+    "10": "0 Cn 45' 36.39\"",
+    "11": "2 Le 10' 24.93\"",
+    "12": "2 Vi 45' 35.38\""
+  },
+  "vimshottari": [
+    {
+      "chain_at_midpoint": "2028-03-15T03:20:00+05:30",
+      "lords": ["Saturn", "Saturn", "Mars", "Ketu", "Mars"],
+      "levels": [
+        { "level": "mahadasha",       "lord": "Saturn",  "start": "2026-02-08T22:41:09+05:30", "end": "2045-02-08T19:32:00+05:30" },
+        { "level": "antardasha",      "lord": "Saturn",  "start": "2026-02-08T22:41:09+05:30", "end": "2029-02-11T16:09:26+05:30" },
+        { "level": "pratyantardasha", "lord": "Mars",    "start": "2028-02-02T12:32:50+05:30", "end": "2028-04-05T15:02:45+05:30" },
+        { "level": "sookshma",        "lord": "Ketu",    "start": "2028-03-13T18:48:50+05:30", "end": "2028-03-17T11:36:36+05:30" },
+        { "level": "praana",          "lord": "Mars",    "start": "2028-03-15T02:36:52+05:30", "end": "2028-03-15T07:47:36+05:30" }
+      ],
+      "dehas": [
+        { "lord": "Mars",    "start": "2028-03-15T02:36:52+05:30", "end": "2028-03-15T02:55:00+05:30" },
+        { "lord": "Rahu",    "start": "2028-03-15T02:55:00+05:30", "end": "2028-03-15T03:41:36+05:30" },
+        { "lord": "Jupiter", "start": "2028-03-15T03:41:36+05:30", "end": "2028-03-15T04:23:02+05:30" },
+        { "lord": "Saturn",  "start": "2028-03-15T04:23:02+05:30", "end": "2028-03-15T05:12:14+05:30" },
+        { "lord": "Mercury", "start": "2028-03-15T05:12:14+05:30", "end": "2028-03-15T05:56:15+05:30" },
+        { "lord": "Ketu",    "start": "2028-03-15T05:56:15+05:30", "end": "2028-03-15T06:14:23+05:30" },
+        { "lord": "Venus",   "start": "2028-03-15T06:14:23+05:30", "end": "2028-03-15T07:06:10+05:30" },
+        { "lord": "Sun",     "start": "2028-03-15T07:06:10+05:30", "end": "2028-03-15T07:21:42+05:30" },
+        { "lord": "Moon",    "start": "2028-03-15T07:21:42+05:30", "end": "2028-03-15T07:47:36+05:30" }
+      ]
+    },
+    {
+      "chain_at_midpoint": "2018-08-09T20:00:00+05:30",
+      "lords": ["Jupiter", "Venus", "Moon", "Rahu", "Mercury"],
+      "levels": [
+        { "level": "mahadasha",       "lord": "Jupiter", "start": "2010-02-08T20:11:47+05:30", "end": "2026-02-08T22:41:09+05:30" },
+        { "level": "antardasha",      "lord": "Venus",   "start": "2017-12-23T17:00:36+05:30", "end": "2020-08-24T19:37:41+05:30" },
+        { "level": "pratyantardasha", "lord": "Moon",    "start": "2018-07-22T22:21:22+05:30", "end": "2018-10-13T11:09:16+05:30" },
+        { "level": "sookshma",        "lord": "Rahu",    "start": "2018-08-03T19:00:29+05:30", "end": "2018-08-16T07:15:43+05:30" },
+        { "level": "praana",          "lord": "Mercury", "start": "2018-08-09T07:46:52+05:30", "end": "2018-08-11T02:18:42+05:30" }
+      ],
+      "dehas": [
+        { "lord": "Mercury", "start": "2018-08-09T07:46:52+05:30", "end": "2018-08-09T13:48:28+05:30" },
+        { "lord": "Ketu",    "start": "2018-08-09T13:48:28+05:30", "end": "2018-08-09T16:17:22+05:30" },
+        { "lord": "Venus",   "start": "2018-08-09T16:17:22+05:30", "end": "2018-08-09T23:22:44+05:30" },
+        { "lord": "Sun",     "start": "2018-08-09T23:22:44+05:30", "end": "2018-08-10T01:30:20+05:30" },
+        { "lord": "Moon",    "start": "2018-08-10T01:30:20+05:30", "end": "2018-08-10T05:02:59+05:30" },
+        { "lord": "Mars",    "start": "2018-08-10T05:02:59+05:30", "end": "2018-08-10T07:31:50+05:30" },
+        { "lord": "Rahu",    "start": "2018-08-10T07:31:50+05:30", "end": "2018-08-10T13:54:35+05:30" },
+        { "lord": "Jupiter", "start": "2018-08-10T13:54:35+05:30", "end": "2018-08-10T19:34:46+05:30" },
+        { "lord": "Saturn",  "start": "2018-08-10T19:34:46+05:30", "end": "2018-08-11T02:18:42+05:30" }
+      ]
+    },
+    {
+      "chain_at_midpoint": "2093-01-16T00:25:00+05:30",
+      "lords": ["Sun", "Mercury", "Ketu", "Sun", "Mars"],
+      "levels": [
+        { "level": "mahadasha",       "lord": "Sun",     "start": "2089-02-09T02:19:39+05:30", "end": "2095-02-09T15:20:12+05:30" },
+        { "level": "antardasha",      "lord": "Mercury", "start": "2092-11-30T07:51:21+05:30", "end": "2093-10-07T14:46:55+05:30" },
+        { "level": "pratyantardasha", "lord": "Ketu",    "start": "2093-01-11T22:28:01+05:30", "end": "2093-01-29T11:25:46+05:30" },
+        { "level": "sookshma",        "lord": "Sun",     "start": "2093-01-15T21:07:19+05:30", "end": "2093-01-16T18:09:38+05:30" },
+        { "level": "praana",          "lord": "Mars",    "start": "2093-01-15T23:55:38+05:30", "end": "2093-01-16T01:09:16+05:30" }
+      ],
+      "dehas": [
+        { "lord": "Mars",    "start": "2093-01-15T23:55:38+05:30", "end": "2093-01-15T23:59:55+05:30" },
+        { "lord": "Rahu",    "start": "2093-01-15T23:59:55+05:30", "end": "2093-01-16T00:10:58+05:30" },
+        { "lord": "Jupiter", "start": "2093-01-16T00:10:58+05:30", "end": "2093-01-16T00:20:47+05:30" },
+        { "lord": "Saturn",  "start": "2093-01-16T00:20:47+05:30", "end": "2093-01-16T00:32:27+05:30" },
+        { "lord": "Mercury", "start": "2093-01-16T00:32:27+05:30", "end": "2093-01-16T00:42:52+05:30" },
+        { "lord": "Ketu",    "start": "2093-01-16T00:42:52+05:30", "end": "2093-01-16T00:47:10+05:30" },
+        { "lord": "Venus",   "start": "2093-01-16T00:47:10+05:30", "end": "2093-01-16T00:59:26+05:30" },
+        { "lord": "Sun",     "start": "2093-01-16T00:59:26+05:30", "end": "2093-01-16T01:03:07+05:30" },
+        { "lord": "Moon",    "start": "2093-01-16T01:03:07+05:30", "end": "2093-01-16T01:09:16+05:30" }
+      ]
+    }
+  ],
+  "shadbala": {
+    "Sun":     { "virupas": 540.40, "rupas": 9.01, "pct": 180.13, "ishta": 50.32, "kashta": 8.47 },
+    "Moon":    { "virupas": 367.47, "rupas": 6.12, "pct": 102.08, "ishta": 33.07, "kashta": 26.93 },
+    "Mars":    { "virupas": 429.65, "rupas": 7.16, "pct": 143.22, "ishta": 32.33, "kashta": 19.71 },
+    "Mercury": { "virupas": 449.50, "rupas": 7.49, "pct": 107.02, "ishta": 20.68, "kashta": 38.28 },
+    "Jupiter": { "virupas": 437.86, "rupas": 7.30, "pct": 112.27, "ishta": 35.19, "kashta": 23.21 },
+    "Venus":   { "virupas": 439.32, "rupas": 7.32, "pct": 133.13, "ishta": 31.74, "kashta": 27.26 },
+    "Saturn":  { "virupas": 335.50, "rupas": 5.59, "pct": 111.83, "ishta": 2.83,  "kashta": 53.85 }
+  },
+  "vimshopaka": {
+    "Sun":     { "shadvarga": 9.50,  "saptavarga": 9.75,  "dashavarga": 10.75, "shodashavarga": 10.53 },
+    "Moon":    { "shadvarga": 11.10, "saptavarga": 11.92, "dashavarga": 12.68, "shodashavarga": 11.93 },
+    "Mars":    { "shadvarga": 15.75, "saptavarga": 15.60, "dashavarga": 16.18, "shodashavarga": 16.85 },
+    "Mercury": { "shadvarga": 17.30, "saptavarga": 15.93, "dashavarga": 13.23, "shodashavarga": 13.65 },
+    "Jupiter": { "shadvarga": 10.00, "saptavarga": 10.00, "dashavarga": 12.00, "shodashavarga": 11.35 },
+    "Venus":   { "shadvarga": 11.00, "saptavarga": 11.25, "dashavarga": 10.60, "shodashavarga": 10.13 },
+    "Saturn":  { "shadvarga": 9.35,  "saptavarga": 8.45,  "dashavarga": 9.48,  "shodashavarga": 11.13 },
+    "Rahu":    { "shadvarga": 11.20, "saptavarga": 12.63, "dashavarga": 11.80, "shodashavarga": 11.00 },
+    "Ketu":    { "shadvarga": 13.85, "saptavarga": 14.85, "dashavarga": 14.78, "shodashavarga": 13.73 }
+  },
+  "ashtakavarga": {
+    "SAV":     { "Ar": 27, "Ta": 24, "Ge": 21, "Cn": 29, "Le": 34, "Vi": 19, "Li": 29, "Sc": 33, "Sg": 31, "Cp": 26, "Aq": 32, "Pi": 32, "total": 337 },
+    "Lagna":   { "Ar": 5,  "Ta": 1,  "Ge": 2,  "Cn": 8,  "Le": 5,  "Vi": 4,  "Li": 4,  "Sc": 3,  "Sg": 4,  "Cp": 4,  "Aq": 4,  "Pi": 5 },
+    "Sun":     { "Ar": 4,  "Ta": 4,  "Ge": 3,  "Cn": 4,  "Le": 5,  "Vi": 2,  "Li": 3,  "Sc": 5,  "Sg": 6,  "Cp": 5,  "Aq": 4,  "Pi": 3 },
+    "Moon":    { "Ar": 4,  "Ta": 2,  "Ge": 2,  "Cn": 5,  "Le": 5,  "Vi": 3,  "Li": 5,  "Sc": 5,  "Sg": 5,  "Cp": 3,  "Aq": 5,  "Pi": 5 },
+    "Mars":    { "Ar": 4,  "Ta": 2,  "Ge": 1,  "Cn": 5,  "Le": 3,  "Vi": 2,  "Li": 5,  "Sc": 3,  "Sg": 4,  "Cp": 3,  "Aq": 4,  "Pi": 3 },
+    "Mercury": { "Ar": 4,  "Ta": 6,  "Ge": 2,  "Cn": 5,  "Le": 4,  "Vi": 4,  "Li": 6,  "Sc": 7,  "Sg": 2,  "Cp": 4,  "Aq": 4,  "Pi": 6 },
+    "Jupiter": { "Ar": 5,  "Ta": 4,  "Ge": 6,  "Cn": 5,  "Le": 6,  "Vi": 2,  "Li": 5,  "Sc": 6,  "Sg": 3,  "Cp": 4,  "Aq": 4,  "Pi": 6 },
+    "Venus":   { "Ar": 4,  "Ta": 3,  "Ge": 4,  "Cn": 2,  "Le": 6,  "Vi": 3,  "Li": 4,  "Sc": 5,  "Sg": 6,  "Cp": 5,  "Aq": 6,  "Pi": 4 },
+    "Saturn":  { "Ar": 2,  "Ta": 3,  "Ge": 3,  "Cn": 3,  "Le": 5,  "Vi": 3,  "Li": 1,  "Sc": 2,  "Sg": 5,  "Cp": 2,  "Aq": 5,  "Pi": 5 }
+  },
+  "bhavabala": {
+    "1":  { "virupas": 595.41, "rupas": 9.92,  "lord_bala": 439.32, "dig": 60.00, "drishti": 96.09 },
+    "2":  { "virupas": 485.20, "rupas": 8.09,  "lord_bala": 429.65, "dig": 10.00, "drishti": 45.55 },
+    "3":  { "virupas": 564.07, "rupas": 9.40,  "lord_bala": 437.86, "dig": 40.00, "drishti": 86.20 },
+    "4":  { "virupas": 376.23, "rupas": 6.27,  "lord_bala": 335.50, "dig": 0.00,  "drishti": 40.73 },
+    "5":  { "virupas": 378.04, "rupas": 6.30,  "lord_bala": 335.50, "dig": 20.00, "drishti": 22.53 },
+    "6":  { "virupas": 500.68, "rupas": 8.34,  "lord_bala": 437.86, "dig": 40.00, "drishti": 22.81 },
+    "7":  { "virupas": 453.65, "rupas": 7.56,  "lord_bala": 429.65, "dig": 30.00, "drishti": -6.00 },
+    "8":  { "virupas": 473.47, "rupas": 7.89,  "lord_bala": 439.32, "dig": 40.00, "drishti": -5.85 },
+    "9":  { "virupas": 478.73, "rupas": 7.98,  "lord_bala": 449.50, "dig": 20.00, "drishti": 9.23 },
+    "10": { "virupas": 395.46, "rupas": 6.59,  "lord_bala": 367.47, "dig": 0.00,  "drishti": 27.99 },
+    "11": { "virupas": 656.03, "rupas": 10.93, "lord_bala": 540.40, "dig": 50.00, "drishti": 65.62 },
+    "12": { "virupas": 544.59, "rupas": 9.08,  "lord_bala": 449.50, "dig": 50.00, "drishti": 45.09 }
+  },
+  "vargas": {
+    "D2_pvr": { "Lagna": "Ar", "Sun": "Ge", "Moon": "Sg", "Mars": "Ar", "Mercury": "Le", "Jupiter": "Ar", "Venus": "Sc", "Saturn": "Ta", "Rahu": "Li", "Ketu": "Li" },
+    "D3":     { "Lagna": "Li", "Sun": "Cp", "Moon": "Ge", "Mars": "Li", "Mercury": "Ge", "Jupiter": "Ar", "Venus": "Cn", "Saturn": "Le", "Rahu": "Pi", "Ketu": "Vi" },
+    "D10":    { "Lagna": "Li", "Sun": "Le", "Moon": "Ge", "Mars": "Li", "Mercury": "Cn", "Jupiter": "Ar", "Venus": "Ta", "Saturn": "Vi", "Rahu": "Vi", "Ketu": "Pi" },
+    "D30":    { "Lagna": "Ar", "Sun": "Cp", "Moon": "Sg", "Mars": "Ar", "Mercury": "Aq", "Jupiter": "Ar", "Venus": "Vi", "Saturn": "Sg", "Rahu": "Cp", "Ketu": "Cp" }
+  }
+}
+

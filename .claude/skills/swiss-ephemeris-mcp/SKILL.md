@@ -15,7 +15,7 @@ Defaults already match Jagannatha Hora (JHora):
   - **Rohini 4th Pada Rule**: `Rohini 4th pada is Leo navamsa` (Parasara/BPHS consistency; never Cancer navamsa)
   - **Year Definition**: `360° Sidereal Solar Years` (True sidereal solar years)
   - **Event Lookup Sub-Period Level**: `Prana-antardasa (PAD)` (`level: 5`)
-- **General Chart (`calculate_vedic_chart`, `calculate_gochar`)**: `Traditional Lahiri` (`traditional_lahiri`) or pass `ayanamsa: "true_lahiri"` to match True Lahiri across all chart blocks; geocentric true positions; true nodes; true sidereal solar years. Pass a setting only when the user asks for another one.
+- **General Chart (`calculate_vedic_chart`, `calculate_gochar`, `calculate_ruling_planets`, `rectify_by_transit`)**: `Traditional Lahiri` (`traditional_lahiri`) or pass `ayanamsa: "true_lahiri"` to match True Lahiri across all chart blocks; geocentric true positions; true nodes; true sidereal solar years. Pass a setting only when the user asks for another one.
 
 ## Inputs (all tools)
 - `datetime`: `YYYY-MM-DDTHH:mm:ss+05:30` with the seconds exactly as given (never round off seconds; 1s of birth time shifts Kalachakra by ~50–80 days). No zone given → IST (`+05:30`).
@@ -129,9 +129,9 @@ Planet strings: sign degree nakshatra pada star/sub/sub-sub lords, WS = whole-si
 {"datetime":"1999-06-06T15:30:01+05:30","latitude":21.7667,"longitude":72.15,"as_of":"2026-11-12T12:00:00+05:30","output":"chain"}
 ```
 ```json
-{"positions":{"Saturn":"Pi 14°38'16\" Uttara Bhadrapada 4 M2 L6 KP6 R", …},
+{"positions":{"Saturn":"Pi 14°25'02\" Uttara Bhadrapada 4 M2 L6 KP6 R", …},
  "saturn":["sade_sati setting: 2020-01-24T08:24:25+05:30 -> 2028-02-23T18:01:06+05:30 in 6 spans (…)", …],
- "slow":"Jupiter Cn M6 L10 (2025-10-18T19:06:02+05:30 -> 2027-06-26T04:29:10+05:30, 3 spans); …", …}
+ "slow":"Jupiter Le M7 L11 (2026-10-31T11:16:26+05:30 -> 2028-07-24T14:46:32+05:30, 3 spans); …", …}
 ```
 M = house from the natal Moon, L = from the lagna. Spans include retrograde re-entries.
 

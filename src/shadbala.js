@@ -44,12 +44,13 @@ export const moonIsBenefic = (elongation, rule = 'ashtami') => (rule === 'waxing
 
 // Benefics for drik bala: Jupiter, Venus, the Moon by `moonRule`, and Mercury when alone or with
 // more benefics than malefics (a tie goes to the nearest planet), as in P.V.R. Narasimha Rao's rules.
-// Method 'jh' also makes a combust Mercury (with the Sun) a malefic, as Jagannatha Hora does.
-export function drikBenefics(sidereal, moonRule = 'ashtami', { method = 'jh', mercuryRetrograde = false } = {}) {
+// Method 'jh' also makes a combust Mercury (with the Sun) a malefic in planetary drik bala,
+// whereas in Bhava drigbala Jagannatha Hora evaluates Mercury by sign association without combustion.
+export function drikBenefics(sidereal, moonRule = 'ashtami', { method = 'jh', mercuryRetrograde = false, checkCombustion = method === 'jh' } = {}) {
   const elongation = norm360(sidereal.Moon - sidereal.Sun);
   const benefics = new Set(['Jupiter', 'Venus']);
   if (moonIsBenefic(elongation, moonRule)) benefics.add('Moon');
-  if (method === 'jh' && angDist(sidereal.Mercury, sidereal.Sun) <= (mercuryRetrograde ? 12 : 14)) return benefics;
+  if (checkCombustion && angDist(sidereal.Mercury, sidereal.Sun) <= (mercuryRetrograde ? 12 : 14)) return benefics;
   const mercurySign = signOf(sidereal.Mercury);
   const others = SEVEN.filter(p => p !== 'Mercury' && signOf(sidereal[p]) === mercurySign);
   const good = others.filter(p => benefics.has(p)).length;
@@ -266,7 +267,8 @@ export function computeShadbala(chart) {
 // Bhavabala: bhavadhipati (the lord's shadbala) + bhava dig bala + bhava drishti bala, with
 // equal bhavas whose middles are the lagna degree + 30° per house
 export function computeBhavabala({ sidereal, lagna, moonRule, method = 'jh', speeds = {} }, shadbalaVirupas) {
-  const benefics = drikBenefics(sidereal, moonRule, { method, mercuryRetrograde: speeds.Mercury < 0 });
+  // Jagannatha Hora evaluates Mercury by association without the combustion override in Bhava drigbala
+  const benefics = drikBenefics(sidereal, moonRule, { method, mercuryRetrograde: speeds.Mercury < 0, checkCombustion: false });
   const rule = method === 'jh' ? { rule: 'jh' } : { rule: 'bphs', cap: false };
   const out = {};
   for (let h = 1; h <= 12; h++) {

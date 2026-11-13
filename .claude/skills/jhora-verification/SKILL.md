@@ -76,6 +76,20 @@ Verified directly against Data 9 (`1999-06-06T15:30:01+05:30`, True Lahiri, SM S
   savya/apasavya group as its *parent's* pada (the Moon's pada for a mahadasha), backward otherwise.
   Option `subperiod_direction: "natal"` keeps the old rule.
 
+Verified directly against Data 9 (`1999-06-06T15:30:01+05:30`, Traditional Lahiri, True nodes — `test/fixtures/jhora-data9-traditional.json`, and True Lahiri — `test/fixtures/jhora-data9.json`):
+- **Positions, KP Lords (13 bodies), D-1/D-9 & Bhrigu Bindu**:
+  - `Lagna`, `Sun`–`Ketu` match longitude within `0.5"` (Lagna carries JH's `12.61"` nutation offset), `Bhrigu Bindu` (`1 Sc 28' 43.21"`) within `0.5"`, and KP star/sub/sub-sub lords match for all 13 bodies (`As` through `Pl`).
+- **Vimshottari Dasha**:
+  - Traditional Lahiri (3 full chains down to Deha: 2018 `Jup-Ven-Mo-Ra-Me`, 2028 `Sat-Sat-Ma-Ke-Ma`, 2093 `Sun-Merc-Ket-Sun-Ma`; 42 periods): all 27 Deha chains match at midpoint; timestamps match within 3–13s in 2018–2028, 37s in 2045, and <120s in 2093.
+  - True Lahiri (`ayanamsa: "true_lahiri"`): `Sat MD > Sat AD` (9 PDs in 2026–2029) and `Sat MD > Moon AD > Ket PD > Sat SD > Sun PAD` + 9 Dehas in 2038 match all 18 chains at midpoint, with 2026–2038 boundaries within 35s and 2045 MD end within 60s (`37s` ΔT delta).
+- **Ashtakavarga, Vimshopaka, Shadbala & Bhavabala**:
+  - SAV (12 signs + total 337) and all 8 BAVs (`Lagna`, `Sun`–`Saturn`, 96 cells) match 100% identically.
+  - Vimshopaka (`shadvarga`, `saptavarga`, `dashavarga`, `shodashavarga` for all 9 grahas) matches within `0.01`.
+  - Shadbala (`total_virupas`, `rupas`, `IshtaPhala`, `KashtaPhala`) matches within `1.5` virupa.
+  - Bhavabala (houses 1–12): `dig` exact, `drishti` within `0.02` virupa (exact `0.00` — JHora evaluates Mercury's beneficence by sign association without combustion in Bhava DrigBala, unlike Planet Shadbala `drik`), `bhavadhipati` & `total_virupas` within `1.5`, `rupas` within `0.03`.
+- **Divisional Charts (`D-2 (US)`, `D-3`, `D-10`, `D-30`)**:
+  - Lagna and all 9 graha signs match identically for `D2` (`varga_method: { D2: "pvr" }`), `D3` (default `parashara`), `D10` (default), and `D30` (default `parashara`).
+
 ## Reading JH screens
 
 - North-Indian charts (D-1, D-9, ashtakavarga mini charts): house 1 is the top centre diamond and
@@ -86,8 +100,6 @@ Verified directly against Data 9 (`1999-06-06T15:30:01+05:30`, True Lahiri, SM S
 
 ## Optional Data 9 screenshots / exports if further JHora tab calibration is desired
 
-Currently, JHora calibration is focused on **Kalachakra Dasha** and the **Data 9 Natal Chart / Positions / D-1 / D-9** export. If in the future you want to calibrate additional JHora tabs specifically under Data 9 (`1999-06-06 15:30:01`, True Lahiri, True nodes), you can share:
-- **Vimshottari Dasha** text export under Data 9 (True Lahiri)
-- **KP tab** text export / screenshot under Data 9 (True Lahiri, True nodes)
-- **Strengths > Other strengths** and **Ashtakavarga** under Data 9 (True Lahiri, True nodes)
-- **Divisional charts (D-3, D-7, D-10, D-60)** under Data 9 (True Lahiri, True nodes)
+If in the future you want to calibrate additional JHora tabs on Data 9 (`1999-06-06 15:30:01`, Traditional Lahiri, True nodes), you can share:
+- **Other Dashas** text exports under Traditional Lahiri (Yogini, Ashtottari, Chara, Narayana)
+- **Divisional charts (`D-7`, `D-12`, `D-60`)** signs/positions under Traditional Lahiri
