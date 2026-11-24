@@ -1,3 +1,8 @@
+> [!WARNING]
+> **ARCHIVED / SUPERSEDED — SILENT-FRAME VISUAL EXTRACTION WITH 4 VERIFIED OCR ERRORS**  
+> Use **[Lagnamsaka_Dasa_Verified_Usage_Guide.md](./Lagnamsaka_Dasa_Verified_Usage_Guide.md)** as the single source of truth (verified against Jagannatha Hora, the local Swiss Ephemeris MCP server, 1080p HD frames of `Jm.jhd`, and the complete 156-segment verbatim YouTube transcript).  
+> **Key verified OCR errors in this file:** (1) D-9 North Indian chart rotated 180° (`Pi` misread as `Vi`, shifting all 12 signs by 6 signs; `Mo` misplaced); (2) `D-10 (Trd)` North Indian chart rotated 180° (`Ar` misread as `Li`, shifting all 12 signs by 6 signs); (3) `D-1` Moon read in `Aq` instead of `Pi 11°24'40"`; (4) D-9 MD `Pi`/`Sg` & `Cp`/`Aq` swaps, `D-10 (Pv)` planet misplacements (`Ra+Ke` actually conjoin in `Cn H9`, `Su+Mo+(Sa)` in `Vi H11`, `Ma` in `Ge H8`), and Kalachakra `Cp (Swat2)` read as `Sg (Swa)3`.
+
 # Lagnamsaka Dasa — Visual Forensic Extraction (Gemini 4 Neon)
 
 > **Source Video:** [Marriage and Job timings - Learn Predictive astrology : Video Lecture 1.14](https://www.youtube.com/watch?v=adNYXBGHvbM) (`22:11`)  

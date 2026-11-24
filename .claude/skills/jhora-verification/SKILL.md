@@ -89,6 +89,9 @@ Verified directly against Data 9 (`1999-06-06T15:30:01+05:30`, Traditional Lahir
   - Bhavabala (houses 1–12): `dig` exact, `drishti` within `0.02` virupa (exact `0.00` — JHora evaluates Mercury's beneficence by sign association without combustion in Bhava DrigBala, unlike Planet Shadbala `drik`), `bhavadhipati` & `total_virupas` within `1.5`, `rupas` within `0.03`.
 - **Divisional Charts (`D-2 (US)`, `D-3`, `D-10`, `D-30`)**:
   - Lagna and all 9 graha signs match identically for `D2` (`varga_method: { D2: "pvr" }`), `D3` (default `parashara`), `D10` (default), and `D30` (default `parashara`).
+- **Narayana Dasa (D-1) & Lagnamsaka Dasa (D-9, D-10 Trd)** (`test/fixtures/jhora-data9-traditional.json` `narayana_lagnamsaka`):
+  - Verified on Data 9 (Traditional Lahiri, `rahu_exaltation: "Ge"`): all 12 Cycle 1 Mahadashas (`Ar`..`Pi`, including `Sc = 11y` via `Mars` and `Aq = 7y` via `Rahu`), all 12 Antardashas of `Le MD` (`Cn`..`Le`), all 12 PDs of `Le-Li` (`Li`..`Vi`), all 12 PDs of `Le-Cp` (`Aq`..`Cp`), and all 12 Sookshmas of `Le-Li-Le` (`Cn`..`Le`) match 100% identically (`0s–30s` through 2039; `47s–91s` in 2050–2080 due to JHora's ΔT).
+  - **JHora rules locked by Data 9:** (1) Lagnamsaka Dasa takes the stronger of `(Varga Lagna, 7th from Varga Lagna)` evaluated in `D-1`; (2) `strongerCoLord` ranks `exalted > neutral > debilitated` (so `Rahu` beats debilitated `Saturn` for `Aq`) and uses the longer-dasha rule when Rules 1–4 tie (so `Mars` 11y beats `Ketu` 2y for `Sc`); (3) sub-periods (`AD/PD/SD`) start from the sign holding the lord of the **stronger of `(parentSign, 7th)`** in `D-1`.
 
 ## Reading JH screens
 

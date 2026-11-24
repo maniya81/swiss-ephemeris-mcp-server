@@ -304,3 +304,63 @@ test('Data 9 True Lahiri: Vimshottari Dasha down to Pratyantardasha (2026-2029) 
     assertWithinSec(dehaCur[level].end, exp.end, tolSec(exp.end), `2038 Jup deha ${level} end`);
   }
 });
+
+test('Data 9 Traditional Lahiri: Narayana / Lagnamsaka Dasa matches Jagannatha Hora down to Sookshma (12 MDs, 12 ADs, 24 PDs, 12 SDs)', { skip: SKIP }, async () => {
+  const nl = JH_TRAD.narayana_lagnamsaka;
+  const midIso = (a, b) => new Date((Date.parse(a) + Date.parse(b)) / 2).toISOString();
+  const assertWithinSec = (gotIso, expIso, maxSec, label) => {
+    const diff = Math.abs(Date.parse(gotIso) - Date.parse(expIso)) / 1000;
+    assert.ok(diff <= maxSec, `${label}: ${gotIso} vs JH ${expIso} (${diff.toFixed(1)}s > ${maxSec}s)`);
+  };
+
+  // 1. All 12 Cycle 1 Mahadashas + 12 Antardashas of Le MD
+  const { result: full } = await ok(srv, 'calculate_vedic_chart', {
+    ...SAGAR,
+    rahu_exaltation: 'Ge',
+    include: ['narayana'],
+    as_of: '2026-11-24T08:26:56+05:30',
+    levels: 4,
+    output: 'full',
+  });
+  const nd = full.narayana_dasha;
+  assert.strictEqual(nd.first_sign, 'Ar', 'first sign');
+  nl.mahadashas_cycle1.forEach((exp, i) => {
+    const got = nd.mahadashas[i];
+    assert.strictEqual(got.sign, exp.sign, `MD ${i} sign`);
+    const tol = Number(exp.end.slice(0, 4)) >= 2050 ? 110 : 40;
+    assertWithinSec(got.start, exp.start, tol, `MD ${exp.sign} start`);
+    assertWithinSec(got.end, exp.end, tol, `MD ${exp.sign} end`);
+  });
+
+  const leMd = nd.mahadashas[4];
+  nl.le_md_antardashas.forEach((exp, i) => {
+    const got = leMd.antardashas[i];
+    assert.strictEqual(got.sign, exp.sign, `Le AD ${i} sign`);
+    assertWithinSec(got.start, exp.start, 35, `Le-${exp.sign} start`);
+    assertWithinSec(got.end, exp.end, 35, `Le-${exp.sign} end`);
+  });
+
+  // Current 4-level chain at 2026-11-24T08:26:56+05:30: Le-Li-Le-Ge
+  assert.strictEqual(nd.current.chain, 'Le-Li-Le-Ge', 'current 4-level chain');
+  assertWithinSec(nd.current.antardasha.start, nl.le_md_antardashas[9].start, 35, 'current Li AD start');
+  assertWithinSec(nd.current.pratyantardasha.start, nl.le_li_pratyantardashas[10].start, 35, 'current Le PD start');
+  assertWithinSec(nd.current.sookshma.end, nl.le_li_le_sookshmas[1].end, 35, 'current Ge SD end');
+
+  // 2. Batch midpoint checks across all 12 PDs of Le-Li, 12 PDs of Le-Cp, and 12 SDs of Le-Li-Le
+  const cases = [
+    ...nl.le_li_pratyantardashas.map(p => ({ as_of: midIso(p.start, p.end), chain: `Le-Li-${p.sign}`, depth: 3 })),
+    ...nl.le_cp_pratyantardashas.map(p => ({ as_of: midIso(p.start, p.end), chain: `Le-Cp-${p.sign}`, depth: 3 })),
+    ...nl.le_li_le_sookshmas.map(s => ({ as_of: midIso(s.start, s.end), chain: `Le-Li-Le-${s.sign}`, depth: 4 })),
+  ];
+  const { result: batch } = await ok(srv, 'calculate_vedic_chart', {
+    ...SAGAR,
+    rahu_exaltation: 'Ge',
+    include: ['narayana'],
+    as_of: cases.map(c => c.as_of),
+    levels: 4,
+  });
+  cases.forEach((c, i) => {
+    const got = batch.narayana_dasha.chains[i].chain.split('-').slice(0, c.depth).join('-');
+    assert.strictEqual(got, c.chain, `case ${i} (${c.as_of})`);
+  });
+});

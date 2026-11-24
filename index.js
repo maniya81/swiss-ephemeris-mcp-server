@@ -3018,7 +3018,7 @@ class SwissEphemerisServer {
       raw = narayanaRaw(chart);
       fmtLabel = (p) => ({ sign: SIGN_ABBR[p.sign], ...(p.cycle ? { cycle: p.cycle } : {}) });
       Object.assign(info, {
-        method: 'Narayana (P.V.R. Narasimha Rao): from the stronger of the lagna and 7th; years as Chara with +1 exalted / -1 debilitated lord; second cycle 12 - years; antardashas from the stronger of the signs holding the lords of the dasha sign and its 7th',
+        method: 'Narayana (P.V.R. Narasimha Rao): from the stronger of the lagna and 7th; years as Chara with +1 exalted / -1 debilitated lord; second cycle 12 - years; antardashas from the sign holding the lord of the stronger of the dasha sign and its 7th',
         first_sign: SIGN_ABBR[raw.seed],
         order_rule: raw.rule,
       });

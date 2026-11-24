@@ -1,3 +1,8 @@
+> [!CAUTION]
+> **ARCHIVED / SUPERSEDED — CONTAINS VERIFIED HALLUCINATIONS (~85% FABRICATED BY ARGON)**  
+> Do **not** use this file as an interpretive or calculation reference. Use **[Lagnamsaka_Dasa_Verified_Usage_Guide.md](./Lagnamsaka_Dasa_Verified_Usage_Guide.md)** instead (100% verified against Jagannatha Hora, the local Swiss Ephemeris MCP server, 1080p HD frames of `Jm.jhd`, and the complete 156-segment verbatim YouTube transcript).  
+> **Key verified errors in this file:** (1) wrong birth year `1974-01-11` & fabricated 1974 ephemeris (actual chart `Jm.jhd` is `1973-01-11`); (2) fabricated D-9 marriage/breakup and D-10 job-to-business case studies (actual lecture analyzes wife's hospitalization/Rohini Saturn food restriction & D-10 `Parivritti dasamsa (Ojha)` career/Badhaka); (3) wrong D-10 variant label (*Parasara even-sign reversal* instead of **`Parivritti dasamsa (Ojha)`**); (4) wrong starting-sign rule (JHora seeds from the stronger of `(Varga Lagna, 7th)` in `D-1`, proven on Data 9); (5) inverted standalone-only claim (actual method maps `D-1` ↔ `D-9` blank charts + uses **8 Chara Karakas / GK / Badhaka / Mandi–Gulika**).
+
 # Lagnamsaka Dasa — Analytical Framework & Methodology Wiki
 
 > **Category:** Rasi Dasa / Divisional Chart Timing  

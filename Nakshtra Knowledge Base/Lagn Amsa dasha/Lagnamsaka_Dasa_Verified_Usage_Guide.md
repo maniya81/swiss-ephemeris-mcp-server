@@ -40,7 +40,9 @@ Although the Ayanamsa dialog is never opened on screen in `adNYXBGHvbM`, **three
 
 Neither prior wiki explained how JHora actually computes Lagnamsaka Dasa. Verified against **100% of all 36 Mahadashas** (`D-9`, `D-10 (Trd)`, `D-10 (Pv)`), **all 12 Antardasas**, and **all 12 Pratyantardasas** on `Jm.jhd`, JHora's `Lagnamsaka Dasa` follows P.V.R. Narasimha Rao's exact formula:
 
-1. **Seed Sign (Starting MD):** Take the **Lagna of the selected divisional chart (`D-n`)** (e.g., `D-9` Lagna = `Pi`, `D-10 (Trd)` Lagna = `Ar`, `D-10 (Pv)` Lagna = `Sc`). Evaluate the **stronger of that Varga Lagna and its 7th sign in `D-1`** (using Jaimini sign-strength rules). On `Jm.jhd`, `Pi > Vi`, `Ar > Li`, and `Sc > Ta` in `D-1`, so all three start directly from their Varga Lagna.
+1. **Seed Sign (Starting MD — 100% JHora-Verified on Both `Jm.jhd` & Data 9):** Take the **Lagna of the selected divisional chart (`D-n`)**, then evaluate the **stronger of `(Varga Lagna, 7th from Varga Lagna)` in `D-1 (Rasi)`** using Jaimini sign-strength rules.
+   - *Verified on `Jm.jhd`:* `D-9 = Pi` (`Pi > Vi` in `D-1` → `Pi`), `D-10 (Trd) = Ar` (`Ar > Li` → `Ar`), `D-10 (Pv) = Sc` (`Sc > Ta` → `Sc`).
+   - *Verified on Data 9 (JHora export locked):* `D-9 = Li` and `D-10 (Trd) = Li`, yet `Ar` (`Ju+Sa`) beats `Li` (`Ma`) in `D-1` → JHora starts `Lagnamsaka Dasa` for `D-9`, `D-10 (Trd)`, `D-10 (Pv)`, AND `Narayana Dasa (D-1)` identically from **`Ar`** (`1999-06-06`)!
 2. **Mahadasa Sequence (Narayana Modal Progression from Seed):**
    - **Direction:** Odd seed (`Ar, Ge, Le, Li, Sg, Aq`) = **zodiacal**; Even seed (`Ta, Cn, Vi, Sc, Cp, Pi`) = **anti-zodiacal**.
    - **Exceptions (evaluated in `D-1`):** Saturn in the seed sign forces **consecutive zodiacal** order; Ketu in the seed sign **reverses** the direction.
@@ -52,13 +54,15 @@ Neither prior wiki explained how JHora actually computes Lagnamsaka Dasa. Verifi
    - Count from the sign to its lord **in the `D-1 (Rasi)` chart** (forward for odd-footed signs `Ar, Ta, Ge, Li, Sc, Sg`; backward for even-footed signs `Cn, Le, Vi, Cp, Aq, Pi`), subtract `1` (`12` years if lord is in own sign).
    - **Exaltation/Debilitation Modifier:** `+1` year if lord is exalted; `-1` year if lord is debilitated.
    - **Dual Lordship & Node Exaltation Rule (CRITICAL JHora Match):**
-     - For `Scorpio (Mars/Ketu)` and `Aquarius (Saturn/Rahu)`, if one co-lord sits in the sign itself and the other does not, Jaimini uses the **other** co-lord (on `Jm.jhd`, `Mars` sits in `Sc`, so `Ketu` in `Ge` gives `Sc`'s duration).
-     - JHora's Rasi Dasas use **`Rahu exalted in Gemini / debilitated in Sagittarius`** and **`Ketu exalted in Sagittarius / debilitated in Gemini`** (`rahu_exaltation: "Ge"`). On `Jm.jhd`, this yields `Sc = 7 - 1 = 6y` (`Ketu` debilitated in `Ge`) and `Aq = 2 - 1 = 1y` (`Rahu` debilitated in `Sg`) — matching JHora 100%, whereas MCP's default `rahu_exaltation: "Ta"` would wrongly give `Sc = 7y` and `Aq = 2y`.
+     - For `Scorpio (Mars/Ketu)` and `Aquarius (Saturn/Rahu)`, if one co-lord sits in the sign itself and the other does not, Jaimini uses the **other** co-lord (on `Jm.jhd`, `Mars` sits in `Sc`, so `Ketu` in `Ge` gives `Sc`'s duration). Otherwise JHora checks: (1) more conjoined planets → (2) more of `{Ju, Me, dispositor}` conjoining/aspecting → (3) `exalted > neutral > debilitated` (on Data 9, `Rahu` in `Cn` beats debilitated `Saturn` in `Ar` for `Aq = 7y`) → (4) `dual > fixed > movable` → (5) **co-lord giving the longer dasha** (on Data 9, `Mars` in `Li = 11y` beats `Ketu` in `Cp = 2y` for `Sc = 11y`) → (6) higher longitude in sign.
+     - JHora's Rasi Dasas use **`Rahu exalted in Gemini / debilitated in Sagittarius`** and **`Ketu exalted in Sagittarius / debilitated in Gemini`** (`rahu_exaltation: "Ge"`). On `Jm.jhd`, this yields `Sc = 7 - 1 = 6y` (`Ketu` debilitated in `Ge`) and `Aq = 2 - 1 = 1y` (`Rahu` debilitated in `Sg`) — matching JHora 100%.
    - **Cycle 2:** Every sign's second-cycle duration is `12 - Cycle 1 years` (144 years total across 2 cycles).
-4. **Antardasa (AD) & Pratyantardasa (PD) Sub-Periods:**
+4. **Antardasa (AD), Pratyantardasa (PD) & Sookshma (SD) Sub-Periods (100% JHora-Verified):**
    - Divide the parent period into **12 equal true sidereal solar intervals**.
-   - **Starting Sign:** Stronger (in `D-1`) of the signs holding the lords of the parent sign and its 7th sign in `D-1`.
-   - **Direction:** Odd starting sign = zodiacal (`+1`), even = anti-zodiacal (`-1`), with Saturn-in-start = forward and Ketu-in-parent = reverse. *(On `Jm.jhd`, for `Vi MD` and `Vi AD`, both `Me` and `Ju` sit in `Sg` in `D-1`, so ADs and PDs both run `Sg → Cp → Aq → Pi → Ar → Ta → Ge → Cn → Le → Vi → Li → Sc`.)*
+   - **Starting Sign:** First find the **stronger of `(parentSign, 7th from parentSign)` in `D-1`**, then start from **the sign occupied by THAT stronger sign's lord in `D-1`**.
+   - **Direction:** Odd starting sign = zodiacal (`+1`), even = anti-zodiacal (`-1`), with Saturn-in-start = forward and Ketu-in-parent = reverse.
+   - *Verified on Data 9:* `Le MD` (`Aq > Le`, lord `Rahu` in `Cn` even → `Cn → Ge → ... → Li → Vi → Le`); `Li AD` (`Ar > Li`, lord `Mars` in `Li` odd → `Li → Sc → ... → Le → Vi`); `Cp AD` (`Cn > Cp`, lord `Moon` in `Aq` odd → `Aq → Pi → ... → Cp`).
+   - *Verified on `Jm.jhd`:* `Vi MD` & `Vi AD` (`Pi > Vi`, lord `Jupiter` in `Sg` odd → `Sg → Cp → ... → Sc`).
 5. **Year Length Clock:** **`Using true sidereal solar years`** (exact `360°` sidereal revolution of the Sun, matching our MCP server's default dasha clock within `0s–3s` over 49 years).
 
 ### 2.3 Exact JHora Configuration Checklist (Verified from Screen + Audio)
@@ -255,17 +259,18 @@ Running the exact MCP call above on Data 9 demonstrates the complete verified wo
    - **`D-9` Lagna:** **`Libra (`Li`)`** *(Vargottama!)*
    - **`D-10 (Trd)` Lagna:** **`Libra (`Li`)`**
    - **`D-10 (Pv)` Lagna:** `(10 × 6 + 0) mod 12 = 0` → **`Aries (`Ar`)`** *(exact 7th sign from Libra!)*
-2. **Lagnamsaka Dasa Seed & Sequence (Critical `D-9` vs. `D-10 (Pv)` Distinction):**
-   - **`D-10 (Pv)` (`Ar` Lagna — Unambiguous):** `Aries (Ar)` is **both** the `D-10 (Pv)` Lagna **and** stronger than `Libra` in `D-1` (`Jupiter + Saturn` in `Ar` vs. `Mars` in `Li`). With `Saturn` in `Ar`, the Saturn exception gives consecutive zodiacal progression:
-     `Ar (6y) → Ta (2y) → Ge (12y) → Cn (5y) → Le (3y) → Vi (3y) → Li (9y) → Sc (2y) → Sg (4y) → Cp (8y) → Aq (7y) → Pi (11y)`
-     → **Active on `2026-11-24` (identical to MCP `narayana_dasha`):** **`Le MD – Cp AD – Ge PD`** (`Le MD: 2024-06-06 → 2027-06-06`).
-   - **`D-9` & `D-10 (Trd)` (`Li` Lagna):**
-     - Under **strict Varga-Lagna seed** (`Li`, bypassing 1st-vs-7th flip): `Li (9y) → Sc (2y) → Sg (4y) → Cp (8y) → Aq (7y) → Pi (11y) → ...` → **Active on `2026-11-24`:** **`Aq MD – Sc AD – Sg PD`** (`Aq MD: 2022-06-06 → 2029-06-06`).
-     - Under **stronger-of-Varga-Lagna-and-7th in `D-1`** (`Ar` beats `Li`): matches `D-10 (Pv)` → **`Le MD – Cp AD – Ge PD`**. *(Check JHora's `Lagnamsaka Dasa from D-9` on Data 9 to confirm which of `Li` vs. `Ar` JHora starts from when the 7th is stronger in `D-1`.)*
-3. **Applying Deepanshu's Verified Method on `Le MD` (`2024–2027`):**
-   - **Step 1 (Blank `D-1` ↔ `D-9` Map):** Because Lagna is Vargottama (`Li` in both `D-1` and `D-9`), **`Leo` is the 11th house (gains, network, Badhaka for Movable Libra!)** in **both `D-1` and `D-9`**.
-   - **Step 2 (`D-9` Check):** `Leo` is empty in `D-9`; its lord **`Sun`** sits in **`Cancer` (H10)** conjunct **`Ketu`** (giving career/action focus), while `Leo` (Fixed) receives **Jaimini Rasi Drishti** from Movable signs `Ar` (`Jupiter` in H7), `Li` (`Mars` in H1), and `Cp` (`Moon` + `Rahu` in H4).
-   - **Step 3 (`D-10 (Pv)` Check — `Ar` Lagna):** `Leo` is the **5th house** (intelligence, authority, creativity); its lord **`Sun`** sits in **`Virgo` (H6)** conjunct **`Saturn`** (`Su+Sa` in H6 = service/work friction + heavy effort), while **`Jupiter + Mars + Rahu + Ketu`** sit in **`Aries` (H1)** casting **Movable→Fixed Rasi Drishti** directly onto **`Leo` (H5)**!
+2. **Lagnamsaka Dasa Seed & Sequence (100% JHora-Locked on Data 9):**
+   - Because `D-1`, `D-9`, and `D-10 (Trd)` all have `Li` Lagna (`Ar` stronger than `Li` in `D-1` with `Saturn` exception) and `D-10 (Pv)` has `Ar` Lagna, **all four dashas (`Narayana D-1`, `Lagnamsaka D-9`, `Lagnamsaka D-10 Trd`, and `Lagnamsaka D-10 Pv`) are 100% identical to the second**:
+     `Ar (6y) → Ta (2y) → Ge (12y) → Cn (5y) → Le (3y) → Vi (3y) → Li (9y) → Sc (11y) → Sg (4y) → Cp (8y) → Aq (7y) → Pi (11y)`
+   - **Active Chain on `2026-11-24 08:26:56+05:30` (100% verified against JHora & MCP `narayana_dasha`):**
+     - **MD:** **`Leo (Le)`** (`2024-06-06 01:19:01` → `2027-06-06 19:44:33`)
+     - **AD:** **`Libra (Li)`** (`2026-09-08 12:29:52` → `2026-12-08 00:02:35`) *(next: `Vi AD` `2026-12-08` → `2027-03-06`, then `Le AD` `2027-03-06` → `2027-06-06`)*
+     - **PD:** **`Leo (Le)`** (`2026-11-23 04:37:40` → `2026-11-30 14:36:00`) *(next: `Vi PD` `2026-11-30` → `2026-12-08`)*
+     - **SD:** **`Gemini (Ge)`** (`2026-11-23 19:28:44` → `2026-11-24 10:19:35`) → **`Taurus (Ta)`** (`10:19:35` → `2026-11-25 01:10:14`)
+3. **Applying Deepanshu's Verified Method on `Le MD – Li AD – Le PD` (`Nov 2026`):**
+   - **Step 1 (Blank `D-1` ↔ `D-9` Map):** Because Lagna is Vargottama (`Li` in both `D-1` and `D-9`), **`Leo` (`H11` — Gains + Badhaka for Movable `Li`)** and **`Libra` (`H1` — Self/Identity/New Direction)** map 1:1 between `D-1` and `D-9`.
+   - **Step 2 (`D-9` Check — `Le MD – Li AD – Le PD`):** `Leo` is empty in `D-9`, its lord **`Sun` (`AK`)** sits in **`H10 Cancer`** conjunct **`Ketu`** (career status/restructuring), and `Li AD` activates **`H1 Libra`** holding Vargottama **`Mars` (`DK`, `2nd & 7th lord`)**, directly aspected by **`H7 Jupiter (GK)`**, **`H4 Moon+Rahu`**, and **`H10 Sun+Ketu`** (Movable→Fixed/Fixed→Movable Rasi Drishti on `Le`; Movable `Li` receives Fixed aspects from `H2 Sc Mercury` and `H5 Aq`).
+   - **Step 3 (`D-10 (Pv)` Check — `Ar` Lagna):** `Le MD` is **`H5`** (intellect/authority; lord `Sun` in `H6 Vi` with `Saturn` = heavy effort & authority tests), and **`Li AD`** activates **`H7 Libra`** (partnerships, clients, public/business interface; 7th lord **`Venus`** sits in **`H9 Sagittarius`** with **`Moon`**, directly strengthening expansion, mentorship, or distant/foreign career opportunities before `Vi AD` [`Dec 2026 – Mar 2027`] intensifies `H6 Sun+Saturn`!).
 
 ---
 

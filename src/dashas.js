@@ -128,16 +128,16 @@ function strongerCoLord(chart, sign, duration = null) {
   const ja = jmlCount(chart, sa, SIGN_LORDS[sa]);
   const jb = jmlCount(chart, sb, SIGN_LORDS[sb]);
   if (ja !== jb) return ja > jb ? a : b;
-  // Rule 3: exalted
-  const ea = exaltedIn(a, sa, chart.rahuExaltation);
-  const eb = exaltedIn(b, sb, chart.rahuExaltation);
-  if (ea !== eb) return ea ? a : b;
+  // Rule 3: exalted > neutral > debilitated
+  const ea = exaltedIn(a, sa, chart.rahuExaltation) ? 1 : debilitatedIn(a, sa, chart.rahuExaltation) ? -1 : 0;
+  const eb = exaltedIn(b, sb, chart.rahuExaltation) ? 1 : debilitatedIn(b, sb, chart.rahuExaltation) ? -1 : 0;
+  if (ea !== eb) return ea > eb ? a : b;
   // Rule 4: dual > fixed > movable sign
   if (modalityRank(sa) !== modalityRank(sb)) return modalityRank(sa) > modalityRank(sb) ? a : b;
-  // Rule 5: (in dashas) the one giving the longer Narayana dasha, then the more advanced in its sign
+  // Rule 5: (in dashas) the co-lord giving the longer dasha, then the more advanced in its sign
   if (duration) {
-    const da = duration(sa);
-    const db = duration(sb);
+    const da = duration(a, sa);
+    const db = duration(b, sb);
     if (da !== db) return da > db ? a : b;
   }
   return chart.degrees[a] > chart.degrees[b] ? a : b;
@@ -172,18 +172,21 @@ export function strongerSign(chart, r1, r2) {
 // Dasha years of a sign: count from the sign to its lord (forward for odd-footed signs,
 // backward for even-footed ones) minus one; 12 when the lord is in the sign. `exaltation`
 // adds a year for an exalted lord and takes one for a debilitated lord.
-function signYears(chart, sign, { exaltation, duration = null }) {
+function signYears(chart, sign, { exaltation, useLongerCoLord = false }) {
   const [a, b] = CO_LORDS[sign] || [];
   if (a && chart.signs[a] === sign && chart.signs[b] === sign) return 12;
-  const lord = signLord(chart, sign, duration);
-  const at = chart.signs[lord];
-  let years = ODD_FOOTED.has(sign) ? (at - sign + 12) % 12 : (sign - at + 12) % 12;
-  if (years === 0) years = 12;
-  if (exaltation) {
-    if (exaltedIn(lord, at, chart.rahuExaltation)) years += 1;
-    else if (debilitatedIn(lord, at, chart.rahuExaltation)) years -= 1;
-  }
-  return years;
+  const yearsFor = (lord) => {
+    const at = chart.signs[lord];
+    let years = ODD_FOOTED.has(sign) ? (at - sign + 12) % 12 : (sign - at + 12) % 12;
+    if (years === 0) years = 12;
+    if (exaltation) {
+      if (exaltedIn(lord, at, chart.rahuExaltation)) years += 1;
+      else if (debilitatedIn(lord, at, chart.rahuExaltation)) years -= 1;
+    }
+    return years;
+  };
+  const lord = signLord(chart, sign, useLongerCoLord ? (l) => yearsFor(l) : null);
+  return yearsFor(lord);
 }
 
 // Twelve signs from `start`: movable signs step by one, fixed signs by five (every 6th sign),
@@ -267,19 +270,18 @@ export function narayanaRaw(chart) {
     order = narayanaProgression(seed, isOdd(seed));
     rule = `${MOVABLE.includes(seed) ? 'movable: consecutive signs' : FIXED.includes(seed) ? 'fixed: every 6th sign' : 'dual: trines in kendra groups'}, ${isOdd(seed) ? 'zodiacal (odd sign)' : 'anti-zodiacal (even sign)'}`;
   }
-  // Durations use the stronger co-lord by the plain rules; the antardasha seed also uses the
-  // longer-dasha rule for co-lords
-  const duration = (s) => signYears(chart, s, { exaltation: true });
-  const yearsOf = duration;
-  // Antardashas: from the stronger of the signs holding the lords of the dasha sign and its 7th;
-  // forward from an odd sign, Saturn there forces forward, Ketu in the dasha sign reverses
+  // Durations and sub-period co-lords use the longer-dasha rule when Rules 1-4 tie (matches JHora)
+  const yearsOf = (s) => signYears(chart, s, { exaltation: true, useLongerCoLord: true });
+  // Sub-periods (AD/PD/SD): pick the stronger of the parent sign and its 7th, then start from
+  // the sign occupied by that stronger sign's lord; odd starts zodiacal, even anti-zodiacal
+  // (Saturn in start forces zodiacal, Ketu in parent sign reverses)
   const subOrder = (s) => {
-    const l1 = signLord(chart, s, duration);
-    const l7 = signLord(chart, (s + 6) % 12, duration);
-    const start = strongerSign(chart, chart.signs[l1], chart.signs[l7]);
+    const strong = strongerSign(chart, s, (s + 6) % 12);
+    const lord = signLord(chart, strong, (_, at) => yearsOf(at));
+    const start = chart.signs[lord];
     let dir = isOdd(start) ? 1 : -1;
-    if (chart.signs.Saturn === start) dir = 1;
-    if (chart.signs.Ketu === s) dir = -dir;
+    if (chart.signs.Saturn === strong) dir = 1;
+    if (chart.signs.Ketu === strong) dir = -dir;
     return Array.from({ length: 12 }, (_, i) => (start + dir * i + 120) % 12);
   };
   return { ...signDashaRaw(order, yearsOf, subOrder), seed, rule };
