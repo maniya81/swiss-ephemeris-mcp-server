@@ -61,7 +61,7 @@ Follow [swiss-ephemeris-mcp](../swiss-ephemeris-mcp/SKILL.md) and call:
 
 ## Step 1: Technique 1 — Pure Nakshatra + *Bhavat Bhavam* ("Mythological Offset & Relative-Derivation Engine")
 
-Consult the matching rulebook in `Nakshtra Knowledge Base/` (`01_Ashwini_Rules.md`–`12_Pending_Karma_Rules.md`), [02_Blank_Chart_Cusps_and_Offsets_Matrix.md](../../../Nakshtra%20Knowledge%20Base/Predictive_Engine/02_Blank_Chart_Cusps_and_Offsets_Matrix.md), and `Nakshtra Knowledge Base/youtube nakshtra/Nakshatra-extraction/`:
+**Atomic Technique Loader (Priority Rule)**: Before reading prose rulebooks, check `Nakshtra Knowledge Base/Nakshtra course/lecture techniques/` for the matching zero-noise atomic technique registry (for example, `01_Ashwini_Techniques.md` for Ashwini). Whenever present, load it first and evaluate every matching `IF → THEN` trigger (`ASH-001` onward) deterministically against the MCP coordinates computed in Step 0, then cross-check the remaining rulebooks in `Nakshtra Knowledge Base/` (`01_Ashwini_Rules.md`–`12_Pending_Karma_Rules.md`), [02_Blank_Chart_Cusps_and_Offsets_Matrix.md](../../../Nakshtra%20Knowledge%20Base/Predictive_Engine/02_Blank_Chart_Cusps_and_Offsets_Matrix.md), and `Nakshtra Knowledge Base/youtube nakshtra/Nakshatra-extraction/`:
 
 ### 1.1 Evolutionary Stage, Deity & Progression/Regression Diagnostic
 1. **Soul Evolution Stage**:
