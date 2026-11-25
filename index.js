@@ -27,6 +27,10 @@ import {
   parseLagnaInput, normalizeNakshatraName,
 } from './src/nakshatra-houses.js';
 import {
+  computeSarvatobhadra, compactSarvatobhadra, computeTransitSarvatobhadra,
+  compactTransitSarvatobhadra, sbcVedhaTargets, normalizeSbcNakshatraName, sbcNakshatraOf,
+} from './src/sarvatobhadra.js';
+import {
   MAX_SWEEP_CHARS, roundOffset, sampleOffsets, flipsOf, countChanges, passWindows, intersectWindows, bestSubset,
   fitToBudget, makeLongitudeInterpolator, makeLinearInterpolator, refineChanges,
 } from './src/sweep.js';
@@ -62,7 +66,7 @@ const MAX_SWEEP_CHAINS = 3601 * 200;
 const MAX_EVENT_TESTS = 50;
 // Optional calculate_vedic_chart blocks and the default set
 const ALL_CHART_BLOCKS = ['dignity', 'vargas', 'aspects', 'ashtakavarga', 'shadbala', 'bhavabala', 'kp_significators', 'yogini', 'ashtottari', 'chara', 'narayana'];
-const CHART_BLOCKS = [...ALL_CHART_BLOCKS, 'nakshatra_houses'];
+const CHART_BLOCKS = [...ALL_CHART_BLOCKS, 'nakshatra_houses', 'sarvatobhadra'];
 const DEFAULT_INCLUDE = ['dignity', 'vargas', 'aspects'];
 const SEVEN_PLANETS = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn'];
 const SERVER_INSTRUCTIONS = `Vedic astrology calculations (Swiss Ephemeris). Defaults match Jagannatha Hora: Traditional Lahiri ayanamsa (general chart), true geocentric positions, true nodes, true sidereal solar years; Kalachakra defaults strictly to True Lahiri (Chitrapaksha), SM Singh calculation method, and true nodes.
@@ -97,7 +101,7 @@ Keeping calls small:
 - For several dates (e.g. life events), pass as_of as a list: one call returns a compact chain per date.
 - For birth-time rectification, use calculate_kalachakra_dasha with birth_time_sweep and the event dates as as_of; birth times giving the same chains are merged into ranges. birth_time_sensitivity gives the days of shift per second of birth time.
 - Each current level includes ends_in and next (the following period at that level). Kalachakra periods carry gati (Simhavalokana, Manduka, Markati jumps).
-- calculate_vedic_chart blocks come with include (dignity, vargas, aspects by default; "all" for every block). With output "chain" a chart with every block stays under 3,000 tokens.
+- calculate_vedic_chart blocks come with include (dignity, vargas, aspects by default; "all" for every standard block; opt-in nakshatra_houses and sarvatobhadra for 28-nakshatra SBC with Abhijit, all-3-ray default or sbc_mode "speed"). With output "chain" a chart with every block stays under 3,000 tokens.
 
 Rectification:
 - Put the known life events in event_tests (with birth_time_sweep) instead of comparing chains yourself: the server returns each event's birth-time windows, their intersection, the best subset when they conflict and the junction distances. Use sweep_output "flips" for very long sweeps.
@@ -353,11 +357,16 @@ class SwissEphemerisServer {
                 },
                 include: {
                   oneOf: [{ type: 'string', enum: ['all'] }, { type: 'array', items: { type: 'string', enum: CHART_BLOCKS } }],
-                  description: 'Blocks to add (default ["dignity","vargas","aspects"]; "all" for every standard block): dignity (exaltation, moolatrikona, panchadha relation, combustion, planetary war, motion, Baladi/Jagradadi/Deeptadi, lordships), vargas, aspects, ashtakavarga, shadbala, bhavabala, kp_significators, yogini, ashtottari, chara, narayana, nakshatra_houses (equal-house cusp nakshatras and padas, Deepanshu Giri method). Example: ["shadbala","ashtakavarga"]',
+                  description: 'Blocks to add (default ["dignity","vargas","aspects"]; "all" for every standard block): dignity (exaltation, moolatrikona, panchadha relation, combustion, planetary war, motion, Baladi/Jagradadi/Deeptadi, lordships), vargas, aspects, ashtakavarga, shadbala, bhavabala, kp_significators, yogini, ashtottari, chara, narayana, nakshatra_houses (equal-house cusp nakshatras and padas, Deepanshu Giri method), sarvatobhadra (28-nakshatra Sarvatobhadra Chakra with Abhijit and 3-ray Vedha). Example: ["shadbala","ashtakavarga"]',
                 },
                 locate: {
                   type: 'string',
-                  description: 'Optional nakshatra name (e.g. "Ashwini") to locate in the equal-house nakshatra map: returns its house(s), whether it sits on the cusp, cusp pada, planets in it, and 3rd/4th/5th/7th/8th-from spans. Automatically includes nakshatra_houses',
+                  description: 'Optional nakshatra name (e.g. "Ashwini") to locate in the equal-house nakshatra map (and in sarvatobhadra if included): returns its house(s), whether it sits on the cusp, cusp pada, planets in it, and 3rd/4th/5th/7th/8th-from spans. Automatically includes nakshatra_houses',
+                },
+                sbc_mode: {
+                  type: 'string',
+                  enum: ['all', 'speed'],
+                  description: 'Sarvatobhadra Chakra Vedha mode: all (default, Deepanshu Giri / Lunar Astro method: every planet casts all 3 Vedha rays) or speed (classical: direct->Sammukha, retrograde->Dakshina, fast->Vama). Passing sbc_mode auto-includes sarvatobhadra',
                 },
                 vargas: {
                   oneOf: [{ type: 'string', enum: ['all'] }, { type: 'array', items: { type: 'string', enum: ALL_VARGAS } }],
@@ -543,6 +552,8 @@ class SwissEphemerisServer {
                 position_type: { type: 'string', enum: ['true', 'apparent'], description: 'true (default, as in Jagannatha Hora) or apparent positions' },
                 output: { type: 'string', enum: ['full', 'chain'], description: 'full (default for one date): structured objects. chain: one string per item (fewer tokens). A list of as_of dates is always compact' },
                 current_timezone: { type: 'string', description: 'IANA timezone where the native lives now, e.g. Australia/Melbourne. Adds *_local times (compact strings show them in brackets)' },
+                include_sbc: { type: 'boolean', description: 'Include transit-to-natal Sarvatobhadra Chakra (28-nakshatra with Abhijit) Vedha hits on natal Lagna, Moon and planets (default false)' },
+                sbc_mode: { type: 'string', enum: ['all', 'speed'], description: 'Sarvatobhadra Vedha mode: all (default, all 3 rays) or speed (motion-based). Passing sbc_mode enables include_sbc' },
               },
               required: ['datetime', 'latitude', 'longitude'],
             },
@@ -656,6 +667,15 @@ class SwissEphemerisServer {
                   type: 'string',
                   enum: ['full', 'chain'],
                   description: 'full (default): detailed 12-house map, planets, and charan_window; chain: compact summary under 1,500 tokens',
+                },
+                include_sbc: {
+                  type: 'boolean',
+                  description: 'Include Sarvatobhadra Chakra (28-nakshatra with Abhijit) 3-ray Vedha targets and incoming natal Vedha (default false)',
+                },
+                sbc_mode: {
+                  type: 'string',
+                  enum: ['all', 'speed'],
+                  description: 'Sarvatobhadra Vedha mode: all (default, all 3 rays) or speed (motion-based). Passing sbc_mode enables include_sbc',
                 },
               },
             },
@@ -1510,6 +1530,14 @@ class SwissEphemerisServer {
       });
       out.nakshatra_houses = compact ? compactNakshatraHouses(nhMap) : nhMap;
     }
+
+    if (include.has('sarvatobhadra')) {
+      const sbc = computeSarvatobhadra(ctx.grahas, ctx.lagnaLon, {
+        mode: options.sbc_mode || 'all',
+        locate: options.sbc_locate ?? options.locate,
+      });
+      out.sarvatobhadra = compact ? compactSarvatobhadra(sbc) : sbc;
+    }
     return out;
   }
 
@@ -1617,6 +1645,13 @@ class SwissEphemerisServer {
         jaimini_aspects: Boolean(a.jaimini_aspects),
       };
     }
+    if (include.has('sarvatobhadra')) {
+      const mode = options.sbc_mode || 'all';
+      out.sarvatobhadra = {
+        grid: '28-nakshatra 9x9 Sarvatobhadra Chakra (Abhijit 276°40\'00"–280°53\'20")',
+        mode: mode === 'all' ? 'all (Deepanshu Giri / Lunar Astro: every planet casts all 3 Vedha rays)' : 'speed (direct->Sammukha, retrograde->Dakshina, fast->Vama)',
+      };
+    }
     return out;
   }
 
@@ -1638,6 +1673,7 @@ class SwissEphemerisServer {
     if (include.has('shadbala') || include.has('bhavabala')) out.shadbala = `${options.shadbala_method || 'jh'}; moon_benefic ${options.moon_benefic || 'ashtami'}; sunrise ${options.sunrise || 'standard'}`;
     if (include.has('ashtakavarga')) out.ashtakavarga = `tables ${options.ashtakavarga_tables || 'jh'}`;
     if (include.has('chara')) out.chara = options.chara_method || 'pvn_rao';
+    if (include.has('sarvatobhadra')) out.sarvatobhadra = `28-nakshatra SBC (Abhijit), mode ${options.sbc_mode || 'all'}`;
     if (!options.levels_given) out.levels = `running chains: 3 levels${['yogini', 'ashtottari', 'chara', 'narayana'].some(x => include.has(x)) ? ' (other dashas 2)' : ''}; pass levels for more`;
     out.notes = 'output "full": method notes and every sub-part';
     return out;
@@ -2746,6 +2782,8 @@ class SwissEphemerisServer {
     if (asOfTimes.some(t => isNaN(t))) throw invalid('as_of', 'Invalid as_of datetime. Use ISO8601, e.g. 2025-01-01T12:00:00+05:30');
     const range = options.from ? { fromMs: new Date(options.from).getTime(), toMs: new Date(options.to).getTime() } : null;
     const compact = options.output === 'chain' || Boolean(asOfList);
+    const includeSbc = Boolean(options.include_sbc || options.sbc_mode !== undefined);
+    const sbcMode = options.sbc_mode || 'all';
 
     // Natal chart
     const natal = eph.grahas(birth, settingsFlags);
@@ -2867,11 +2905,15 @@ class SwissEphemerisServer {
         }
       }
       hits.sort((a, b) => a.orb_deg - b.orb_deg);
-      return {
+      const entry = {
         as_of: ts(t), positions, saturn,
         jupiter: stayOut('Jupiter', t), rahu: stayOut('Rahu', t), ketu: stayOut('Ketu', t),
         tara_bala: tara, chandra_bala: chandra, natal_hits: hits,
       };
+      if (includeSbc) {
+        entry.sarvatobhadra = computeTransitSarvatobhadra(natal, houses.asc, g, { mode: sbcMode });
+      }
+      return entry;
     });
 
     const settings = {
@@ -2887,6 +2929,7 @@ class SwissEphemerisServer {
       tara_bala: 'Nakshatras counted from the janma nakshatra, in groups of nine; Sampat, Kshema, Sadhaka, Mitra and Parama Mitra are favourable',
       chandra_bala: 'Transit Moon in the 1st, 3rd, 6th, 7th, 10th or 11th from the natal Moon; also the 2nd, 5th and 9th in the bright half',
       natal_hits: `Jupiter, Saturn, Rahu and Ketu within ${orb}° of natal planets, cusps and the Bhrigu Bindu`,
+      ...(includeSbc ? { sarvatobhadra: `28-nakshatra SBC (Abhijit 276°40'00"–280°53'20"), mode ${sbcMode}` } : {}),
       precision: 'Ingress times by cubic interpolation of daily positions (about one second); stations refined to the second',
     };
 
@@ -2912,6 +2955,7 @@ class SwissEphemerisServer {
         out.tara_bala = `${d.tara_bala.tara} (${d.tara_bala.number}, ${d.tara_bala.favourable ? 'favourable' : 'unfavourable'})${withSpans ? ` until ${d.tara_bala.until}` : ''}`;
         out.chandra_bala = `H${d.chandra_bala.house_from_moon} ${d.chandra_bala.paksha} (${d.chandra_bala.favourable ? 'favourable' : 'unfavourable'})${withSpans ? ` until ${d.chandra_bala.until}` : ''}`;
         out.natal_hits = d.natal_hits.map(h => `${h.planet} on ${h.target} ${h.orb_deg}° ${h.applying ? 'applying' : 'separating'}${h.exact.length ? `; exact ${h.exact.join(', ')}` : `; closest ${h.closest.at} (${h.closest.orb_deg}°)`}`);
+        if (d.sarvatobhadra) out.sarvatobhadra = compactTransitSarvatobhadra(d.sarvatobhadra);
         return out;
       };
       result.legend = 'positions: sign, degree, nakshatra, pada, M = house from the natal Moon, L = house from the natal lagna, KP = KP house (natal cusps), R = retrograde';
@@ -3281,8 +3325,26 @@ class SwissEphemerisServer {
     if (args.output !== undefined && args.output !== 'full' && args.output !== 'chain') {
       throw invalid('output', 'output must be "full" or "chain"');
     }
+    if (args.include_sbc !== undefined && typeof args.include_sbc !== 'boolean') {
+      throw invalid('include_sbc', 'include_sbc must be true or false');
+    }
+    if (args.sbc_mode !== undefined && args.sbc_mode !== 'all' && args.sbc_mode !== 'speed') {
+      throw invalid('sbc_mode', 'sbc_mode must be "all" or "speed"');
+    }
     const compact = args.output === 'chain';
-    const locate = args.locate !== undefined ? normalizeNakshatraName(args.locate).name : undefined;
+    const includeSbc = Boolean(args.include_sbc || args.sbc_mode !== undefined);
+    const sbcMode = args.sbc_mode || 'all';
+    const isAbhijitLocate = typeof args.locate === 'string' && ['abhijit', 'abh'].includes(args.locate.trim().toLowerCase());
+    let locate;
+    let sbcLocate;
+    if (args.locate !== undefined) {
+      if (isAbhijitLocate && includeSbc) {
+        sbcLocate = normalizeSbcNakshatraName(args.locate).name;
+      } else {
+        locate = normalizeNakshatraName(args.locate).name;
+        sbcLocate = locate;
+      }
+    }
 
     const settings = {
       ayanamsa: ayanamsaKey,
@@ -3290,12 +3352,22 @@ class SwissEphemerisServer {
       position_type: positionType,
       node_type: nodeType,
       house_system: 'equal houses from the lagna (cusp = middle of the house); whole-sign nakshatra placement (Deepanshu Giri method)',
+      ...(includeSbc ? { sarvatobhadra: `28-nakshatra SBC (Abhijit 276°40'00"–280°53'20"), mode ${sbcMode}` } : {}),
     };
 
     if (hasLagna) {
       const lagnaLon = parseLagnaInput(args.lagna);
       const map = computeNakshatraHouseMap(lagnaLon, { locate, lagnaOnly: true, settings });
-      return compact ? compactNakshatraHouses(map) : map;
+      const out = compact ? compactNakshatraHouses(map) : map;
+      if (includeSbc) {
+        out.sarvatobhadra = {
+          mode: sbcMode,
+          lagna_nakshatra: sbcNakshatraOf(lagnaLon).name,
+          ...(sbcLocate ? { locate: { nakshatra: sbcLocate, vedha_targets: sbcVedhaTargets(sbcLocate) } } : {}),
+          note: 'Lagna-only mode: no planetary positions for incoming Vedha',
+        };
+      }
+      return out;
     }
 
     if (!args.datetime || typeof args.datetime !== 'string') {
@@ -3327,6 +3399,10 @@ class SwissEphemerisServer {
       settings,
     });
     const out = compact ? compactNakshatraHouses(map) : map;
+    if (includeSbc) {
+      const sbc = computeSarvatobhadra(grahas, houses.asc, { mode: sbcMode, locate: sbcLocate });
+      out.sarvatobhadra = compact ? compactSarvatobhadra(sbc) : sbc;
+    }
     return {
       ...out,
       datetime: birthDatetime,
@@ -3365,10 +3441,23 @@ class SwissEphemerisServer {
       throw invalid('include', `include must be "all" or a list of: ${CHART_BLOCKS.join(', ')}`);
     }
     if (args.kp_significators === true && !include.includes('kp_significators')) include = [...include, 'kp_significators'];
+    const choice = (name, allowed) => {
+      if (args[name] !== undefined && !allowed.includes(args[name])) throw invalid(name, `${name} must be one of: ${allowed.join(', ')}`);
+      return args[name];
+    };
+    const sbcMode = choice('sbc_mode', ['all', 'speed']);
+    if (args.sbc_mode !== undefined && !include.includes('sarvatobhadra')) include = [...include, 'sarvatobhadra'];
     let locate;
+    let sbcLocate;
     if (args.locate !== undefined) {
-      locate = normalizeNakshatraName(args.locate).name;
-      if (!include.includes('nakshatra_houses')) include = [...include, 'nakshatra_houses'];
+      const isAbhijit = typeof args.locate === 'string' && ['abhijit', 'abh'].includes(args.locate.trim().toLowerCase());
+      if (isAbhijit && include.includes('sarvatobhadra')) {
+        sbcLocate = normalizeSbcNakshatraName(args.locate).name;
+      } else {
+        locate = normalizeNakshatraName(args.locate).name;
+        sbcLocate = locate;
+        if (!include.includes('nakshatra_houses')) include = [...include, 'nakshatra_houses'];
+      }
     }
     let vargas = args.vargas === undefined ? ['D1', 'D9'] : args.vargas;
     if (vargas === 'all') vargas = [...ALL_VARGAS];
@@ -3380,10 +3469,6 @@ class SwissEphemerisServer {
     if (!methods || typeof methods !== 'object' || Array.isArray(methods) || Object.entries(methods).some(([v, m]) => !VARGA_METHODS[v] || !VARGA_METHODS[v].includes(m))) {
       throw invalid('varga_method', `varga_method may set ${Object.entries(VARGA_METHODS).map(([v, m]) => `${v}: ${m.join('|')}`).join('; ')}`);
     }
-    const choice = (name, allowed) => {
-      if (args[name] !== undefined && !allowed.includes(args[name])) throw invalid(name, `${name} must be one of: ${allowed.join(', ')}`);
-      return args[name];
-    };
     const dignityOptions = {
       rahu_exaltation: choice('rahu_exaltation', ['Ta', 'Ge']),
       war_winner: choice('war_winner', ['latitude', 'brightness']),
@@ -3415,7 +3500,7 @@ class SwissEphemerisServer {
     const ashtakavargaTables = choice('ashtakavarga_tables', ['jh', 'bphs']);
     const vimshopakaMethod = choice('vimshopaka_method', ['jh', 'bphs']);
     aspectOptions.drishti_rule = choice('drishti_rule', ['jh', 'bphs']);
-    return { include, vargas, varga_method: methods, dignity_options: dignityOptions, aspect_options: aspectOptions, shodhana: Boolean(args.shodhana), sunrise, moon_benefic: moonBenefic, chara_method: charaMethod, shadbala_method: shadbalaMethod, ashtakavarga_tables: ashtakavargaTables, vimshopaka_method: vimshopakaMethod, locate, levels_given: args.levels !== undefined };
+    return { include, vargas, varga_method: methods, dignity_options: dignityOptions, aspect_options: aspectOptions, shodhana: Boolean(args.shodhana), sunrise, moon_benefic: moonBenefic, chara_method: charaMethod, shadbala_method: shadbalaMethod, ashtakavarga_tables: ashtakavargaTables, vimshopaka_method: vimshopakaMethod, locate, sbc_locate: sbcLocate, sbc_mode: sbcMode, levels_given: args.levels !== undefined };
   }
 
   // birth_time_sweep, sweep_output and their size limits
@@ -3809,6 +3894,8 @@ class SwissEphemerisServer {
         if (args.output !== undefined && !['full', 'chain'].includes(args.output)) throw invalid('output', 'output must be "full" or "chain"');
         if (args.orb !== undefined && (typeof args.orb !== 'number' || args.orb <= 0 || args.orb > 10)) throw invalid('orb', 'orb must be a number of degrees above 0 and up to 10');
         if (args.kantaka_includes_first !== undefined && typeof args.kantaka_includes_first !== 'boolean') throw invalid('kantaka_includes_first', 'kantaka_includes_first must be true or false');
+        if (args.include_sbc !== undefined && typeof args.include_sbc !== 'boolean') throw invalid('include_sbc', 'include_sbc must be true or false');
+        if (args.sbc_mode !== undefined && !['all', 'speed'].includes(args.sbc_mode)) throw invalid('sbc_mode', 'sbc_mode must be "all" or "speed"');
         this.validateTimezone(args.current_timezone);
         const gAsOf = this.normalizeAsOf(args.as_of);
         let gFrom;
@@ -3844,6 +3931,8 @@ class SwissEphemerisServer {
           search_events: args.search_events,
           output: args.output,
           current_timezone: args.current_timezone,
+          include_sbc: args.include_sbc,
+          sbc_mode: args.sbc_mode,
         });
         gResult.datetime_input = gDatetime;
         this.withCurrentTimezone(gResult, gBirth, args.current_timezone, []);

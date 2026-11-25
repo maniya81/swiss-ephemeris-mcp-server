@@ -10,8 +10,9 @@ Common (5 general Vedic tools — `calculate_vedic_chart`, `calculate_gochar`, `
   `output` [`full`] | `chain` | `chain_v1` (deprecated) (use `chain`; `as_of` list also forces compact); `dasha_year_days` (fixed days, e.g. `365.25`) [true sidereal solar year].
 - `kalachakra_ayanamsa` [`true_lahiri`] — Kalachakra always defaults to True Lahiri / Chitrapaksha (`true_lahiri`), SM Singh method, True nodes, Rohini 4th pada = Leo navamsa, 360° Sidereal Solar Years.
 - `include` [`dignity`, `vargas`, `aspects`] | `"all"` (11 standard blocks) | list of: `dignity` `vargas` `aspects` `ashtakavarga`
-  `shadbala` `bhavabala` `kp_significators` `yogini` `ashtottari` `chara` `narayana`, plus opt-in `nakshatra_houses` (excluded from `"all"`).
-- `locate` [optional] nakshatra name for `nakshatra_houses` (auto-includes `nakshatra_houses`).
+  `shadbala` `bhavabala` `kp_significators` `yogini` `ashtottari` `chara` `narayana`, plus opt-in `nakshatra_houses` (excluded from `"all"`) and `sarvatobhadra` (28-nakshatra SBC with Abhijit `276°40'00"–280°53'20"`, excluded from `"all"`).
+- `locate` [optional] nakshatra name for `nakshatra_houses` (auto-includes `nakshatra_houses`; also locates in `sarvatobhadra` when included, and accepts `"Abhijit"` when `sarvatobhadra` is included).
+- `sbc_mode` [`all`] | `speed` — Sarvatobhadra Vedha mode: `all` (Deepanshu Giri / Lunar Astro: every planet casts all 3 rays Vama/Sammukha/Dakshina) or `speed` (direct→Sammukha, retrograde→Dakshina, fast→Vama). Passing `sbc_mode` auto-includes `sarvatobhadra`.
 - vargas: `vargas` [`D1`,`D9`] | `"all"` (D1-D60); `varga_method` `{D2: parashara|parivritti|pvr,
   D3/D30: parashara|parivritti}`; `vimshopaka_method` [`jh`] | `bphs`.
 - dignity: `rahu_exaltation` [`Ta`] | `Ge`, `moolatrikona`, `combustion_limits`, `war_winner`
@@ -36,7 +37,7 @@ labels `"Ta Dhan3"` / `"Sc Visa1"` / `"Sc#2"` when a sign repeats; `gati_list`
 ## calculate_gochar
 `as_of` date or list (≤200) [now]; `from`/`to` range (≤100 years) with `search_planets`
 [all but Moon] and `search_events` [`sign`, `nakshatra`, `station`]; `orb` [`1`];
-`kantaka_includes_first` [`false`]; `output` [`full`] | `chain`.
+`kantaka_includes_first` [`false`]; `include_sbc` [`false`]; `sbc_mode` [`all`] | `speed` (passing `sbc_mode` enables `include_sbc`); `output` [`full`] | `chain`.
 
 ## calculate_ruling_planets (only `latitude`, `longitude` needed; no `output` param)
 `datetime` moment [now in IST]; `birth_datetime` adds `hour_trigger`; `keep_retrograde` [`false`];
@@ -48,7 +49,7 @@ labels `"Ta Dhan3"` / `"Sc Visa1"` / `"Sc#2"` when a sign repeats; `gati_list`
 
 ## nakshatra_house_map (no `current_timezone` param; `charan_window` uses birth local clock)
 Either birth data (`datetime`, `latitude`, `longitude`, optional `ayanamsa`, `position_type`, `node_type`) OR `lagna` (`"Cn 6°23'15\""` or `{sign, deg, min?, sec?}`);
-optional `locate` (nakshatra name), `output` [`full`] | `chain` (`full` also returns per-house `bhava_span` for exact `±15°` boundaries).
+optional `locate` (nakshatra name), `include_sbc` [`false`], `sbc_mode` [`all`] | `speed` (passing `sbc_mode` enables `include_sbc`), `output` [`full`] | `chain` (`full` also returns per-house `bhava_span` for exact `±15°` boundaries).
 
 ## Western tools (Tropical zodiac; pass explicit UTC offset or `Z`, no `output` / `current_timezone`)
 - `calculate_planetary_positions`: `datetime`, `latitude`, `longitude`

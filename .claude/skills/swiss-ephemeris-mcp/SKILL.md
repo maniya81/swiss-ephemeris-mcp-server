@@ -37,12 +37,13 @@ description: "How to call the Swiss Ephemeris MCP server (all 10 tools — Vedic
 | Sign/nakshatra ingress & station dates in a range | `calculate_gochar` `from`, `to`, `search_planets?`, `search_events?`, `output:"chain"` |
 | KP ruling planets & hour trigger | `calculate_ruling_planets` (`latitude`, `longitude`, optional `datetime`, `birth_datetime`) |
 | Shadbala, ashtakavarga, vargas, dignity, KP significators, extra dashas | `calculate_vedic_chart` `output:"chain"`, `include:[…]` (`include:["kp_significators"]` or `kp_significators:true` + single `as_of` adds `hour_trigger`) |
+| Sarvatobhadra Chakra (28-nakshatra with Abhijit, 3-ray Vedha) | `calculate_vedic_chart` `include:["sarvatobhadra"]` (`sbc_mode?`), `calculate_gochar` `include_sbc:true`, or `nakshatra_house_map` `include_sbc:true` |
 | Rectify birth time from dated life events | `calculate_kalachakra_dasha` (or `calculate_vedic_chart` + `sweep_dasha`) with `birth_time_sweep` + `event_tests` |
 | Rectify birth time from transits on natal cusps/lagna/MC/planets | `rectify_by_transit` `anchors:[{as_of,planet,target,weight?}]`, `window_seconds?` (`10–7200`) |
 | Which nakshatra/pada is in which house, cusp nakshatras, `locate`, or lagna-only | `nakshatra_house_map` `output:"chain"` (+`locate?`); use `calculate_vedic_chart` `include:["nakshatra_houses"]` (or `locate`) only when dashas/vargas are also needed |
 | Western (Tropical) chart, transits, solar return, or synastry | `calculate_planetary_positions` / `calculate_transits` (`birth_datetime`) / `calculate_solar_revolution` (`birth_*`, `return_year`) / `calculate_synastry` (`person1_*`, `person2_*`) |
 
-Blocks for `calculate_vedic_chart` `include`: `dignity`, `vargas`, `aspects`, `ashtakavarga`, `shadbala`, `bhavabala`, `kp_significators`, `yogini`, `ashtottari`, `chara`, `narayana` (all 11 included by `"all"`), plus opt-in `nakshatra_houses` (auto-included if `locate` is passed). Full reference: `references/parameters.md`.
+Blocks for `calculate_vedic_chart` `include`: `dignity`, `vargas`, `aspects`, `ashtakavarga`, `shadbala`, `bhavabala`, `kp_significators`, `yogini`, `ashtottari`, `chara`, `narayana` (all 11 included by `"all"`), plus opt-in `nakshatra_houses` (auto-included if `locate` is passed) and `sarvatobhadra` (auto-included if `sbc_mode` is passed). Full reference: `references/parameters.md`.
 
 ## Keep Responses Small (approximate tokens for one chart)
 - `calculate_vedic_chart`: `full` ~18k, `chain` with `include:[]` ~1.5k, with `include:"all"` ~2.8k; `nakshatra_houses` in `chain` ~0.7k (always < 1.5k).
@@ -119,6 +120,19 @@ Legend: planet strings carry `sign degree nakshatra pada star/sub/sub-sub`, `WS`
 ```json
 {"datetime":"1999-06-06T15:30:01+05:30","latitude":21.7667,"longitude":72.15,"output":"chain","include":["shadbala","ashtakavarga"],"levels":1}
 ```
+
+**6b. Sarvatobhadra Chakra (`include:["sarvatobhadra"]`, 28-nakshatra with Abhijit `276°40'00"–280°53'20"`)**
+```json
+{"datetime":"1999-06-06T15:30:01+05:30","latitude":21.7667,"longitude":72.15,"output":"chain","include":["sarvatobhadra"],"levels":1,"locate":"Bharani"}
+```
+```json
+{"sarvatobhadra":{"mode":"all","lagna_nakshatra":"Chi","moon_nakshatra":"Sha",
+  "planets":{"Sun":"Roh- -> V:Swa,S:Abh,D:Ash","Saturn":"Bha- -> V:Kri,S:Mag,D:Anu",…},
+  "vedha_on_natal":{"Lagna":"Me+(V)","Moon":"Ve+(D)","Sun":"Ju+(V)",…},
+  "legend":"+/- = benefic/malefic, * = Abhijit, V/S/D = Vama/Sammukha/Dakshina",
+  "locate":"Bharani (Bha): targets V:Kri, S:Mag, D:Anu; incoming: none"}}
+```
+*(For transit-to-natal SBC Vedha, pass `include_sbc: true` on `calculate_gochar`.)*
 
 **7. Rectification (`birth_time_sweep` + `event_tests`, or `rectify_by_transit`)**
 ```json
