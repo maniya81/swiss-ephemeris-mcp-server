@@ -363,4 +363,50 @@ test('Data 9 Traditional Lahiri: Narayana / Lagnamsaka Dasa matches Jagannatha H
     const got = batch.narayana_dasha.chains[i].chain.split('-').slice(0, c.depth).join('-');
     assert.strictEqual(got, c.chain, `case ${i} (${c.as_of})`);
   });
+
+  // 3. Native Lagnamsaka Dasa: D-9 default (rahu_exaltation defaults to Ge), D-10 Parivritti, and D-24 (different seed)
+  const { result: ld9 } = await ok(srv, 'calculate_vedic_chart', {
+    ...SAGAR,
+    include: ['lagnamsaka'],
+    as_of: '2026-11-24T08:26:56+05:30',
+    levels: 4,
+    output: 'full',
+  });
+  const l9 = ld9.lagnamsaka_dasha;
+  assert.strictEqual(l9.varga, 'D9');
+  assert.strictEqual(l9.varga_lagna, 'Li');
+  assert.strictEqual(l9.rahu_exaltation, 'Ge');
+  assert.strictEqual(l9.first_sign, 'Ar');
+  assert.strictEqual(l9.current.chain, 'Le-Li-Le-Ge');
+  nl.mahadashas_cycle1.forEach((exp, i) => {
+    assert.strictEqual(l9.mahadashas[i].sign, exp.sign, `D9 MD ${i}`);
+  });
+  nl.le_md_antardashas.forEach((exp, i) => {
+    assert.strictEqual(l9.mahadashas[4].antardashas[i].sign, exp.sign, `D9 Le AD ${i}`);
+  });
+
+  const { result: ld10 } = await ok(srv, 'calculate_vedic_chart', {
+    ...SAGAR,
+    lagnamsaka_varga: 'D10',
+    varga_method: { D10: 'parivritti' },
+    as_of: '2026-11-24T08:26:56+05:30',
+    levels: 4,
+    output: 'chain',
+  });
+  assert.strictEqual(ld10.lagnamsaka_dasha.varga, 'D10 (parivritti)');
+  assert.strictEqual(ld10.lagnamsaka_dasha.varga_lagna, 'Ar');
+  assert.strictEqual(ld10.lagnamsaka_dasha.first_sign, 'Ar');
+  assert.match(ld10.lagnamsaka_dasha.current, /MD Le .*AD Li .*PD Le .*SD Ge/);
+
+  const { result: ld24 } = await ok(srv, 'calculate_vedic_chart', {
+    ...SAGAR,
+    lagnamsaka_varga: 'D24',
+    as_of: '2026-11-24T08:26:56+05:30',
+    levels: 2,
+    output: 'chain',
+  });
+  assert.strictEqual(ld24.lagnamsaka_dasha.varga, 'D24');
+  assert.strictEqual(ld24.lagnamsaka_dasha.varga_lagna, 'Le');
+  assert.ok(['Le', 'Aq'].includes(ld24.lagnamsaka_dasha.first_sign), `D24 seed ${ld24.lagnamsaka_dasha.first_sign}`);
+  assert.notStrictEqual(ld24.lagnamsaka_dasha.first_sign, 'Ar');
 });

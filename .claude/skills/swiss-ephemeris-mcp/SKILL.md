@@ -43,7 +43,7 @@ description: "How to call the Swiss Ephemeris MCP server (all 10 tools — Vedic
 | Which nakshatra/pada is in which house, cusp nakshatras, `locate`, or lagna-only | `nakshatra_house_map` `output:"chain"` (+`locate?`); use `calculate_vedic_chart` `include:["nakshatra_houses"]` (or `locate`) only when dashas/vargas are also needed |
 | Western (Tropical) chart, transits, solar return, or synastry | `calculate_planetary_positions` / `calculate_transits` (`birth_datetime`) / `calculate_solar_revolution` (`birth_*`, `return_year`) / `calculate_synastry` (`person1_*`, `person2_*`) |
 
-Blocks for `calculate_vedic_chart` `include`: `dignity`, `vargas`, `aspects`, `ashtakavarga`, `shadbala`, `bhavabala`, `kp_significators`, `yogini`, `ashtottari`, `chara`, `narayana` (all 11 included by `"all"`), plus opt-in `nakshatra_houses` (auto-included if `locate` is passed) and `sarvatobhadra` (auto-included if `sbc_mode` is passed). Full reference: `references/parameters.md`.
+Blocks for `calculate_vedic_chart` `include`: `dignity`, `vargas`, `aspects`, `ashtakavarga`, `shadbala`, `bhavabala`, `kp_significators`, `yogini`, `ashtottari`, `chara`, `narayana` (all 11 included by `"all"`), plus opt-in `lagnamsaka` (auto-included if `lagnamsaka_varga` is passed; defaults to `D9` with `rahu_exaltation: "Ge"`), `nakshatra_houses` (auto-included if `locate` is passed), and `sarvatobhadra` (auto-included if `sbc_mode` is passed). Full reference: `references/parameters.md`.
 
 ## Keep Responses Small (approximate tokens for one chart)
 - `calculate_vedic_chart`: `full` ~18k, `chain` with `include:[]` ~1.5k, with `include:"all"` ~2.8k; `nakshatra_houses` in `chain` ~0.7k (always < 1.5k).

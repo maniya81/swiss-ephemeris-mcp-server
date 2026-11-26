@@ -11,6 +11,7 @@ export const VARGA_NAMES = {
 export const VARGA_METHODS = {
   D2: ['parashara', 'parivritti', 'pvr'],
   D3: ['parashara', 'parivritti'],
+  D10: ['parashara', 'parivritti'],
   D30: ['parashara', 'parivritti'],
 };
 
@@ -96,6 +97,7 @@ export function vargaPosition(varga, lon, methods = {}) {
     case 'D9':
       return equal(9, s => [0, 9, 6, 3][element(s)])(sign, deg);
     case 'D10':
+      if (methods.D10 === 'parivritti') return equal(10, s => s * 10)(sign, deg);
       return equal(10, s => (isOdd(s) ? s : s + 8))(sign, deg);
     case 'D12':
       return equal(12, s => s)(sign, deg);

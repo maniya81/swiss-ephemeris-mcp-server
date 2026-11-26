@@ -10,11 +10,12 @@ Common (5 general Vedic tools — `calculate_vedic_chart`, `calculate_gochar`, `
   `output` [`full`] | `chain` | `chain_v1` (deprecated) (use `chain`; `as_of` list also forces compact); `dasha_year_days` (fixed days, e.g. `365.25`) [true sidereal solar year].
 - `kalachakra_ayanamsa` [`true_lahiri`] — Kalachakra always defaults to True Lahiri / Chitrapaksha (`true_lahiri`), SM Singh method, True nodes, Rohini 4th pada = Leo navamsa, 360° Sidereal Solar Years.
 - `include` [`dignity`, `vargas`, `aspects`] | `"all"` (11 standard blocks) | list of: `dignity` `vargas` `aspects` `ashtakavarga`
-  `shadbala` `bhavabala` `kp_significators` `yogini` `ashtottari` `chara` `narayana`, plus opt-in `nakshatra_houses` (excluded from `"all"`) and `sarvatobhadra` (28-nakshatra SBC with Abhijit `276°40'00"–280°53'20"`, excluded from `"all"`).
+  `shadbala` `bhavabala` `kp_significators` `yogini` `ashtottari` `chara` `narayana`, plus opt-in `lagnamsaka` (Varga-seeded Narayana/Lagnamsaka Dasa, excluded from `"all"`), `nakshatra_houses` (excluded from `"all"`), and `sarvatobhadra` (28-nakshatra SBC with Abhijit `276°40'00"–280°53'20"`, excluded from `"all"`).
+- `lagnamsaka_varga` [`D9`] | any of `D1`–`D60` (`ALL_VARGAS`) — divisional chart whose lagna seeds Lagnamsaka Dasa (auto-includes `lagnamsaka`; defaults `rahu_exaltation` to `"Ge"` to match Jagannatha Hora unless overridden).
 - `locate` [optional] nakshatra name for `nakshatra_houses` (auto-includes `nakshatra_houses`; also locates in `sarvatobhadra` when included, and accepts `"Abhijit"` when `sarvatobhadra` is included).
 - `sbc_mode` [`all`] | `speed` — Sarvatobhadra Vedha mode: `all` (Deepanshu Giri / Lunar Astro: every planet casts all 3 rays Vama/Sammukha/Dakshina) or `speed` (direct→Sammukha, retrograde→Dakshina, fast→Vama). Passing `sbc_mode` auto-includes `sarvatobhadra`.
 - vargas: `vargas` [`D1`,`D9`] | `"all"` (D1-D60); `varga_method` `{D2: parashara|parivritti|pvr,
-  D3/D30: parashara|parivritti}`; `vimshopaka_method` [`jh`] | `bphs`.
+  D3/D10/D30: parashara|parivritti}`; `vimshopaka_method` [`jh`] | `bphs`.
 - dignity: `rahu_exaltation` [`Ta`] | `Ge`, `moolatrikona`, `combustion_limits`, `war_winner`
   [`latitude`] | `brightness`, `stationary_ratio` [`0.1`].
 - aspects: `rahu_ketu_aspects` `none` | [`5_9`] | `5_7_9_12`, `aspect_strength`, `jaimini_aspects`,

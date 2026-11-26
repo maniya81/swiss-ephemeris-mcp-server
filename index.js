@@ -14,7 +14,7 @@ import express from 'express';
 import { ToolError, invalid } from './src/errors.js';
 import { createEphemeris, DEFAULT_EPHE_PATH } from './src/ephemeris.js';
 import { PLANET_ABBR, GRAHAS as GRAHA_NAMES, WEEKDAY_LORDS, round, norm360, signOf, houseFrom, shortPosition } from './src/constants.js';
-import { YOGINIS, yoginiStart, yoginiRaw, ASHTOTTARI, ashtottariStart, ashtottariRaw, charaRaw, narayanaRaw, ashtottariApplicability } from './src/dashas.js';
+import { YOGINIS, yoginiStart, yoginiRaw, ASHTOTTARI, ashtottariStart, ashtottariRaw, charaRaw, narayanaRaw, lagnamsakaRaw, ashtottariApplicability } from './src/dashas.js';
 import { kpLords, kpHouse, kpSignificators, compactSignificators, rulingPlanets } from './src/kp.js';
 import { sampleBody, boundaryCrossings, stations, signIntervals, stateEpisodes, episodeAt, taraBala, chandraBala, natalHit, EPISODE_GAP_DAYS } from './src/gochar.js';
 import { computeDignity, compactDignity } from './src/dignity.js';
@@ -66,7 +66,7 @@ const MAX_SWEEP_CHAINS = 3601 * 200;
 const MAX_EVENT_TESTS = 50;
 // Optional calculate_vedic_chart blocks and the default set
 const ALL_CHART_BLOCKS = ['dignity', 'vargas', 'aspects', 'ashtakavarga', 'shadbala', 'bhavabala', 'kp_significators', 'yogini', 'ashtottari', 'chara', 'narayana'];
-const CHART_BLOCKS = [...ALL_CHART_BLOCKS, 'nakshatra_houses', 'sarvatobhadra'];
+const CHART_BLOCKS = [...ALL_CHART_BLOCKS, 'nakshatra_houses', 'sarvatobhadra', 'lagnamsaka'];
 const DEFAULT_INCLUDE = ['dignity', 'vargas', 'aspects'];
 const SEVEN_PLANETS = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn'];
 const SERVER_INSTRUCTIONS = `Vedic astrology calculations (Swiss Ephemeris). Defaults match Jagannatha Hora: Traditional Lahiri ayanamsa (general chart), true geocentric positions, true nodes, true sidereal solar years; Kalachakra defaults strictly to True Lahiri (Chitrapaksha), SM Singh calculation method, and true nodes.
@@ -357,7 +357,7 @@ class SwissEphemerisServer {
                 },
                 include: {
                   oneOf: [{ type: 'string', enum: ['all'] }, { type: 'array', items: { type: 'string', enum: CHART_BLOCKS } }],
-                  description: 'Blocks to add (default ["dignity","vargas","aspects"]; "all" for every standard block): dignity (exaltation, moolatrikona, panchadha relation, combustion, planetary war, motion, Baladi/Jagradadi/Deeptadi, lordships), vargas, aspects, ashtakavarga, shadbala, bhavabala, kp_significators, yogini, ashtottari, chara, narayana, nakshatra_houses (equal-house cusp nakshatras and padas, Deepanshu Giri method), sarvatobhadra (28-nakshatra Sarvatobhadra Chakra with Abhijit and 3-ray Vedha). Example: ["shadbala","ashtakavarga"]',
+                  description: 'Blocks to add (default ["dignity","vargas","aspects"]; "all" for every standard block): dignity (exaltation, moolatrikona, panchadha relation, combustion, planetary war, motion, Baladi/Jagradadi/Deeptadi, lordships), vargas, aspects, ashtakavarga, shadbala, bhavabala, kp_significators, yogini, ashtottari, chara, narayana, lagnamsaka (Varga-seeded Narayana/Lagnamsaka Dasa, opt-in, default D9), nakshatra_houses (equal-house cusp nakshatras and padas, Deepanshu Giri method), sarvatobhadra (28-nakshatra Sarvatobhadra Chakra with Abhijit and 3-ray Vedha). Example: ["shadbala","ashtakavarga"]',
                 },
                 locate: {
                   type: 'string',
@@ -374,8 +374,8 @@ class SwissEphemerisServer {
                 },
                 varga_method: {
                   type: 'object',
-                  properties: { D2: { type: 'string', enum: ['parashara', 'parivritti', 'pvr'] }, D3: { type: 'string', enum: ['parashara', 'parivritti'] }, D30: { type: 'string', enum: ['parashara', 'parivritti'] } },
-                  description: 'Varga method overrides for the charts shown (default Parashara for all: D-2 Sun/Moon horas, D-3 drekkanas 1-5-9, D-30 unequal trimsamsa; D-2 pvr is Jagannatha Hora\'s parivritti hora with even signs reversed). Example: {"D2":"parivritti"}',
+                  properties: { D2: { type: 'string', enum: ['parashara', 'parivritti', 'pvr'] }, D3: { type: 'string', enum: ['parashara', 'parivritti'] }, D10: { type: 'string', enum: ['parashara', 'parivritti'] }, D30: { type: 'string', enum: ['parashara', 'parivritti'] } },
+                  description: 'Varga method overrides for the charts shown (default Parashara for all: D-2 Sun/Moon horas, D-3 drekkanas 1-5-9, D-10 Parashara dasamsa, D-30 unequal trimsamsa; D-2 pvr is Jagannatha Hora\'s parivritti hora with even signs reversed; D-10 parivritti is cyclical Parivritti Dasamsa / Ojha, D-10 (Pv)). Example: {"D2":"parivritti"}',
                 },
                 vimshopaka_method: { type: 'string', enum: ['jh', 'bphs'], description: 'Vimshopaka bala: jh (default, as Jagannatha Hora: relationships read in each divisional chart, D-2 pvr, JH saptavarga weights D7 1, D9 2.5, D12 4.5, D30 2; Rahu and Ketu included) or bphs (compound relationships from D-1, BPHS weights, varga_method; seven planets)' },
                 rahu_exaltation: { type: 'string', enum: ['Ta', 'Ge'], description: 'Rahu exalted in Taurus (default, Ketu in Scorpio) or Gemini (Ketu in Sagittarius)' },
@@ -394,6 +394,11 @@ class SwissEphemerisServer {
                 moon_benefic: { type: 'string', enum: ['ashtami', 'waxing'], description: 'The Moon as a benefic in drik and bhava drishti bala: from the 8th tithi of the bright half to the 8th of the dark half (default, B.V. Raman) or the bright half only' },
                 kp_significators: { type: 'boolean', description: 'Add KP significators: four levels per planet (star lord\'s house, own house, star lord\'s ownership, own ownership; planets in Rahu/Ketu stars noted) and cusp significators ordered by strength. With a single as_of it also gives the hour trigger (transit Moon / rising-degree sub lord vs the running Vimshottari lords)' },
                 chara_method: { type: 'string', enum: ['pvn_rao', 'kn_rao'], description: 'Chara dasha variant: pvn_rao (default, P.V.R. Narasimha Rao as in Jagannatha Hora; two cycles) or kn_rao (K.N. Rao; one cycle, exaltation +1/debilitation -1)' },
+                lagnamsaka_varga: {
+                  type: 'string',
+                  enum: ALL_VARGAS,
+                  description: 'Divisional chart whose lagna seeds Lagnamsaka Dasa (default "D9"; e.g. "D10" with optional varga_method {"D10":"parivritti"}). Passing lagnamsaka_varga auto-includes lagnamsaka; uses rahu_exaltation "Ge" by default to match Jagannatha Hora unless explicitly overridden',
+                },
                 birth_time_sweep: {
                   type: 'object',
                   properties: {
@@ -1484,7 +1489,7 @@ class SwissEphemerisServer {
       }
     }
 
-    for (const system of ['yogini', 'ashtottari', 'chara', 'narayana']) {
+    for (const system of ['yogini', 'ashtottari', 'chara', 'narayana', 'lagnamsaka']) {
       if (include.has(system)) out[`${system}_dasha`] = this.otherDasha(system, ctx, options, compact);
     }
 
@@ -1597,7 +1602,7 @@ class SwissEphemerisServer {
     const out = { blocks: [...include] };
     if (include.has('vargas')) {
       out.vargas = options.vargas;
-      out.varga_method = { D2: 'parashara', D3: 'parashara', D30: 'parashara', ...options.varga_method };
+      out.varga_method = { D2: 'parashara', D3: 'parashara', D10: 'parashara', D30: 'parashara', ...options.varga_method };
       out.vimshopaka = (options.vimshopaka_method || 'jh') === 'jh'
         ? 'jh: own 20, adhimitra 18, mitra 15, sama 10, shatru 7, adhishatru 5; temporary relationships read in each divisional chart; D-2 pvr; saptavarga weights D1 5, D2 2, D3 3, D7 1, D9 2.5, D12 4.5, D30 2; Rahu and Ketu: Venus and Saturn friends, Mercury and Jupiter neutral, Sun, Moon and Mars enemies'
         : 'bphs: own 20, adhimitra 18, mitra 15, sama 10, shatru 7, adhishatru 5; compound relationships from D-1; BPHS weights; varga_method';
@@ -1652,6 +1657,15 @@ class SwissEphemerisServer {
         mode: mode === 'all' ? 'all (Deepanshu Giri / Lunar Astro: every planet casts all 3 Vedha rays)' : 'speed (direct->Sammukha, retrograde->Dakshina, fast->Vama)',
       };
     }
+    if (include.has('lagnamsaka')) {
+      const varga = options.lagnamsaka_varga || 'D9';
+      const vargaMethod = (options.varga_method || {})[varga];
+      out.lagnamsaka = {
+        varga,
+        ...(vargaMethod ? { varga_method: vargaMethod } : {}),
+        rahu_exaltation: (options.dignity_options || {}).rahu_exaltation || 'Ge',
+      };
+    }
     return out;
   }
 
@@ -1665,7 +1679,7 @@ class SwissEphemerisServer {
       base: `${positionType} positions, ${nodeType} nodes, Placidus KP cusps, ${yearDays ? `${yearDays}-day` : 'sidereal solar'} dasha year, Kalachakra SM Singh (${kalachakraAyanamsa.name.split(' (')[0]})`,
     };
     if (include.has('vargas')) {
-      const methods = ['D2', 'D3', 'D30'].map(v => (options.varga_method || {})[v]).filter(Boolean);
+      const methods = ['D2', 'D3', 'D10', 'D30'].map(v => (options.varga_method || {})[v]).filter(Boolean);
       out.vargas = `${options.vargas.join(' ')}; methods ${methods.length ? JSON.stringify(options.varga_method) : 'parashara'}; vimshopaka ${options.vimshopaka_method || 'jh'}`;
     }
     if (include.has('dignity')) out.dignity = `rahu_exaltation ${d.rahu_exaltation || 'Ta'}, war_winner ${d.war_winner || 'latitude'}, moolatrikona ${d.moolatrikona ? 'custom' : 'BPHS'}, combustion ${d.combustion_limits ? 'custom' : 'default'}`;
@@ -1673,8 +1687,13 @@ class SwissEphemerisServer {
     if (include.has('shadbala') || include.has('bhavabala')) out.shadbala = `${options.shadbala_method || 'jh'}; moon_benefic ${options.moon_benefic || 'ashtami'}; sunrise ${options.sunrise || 'standard'}`;
     if (include.has('ashtakavarga')) out.ashtakavarga = `tables ${options.ashtakavarga_tables || 'jh'}`;
     if (include.has('chara')) out.chara = options.chara_method || 'pvn_rao';
+    if (include.has('lagnamsaka')) {
+      const varga = options.lagnamsaka_varga || 'D9';
+      const vargaMethod = (options.varga_method || {})[varga];
+      out.lagnamsaka = `${varga}${vargaMethod ? ` (${vargaMethod})` : ''}, rahu_exaltation ${d.rahu_exaltation || 'Ge'}`;
+    }
     if (include.has('sarvatobhadra')) out.sarvatobhadra = `28-nakshatra SBC (Abhijit), mode ${options.sbc_mode || 'all'}`;
-    if (!options.levels_given) out.levels = `running chains: 3 levels${['yogini', 'ashtottari', 'chara', 'narayana'].some(x => include.has(x)) ? ' (other dashas 2)' : ''}; pass levels for more`;
+    if (!options.levels_given) out.levels = `running chains: 3 levels${['yogini', 'ashtottari', 'chara', 'narayana', 'lagnamsaka'].some(x => include.has(x)) ? ' (other dashas 2)' : ''}; pass levels for more`;
     out.notes = 'output "full": method notes and every sub-part';
     return out;
   }
@@ -3058,6 +3077,23 @@ class SwissEphemerisServer {
           : 'Chara (P.V.R. Narasimha Rao, Jagannatha Hora): from the lagna, zodiacal when the 9th is odd-footed; years = count to the lord (forward for odd-footed signs) - 1; second cycle 12 - years; antardashas from the stronger of the sign and its 7th by sign type',
         direction: raw.direction,
       });
+    } else if (system === 'lagnamsaka') {
+      const rahuExalt = (options.dignity_options || {}).rahu_exaltation || 'Ge';
+      chart.rahuExaltation = rahuExalt;
+      const varga = options.lagnamsaka_varga || 'D9';
+      const vargaLagna = vargaPosition(varga, ctx.lagnaLon, options.varga_method).sign;
+      const vargaMethod = (options.varga_method || {})[varga];
+      raw = lagnamsakaRaw(chart, vargaLagna);
+      fmtLabel = (p) => ({ sign: SIGN_ABBR[p.sign], ...(p.cycle ? { cycle: p.cycle } : {}) });
+      Object.assign(info, {
+        method: `Lagnamsaka (${varga}${vargaMethod ? ` ${vargaMethod}` : ''}, Jagannatha Hora): from the stronger of the ${varga} lagna (${SIGN_ABBR[vargaLagna]}) and its 7th (${SIGN_ABBR[(vargaLagna + 6) % 12]}) evaluated in D-1; Narayana progression, D-1 sign durations (+1 exalted / -1 debilitated, Rahu exalted in ${rahuExalt}), second cycle 12 - years; sub-periods from the sign holding the lord of the stronger of the dasha sign and its 7th in D-1`,
+        varga,
+        ...(vargaMethod ? { varga_method: vargaMethod } : {}),
+        varga_lagna: SIGN_ABBR[vargaLagna],
+        rahu_exaltation: rahuExalt,
+        first_sign: SIGN_ABBR[raw.seed],
+        order_rule: raw.rule,
+      });
     } else {
       raw = narayanaRaw(chart);
       fmtLabel = (p) => ({ sign: SIGN_ABBR[p.sign], ...(p.cycle ? { cycle: p.cycle } : {}) });
@@ -3080,6 +3116,8 @@ class SwissEphemerisServer {
       const b = {};
       if (info.balance_at_birth) b.balance_at_birth = `${info.balance_at_birth.yogini || info.balance_at_birth.lord} ${info.balance_at_birth.years} years`;
       if (info.applicability) b.applicability = `${info.applicability.applicable ? 'applicable' : 'not applicable'} (Rahu ${info.applicability.rahu_rule.rahu_house_from_lagna_lord} from lagna lord ${info.applicability.rahu_rule.lagna_lord}${info.applicability.rahu_rule.rahu_in_lagna ? ', in lagna' : ''}; paksha rule ${info.applicability.paksha_rule.passed ? 'met' : 'not met'})`;
+      if (info.varga) b.varga = info.varga_method ? `${info.varga} (${info.varga_method})` : info.varga;
+      if (info.varga_lagna) b.varga_lagna = info.varga_lagna;
       if (info.first_sign) b.first_sign = info.first_sign;
       return b;
     };
@@ -3496,11 +3534,13 @@ class SwissEphemerisServer {
     const sunrise = choice('sunrise', ['standard', 'hindu']);
     const moonBenefic = choice('moon_benefic', ['ashtami', 'waxing']);
     const charaMethod = choice('chara_method', ['pvn_rao', 'kn_rao']);
+    const lagnamsakaVarga = choice('lagnamsaka_varga', ALL_VARGAS);
+    if (args.lagnamsaka_varga !== undefined && !include.includes('lagnamsaka')) include = [...include, 'lagnamsaka'];
     const shadbalaMethod = choice('shadbala_method', ['jh', 'raman']);
     const ashtakavargaTables = choice('ashtakavarga_tables', ['jh', 'bphs']);
     const vimshopakaMethod = choice('vimshopaka_method', ['jh', 'bphs']);
     aspectOptions.drishti_rule = choice('drishti_rule', ['jh', 'bphs']);
-    return { include, vargas, varga_method: methods, dignity_options: dignityOptions, aspect_options: aspectOptions, shodhana: Boolean(args.shodhana), sunrise, moon_benefic: moonBenefic, chara_method: charaMethod, shadbala_method: shadbalaMethod, ashtakavarga_tables: ashtakavargaTables, vimshopaka_method: vimshopakaMethod, locate, sbc_locate: sbcLocate, sbc_mode: sbcMode, levels_given: args.levels !== undefined };
+    return { include, vargas, varga_method: methods, dignity_options: dignityOptions, aspect_options: aspectOptions, shodhana: Boolean(args.shodhana), sunrise, moon_benefic: moonBenefic, chara_method: charaMethod, lagnamsaka_varga: lagnamsakaVarga || 'D9', shadbala_method: shadbalaMethod, ashtakavarga_tables: ashtakavargaTables, vimshopaka_method: vimshopakaMethod, locate, sbc_locate: sbcLocate, sbc_mode: sbcMode, levels_given: args.levels !== undefined };
   }
 
   // birth_time_sweep, sweep_output and their size limits
@@ -3828,7 +3868,7 @@ class SwissEphemerisServer {
           vedicResult,
           vedicBirth,
           args.current_timezone,
-          ['vimshottari_dasha', 'kalachakra_dasha', 'yogini_dasha', 'ashtottari_dasha', 'chara_dasha', 'narayana_dasha', 'ranges', 'flips', 'event_tests', 'kp_significators', 'ashtakavarga']
+          ['vimshottari_dasha', 'kalachakra_dasha', 'yogini_dasha', 'ashtottari_dasha', 'chara_dasha', 'narayana_dasha', 'lagnamsaka_dasha', 'ranges', 'flips', 'event_tests', 'kp_significators', 'ashtakavarga']
         );
       }
 

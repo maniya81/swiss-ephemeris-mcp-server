@@ -227,8 +227,8 @@ Every single Mahadasha sign, duration (`rahu_exaltation: "Ge"`), and true sidere
 | **Varga Lagna Birth-Time Sensitivity Check** | **Supported** | Read `lagna_sign_change` / `birth_time_sensitivity` from `calculate_vedic_chart` (checks exact minutes/seconds until D-9 or D-10 Lagna shifts) |
 | **`D-1` Sign Durations & `Narayana Dasa` Engine** | **Supported (CRITICAL Flag Required!)** | **Always pass `"rahu_exaltation": "Ge"`** when matching JHora Rasi Dasas! MCP defaults to `"Ta"`, which miscalculates `Sc`/`Aq` durations whenever Rahu/Ketu are in `Ta/Sc/Ge/Sg`. |
 | **`Jaimini Rasi Drishti` (Sign Aspects)** | **Supported on `D-1`** | Pass `"jaimini_aspects": true` inside `calculate_vedic_chart` (and apply the universal sign-aspect table inside `D-9`/`D-10`) |
-| **Native `Lagnamsaka Dasa` (`D-9` / `D-10` Seed)** | **Not yet a built-in block** *(MCP `narayana` uses `D-1` Lagna only)* | **Exact Hybrid Method:** (a) If the Varga Lagna (or its 7th) equals the `D-1` Narayana seed (e.g., Vargottama Lagna), MCP's `narayana_dasha` IS already identical to Lagnamsaka Dasa! (b) Otherwise, read the 12 exact `D-1` sign durations from MCP's `narayana_dasha` (`rahu_exaltation: "Ge"`) and reorder them from the Varga Lagna using Section 2.2, or verify exact timestamps in JHora. |
-| **`D-10 (Pv)` (`Parivritti dasamsa (Ojha)`)** | **Not yet in `varga_method`** *(only `D2`, `D3`, `D30` accept `varga_method`)* | Compute directly from MCP `D-1` longitudes using `(10 * signIndex + Math.floor(degInSign / 3)) % 12` (verified 10/10 on `Jm.jhd`). |
+| **Native `Lagnamsaka Dasa` (`D-9` / `D-10` / any `D-n` Seed)** | **Supported** (`lagnamsaka_dasha`) | Pass `include: ["lagnamsaka"]` (defaults to `D9` and `rahu_exaltation: "Ge"`) or `lagnamsaka_varga: "D10"` (auto-includes `lagnamsaka`). |
+| **`D-10 (Pv)` (`Parivritti dasamsa (Ojha)`)** | **Supported** (`varga_method`) | Pass `varga_method: { "D10": "parivritti" }` (works in both `vargas.D10` and `lagnamsaka_varga: "D10"`). |
 | **8 Chara Karakas (`GK`), Varga Arudha Padas (`AL, A2–A12`), `SL`, `GL`, `Md/Gk`** | **Not yet emitted by MCP** | Compute 8-CK directly from MCP `D-1` sign degrees (`30° - deg` for Rahu; 7th highest = `GK`), and cross-check Varga Arudha Padas / `SL` / `GL` in JHora when needed. |
 
 ### 5.2 Standard MCP Tool Call Template
@@ -241,7 +241,9 @@ Every single Mahadasha sign, duration (`rahu_exaltation: "Ge"`), and true sidere
   "ayanamsa": "traditional_lahiri",
   "node_type": "true",
   "rahu_exaltation": "Ge",
-  "include": ["vargas", "narayana", "aspects"],
+  "include": ["vargas", "narayana", "lagnamsaka", "aspects"],
+  "lagnamsaka_varga": "D10",
+  "varga_method": { "D10": "parivritti" },
   "vargas": ["D1", "D9", "D10"],
   "jaimini_aspects": true,
   "as_of": "2026-11-24T12:00:00+05:30",

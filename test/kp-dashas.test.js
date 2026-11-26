@@ -95,6 +95,26 @@ test('Yogini, Ashtottari, Chara and Narayana dashas', { skip: SKIP }, async () =
   assert.equal(list.result.yogini_dasha.chains.length, 2);
   const local = await ok(srv, 'calculate_vedic_chart', { ...SAGAR, include: ['narayana'], current_timezone: 'Australia/Melbourne' });
   assert.match(local.result.narayana_dasha.mahadashas[0].end_local, /AE[SD]T/);
+  // Lagnamsaka Dasa: compact chain, as_of list, local timezone, D-10 Parivritti (Rahu/Ketu conjoined), and validation
+  const lagnaList = await ok(srv, 'calculate_vedic_chart', {
+    ...SAGAR,
+    include: ['vargas'],
+    vargas: ['D10'],
+    varga_method: { D10: 'parivritti' },
+    lagnamsaka_varga: 'D10',
+    as_of: ['2010-01-01T12:00:00+05:30', '2026-11-24T08:26:56+05:30'],
+    levels: 3,
+    current_timezone: 'Australia/Melbourne',
+  });
+  assert.equal(lagnaList.result.lagnamsaka_dasha.chains.length, 2);
+  // as_of list forces compact mode: D10 is formatted as "La Ar | ... Ra Cp10 Ke Cp10 ..."
+  assert.match(lagnaList.result.vargas.D10, /Ra ([A-Z][a-z]\d+).*Ke \1/);
+  const lagnaLocal = await ok(srv, 'calculate_vedic_chart', { ...SAGAR, include: ['lagnamsaka'], current_timezone: 'Australia/Melbourne' });
+  assert.match(lagnaLocal.result.lagnamsaka_dasha.mahadashas[0].end_local, /AE[SD]T/);
+  const badVarga = await srv.call('calculate_vedic_chart', { ...SAGAR, lagnamsaka_varga: 'D99' });
+  assert.equal(badVarga.parameter, 'lagnamsaka_varga');
+  const badD10 = await srv.call('calculate_vedic_chart', { ...SAGAR, varga_method: { D10: 'pvr' } });
+  assert.equal(badD10.parameter, 'varga_method');
 });
 
 test('Yogini birth-time sweep with event tests', { skip: SKIP }, async () => {

@@ -256,48 +256,55 @@ export function charaRaw(chart, variant = 'kn_rao') {
 // ---------------------------------------------------------------- Narayana
 // Starts from the stronger of the lagna and the 7th. Direction: odd sign forward; Saturn in the
 // starting sign forces consecutive forward signs, Ketu in it reverses the direction.
-export function narayanaRaw(chart) {
-  const seed = strongerSign(chart, chart.lagna, (chart.lagna + 6) % 12);
-  let order;
-  let rule;
-  if (chart.signs.Ketu === seed) {
-    order = narayanaProgression(seed, !isOdd(seed));
-    rule = 'Ketu in the first dasha sign reverses the direction';
-  } else if (chart.signs.Saturn === seed) {
-    order = Array.from({ length: 12 }, (_, i) => (seed + i) % 12);
-    rule = 'Saturn in the first dasha sign: consecutive signs, zodiacal';
-  } else {
-    order = narayanaProgression(seed, isOdd(seed));
-    rule = `${MOVABLE.includes(seed) ? 'movable: consecutive signs' : FIXED.includes(seed) ? 'fixed: every 6th sign' : 'dual: trines in kendra groups'}, ${isOdd(seed) ? 'zodiacal (odd sign)' : 'anti-zodiacal (even sign)'}`;
+  export function narayanaRaw(chart, startFrom = chart.lagna) {
+    const seed = strongerSign(chart, startFrom, (startFrom + 6) % 12);
+    let order;
+    let rule;
+    if (chart.signs.Ketu === seed) {
+      order = narayanaProgression(seed, !isOdd(seed));
+      rule = 'Ketu in the first dasha sign reverses the direction';
+    } else if (chart.signs.Saturn === seed) {
+      order = Array.from({ length: 12 }, (_, i) => (seed + i) % 12);
+      rule = 'Saturn in the first dasha sign: consecutive signs, zodiacal';
+    } else {
+      order = narayanaProgression(seed, isOdd(seed));
+      rule = `${MOVABLE.includes(seed) ? 'movable: consecutive signs' : FIXED.includes(seed) ? 'fixed: every 6th sign' : 'dual: trines in kendra groups'}, ${isOdd(seed) ? 'zodiacal (odd sign)' : 'anti-zodiacal (even sign)'}`;
+    }
+    // Durations and sub-period co-lords use the longer-dasha rule when Rules 1-4 tie (matches JHora)
+    const yearsOf = (s) => signYears(chart, s, { exaltation: true, useLongerCoLord: true });
+    // Sub-periods (AD/PD/SD): pick the stronger of the parent sign and its 7th, then start from
+    // the sign occupied by that stronger sign's lord; odd starts zodiacal, even anti-zodiacal
+    // (Saturn in start forces zodiacal, Ketu in parent sign reverses)
+    const subOrder = (s) => {
+      const strong = strongerSign(chart, s, (s + 6) % 12);
+      const lord = signLord(chart, strong, (_, at) => yearsOf(at));
+      const start = chart.signs[lord];
+      let dir = isOdd(start) ? 1 : -1;
+      if (chart.signs.Saturn === strong) dir = 1;
+      if (chart.signs.Ketu === strong) dir = -dir;
+      return Array.from({ length: 12 }, (_, i) => (start + dir * i + 120) % 12);
+    };
+    return { ...signDashaRaw(order, yearsOf, subOrder), seed, rule };
   }
-  // Durations and sub-period co-lords use the longer-dasha rule when Rules 1-4 tie (matches JHora)
-  const yearsOf = (s) => signYears(chart, s, { exaltation: true, useLongerCoLord: true });
-  // Sub-periods (AD/PD/SD): pick the stronger of the parent sign and its 7th, then start from
-  // the sign occupied by that stronger sign's lord; odd starts zodiacal, even anti-zodiacal
-  // (Saturn in start forces zodiacal, Ketu in parent sign reverses)
-  const subOrder = (s) => {
-    const strong = strongerSign(chart, s, (s + 6) % 12);
-    const lord = signLord(chart, strong, (_, at) => yearsOf(at));
-    const start = chart.signs[lord];
-    let dir = isOdd(start) ? 1 : -1;
-    if (chart.signs.Saturn === strong) dir = 1;
-    if (chart.signs.Ketu === strong) dir = -dir;
-    return Array.from({ length: 12 }, (_, i) => (start + dir * i + 120) % 12);
-  };
-  return { ...signDashaRaw(order, yearsOf, subOrder), seed, rule };
-}
 
-// ---------------------------------------------------------------- Ashtottari applicability
-// BPHS: Rahu in a kendra or trikona from the lagna lord, but not in the lagna. Also reported:
-// the paksha rule (Krishna paksha by day or Shukla paksha by night).
-export function ashtottariApplicability(chart, { shukla, dayBirth }) {
-  const lagnaLord = signLord(chart, chart.lagna);
-  const fromLord = houseFrom(chart.signs[lagnaLord], chart.signs.Rahu);
-  const rahuRule = [1, 4, 5, 7, 9, 10].includes(fromLord) && chart.signs.Rahu !== chart.lagna;
-  const pakshaRule = (shukla && !dayBirth) || (!shukla && dayBirth);
-  return {
-    applicable: rahuRule,
-    rahu_rule: { passed: rahuRule, rahu_house_from_lagna_lord: fromLord, lagna_lord: lagnaLord, rahu_in_lagna: chart.signs.Rahu === chart.lagna },
-    paksha_rule: { passed: pakshaRule, paksha: shukla ? 'shukla' : 'krishna', birth: dayBirth ? 'day' : 'night' },
-  };
-}
+  // ---------------------------------------------------------------- Lagnamsaka
+  // JHora Lagnamsaka Dasa: starts from the stronger of the target varga's lagna and its 7th
+  // evaluated in D-1, then uses D-1 Narayana progression, sign durations, and sub-periods.
+  export function lagnamsakaRaw(chart, vargaLagna) {
+    return narayanaRaw(chart, vargaLagna);
+  }
+
+  // ---------------------------------------------------------------- Ashtottari applicability
+  // BPHS: Rahu in a kendra or trikona from the lagna lord, but not in the lagna. Also reported:
+  // the paksha rule (Krishna paksha by day or Shukla paksha by night).
+  export function ashtottariApplicability(chart, { shukla, dayBirth }) {
+    const lagnaLord = signLord(chart, chart.lagna);
+    const fromLord = houseFrom(chart.signs[lagnaLord], chart.signs.Rahu);
+    const rahuRule = [1, 4, 5, 7, 9, 10].includes(fromLord) && chart.signs.Rahu !== chart.lagna;
+    const pakshaRule = (shukla && !dayBirth) || (!shukla && dayBirth);
+    return {
+      applicable: rahuRule,
+      rahu_rule: { passed: rahuRule, rahu_house_from_lagna_lord: fromLord, lagna_lord: lagnaLord, rahu_in_lagna: chart.signs.Rahu === chart.lagna },
+      paksha_rule: { passed: pakshaRule, paksha: shukla ? 'shukla' : 'krishna', birth: dayBirth ? 'day' : 'night' },
+    };
+  }
