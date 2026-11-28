@@ -3,6 +3,16 @@
 ## Single Source of Truth for Skills
 - Keep all repo skills under `.claude/skills/` (`.claude/skills/swiss-ephemeris-mcp/SKILL.md`, `.claude/skills/swiss-ephemeris-mcp/references/parameters.md`, and `.claude/skills/jhora-verification/SKILL.md`). Do not duplicate `SKILL.md` files into `.agents/skills/`; `.agents/skills.json` exposes `.claude/skills/` directly to Antigravity.
 
+## Local MCP & Windows Shell Guardrails
+- **Prefer `swissEphemerisLocal` over `swissEphemerisGCP`**: When working in this workspace, call tools on the local stdio MCP server (`swissEphemerisLocal`, backed by `index.js`) rather than the remote `swissEphemerisGCP` server so local blocks/tools (`sarvatobhadra`, `lagnamsaka`, `nakshatra_house_map`) are always in sync and immune to remote session drops. Do not write ad-hoc scratch scripts to call tools when `swissEphemerisLocal` is available.
+- **When probing programmatically via `test/mcp-client.js`**:
+  - Always unwrap the response wrapper: `const { result, error } = await srv.call(tool, args)`.
+  - Always terminate with `srv.stop()` (there is no `srv.close()`).
+  - Keep `MCP_SERVER_URL` unset so `startServer()` spawns local `index.js` rather than targeting a remote endpoint.
+- **Windows PowerShell 5.1 commands**:
+  - Use `;` (never `&&`) to chain commands in PowerShell 5.1.
+  - Run multi-line Node scripts from a `.mjs` file rather than `node -e "..."` to avoid PowerShell stripping embedded double quotes.
+
 ## MCP Code ↔ Skill ↔ Test Synchronicity
 Whenever modifying tool schemas, defaults, parameters, formatting, or worked examples across `index.js`, `src/`, `.claude/skills/swiss-ephemeris-mcp/`, or `test/`:
 
